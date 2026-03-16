@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Election 2028 — Political Strategy Game</title>
+    <meta name="description" content="A dramatic, realistic political strategy game simulating the 2028 U.S. presidential election. Choose your candidate. Win the White House.">
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Preload fonts for snappy rendering -->
+    <style>
+        /* Critical inline styles for instant dark bg */
+        html, body { background: #0a0e17; color: #e8ecf4; }
+    </style>
+</head>
+<body>
+
+<!-- ═══ BREAKING NEWS TICKER ═══ -->
+<div id="breaking-news-ticker">
+    <div class="ticker-label">BREAKING NEWS</div>
+    <div class="ticker-content" id="ticker-content">
+        <span>ELECTION 2028 — THE RACE FOR THE WHITE HOUSE BEGINS</span>
+        <span>POLLING DATA INCOMING — BATTLEGROUND STATES IN PLAY</span>
+        <span>CAMPAIGN SEASON HEATS UP — WHO WILL EMERGE?</span>
+        <span>ELECTION 2028 — THE RACE FOR THE WHITE HOUSE BEGINS</span>
+        <span>POLLING DATA INCOMING — BATTLEGROUND STATES IN PLAY</span>
+        <span>CAMPAIGN SEASON HEATS UP — WHO WILL EMERGE?</span>
+    </div>
+</div>
+
+<!-- ═══ MAIN APP CONTAINER ═══ -->
+<div id="app">
+
+    <!-- ═══ TITLE SCREEN ═══ -->
+    <div id="screen-title" class="screen">
+        <div class="title-logo">
+            <h1>ELECTION 2028</h1>
+            <div class="subtitle">POLITICAL STRATEGY GAME</div>
+        </div>
+        <p class="title-tagline">"Win the White House. Control the narrative. Survive the chaos."</p>
+        <div class="menu-buttons">
+            <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">NEW CAMPAIGN</button>
+            <button class="btn btn-lg" onclick="GameUI.showHowToPlay()">HOW TO PLAY</button>
+            <button class="btn btn-ghost" onclick="GameUI.showCredits()">CREDITS</button>
+        </div>
+    </div>
+
+    <!-- ═══ SETUP / CANDIDATE SELECT SCREEN ═══ -->
+    <div id="screen-select" class="screen hidden">
+        <div class="select-header">
+            <h2 id="setup-title">Choose Your Path</h2>
+            <p class="text-muted" id="setup-subtitle">Step 1 of 5</p>
+        </div>
+        <div id="setup-content">
+            <!-- Dynamic content rendered by GameUI -->
+        </div>
+        <div class="flex justify-between mt-2" id="setup-nav" style="max-width:700px;margin:1.5rem auto 0;">
+            <button class="btn" id="setup-back-btn" onclick="GameUI.prevSetupStep()" style="visibility:hidden;">BACK</button>
+            <button class="btn btn-primary" id="setup-next-btn" onclick="GameUI.nextSetupStep()">NEXT</button>
+        </div>
+    </div>
+
+    <!-- ═══ MAIN GAME SCREEN (WAR ROOM) ═══ -->
+    <div id="screen-game" class="screen hidden">
+        <!-- Top Bar -->
+        <div class="game-top-bar" id="game-top-bar">
+            <!-- Populated by GameUI.updateTopBar() -->
+        </div>
+
+        <!-- Left Panel: Actions -->
+        <div class="game-left-panel" id="game-left-panel">
+            <!-- Populated by GameUI.renderActionPanel() -->
+        </div>
+
+        <!-- Center: Map + Content -->
+        <div class="game-center" id="game-center">
+            <!-- Map and active content -->
+        </div>
+
+        <!-- Right Panel: Intel -->
+        <div class="game-right-panel" id="game-right-panel">
+            <!-- Populated by GameUI.renderIntelPanel() -->
+        </div>
+    </div>
+
+    <!-- ═══ DEBATE SCREEN ═══ -->
+    <div id="screen-debate" class="screen hidden">
+        <div class="debate-stage" id="debate-stage">
+            <!-- Populated by GameUI.renderDebateScreen() -->
+        </div>
+    </div>
+
+    <!-- ═══ ELECTION NIGHT SCREEN ═══ -->
+    <div id="screen-election-night" class="screen hidden">
+        <div class="election-night" id="election-night-content">
+            <!-- Populated by GameUI.renderElectionNight() -->
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══ MODAL OVERLAY ═══ -->
+<div class="modal-overlay hidden" id="modal-overlay" onclick="GameUI.closeModal(event)">
+    <div class="modal-content" id="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="modal-title"></h3>
+            <button class="modal-close" onclick="GameUI.closeModal()">&times;</button>
+        </div>
+        <div id="modal-body"></div>
+    </div>
+</div>
+
+<!-- ═══ TOAST CONTAINER ═══ -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ═══ SCRIPTS ═══ -->
+<script src="js/candidates.js"></script>
+<script src="js/states.js"></script>
+<script src="js/events.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+<script>
+    // Boot the game
+    document.addEventListener('DOMContentLoaded', () => {
+        GameUI.init();
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,603 @@
+/**
+ * Election 2028 - Candidate Data
+ * All stats on 0-100 scale. Vulnerabilities reference publicly documented
+ * controversies, framed as opposition research / reported criticisms.
+ */
+
+window.CandidateData = {
+  democrats: [
+    // ── DEMOCRATS ──────────────────────────────────────────────────────
+    {
+      id: "newsom",
+      name: "Gavin Newsom",
+      party: "Democrat",
+      title: "Governor of California",
+      age: 60,
+      homeState: "California",
+      bio: "Gavin Newsom has served as Governor of California since 2019, previously serving as Mayor of San Francisco and Lieutenant Governor. He built a national profile through aggressive climate and social policy but faces persistent criticism over California's cost-of-living crisis and homelessness challenges. He is widely regarded as one of the most polished communicators in the Democratic Party.",
+      isWildcard: false,
+      portraitEmoji: "\uD83D\uDC54",
+      slogan: "California Dreaming, American Delivering",
+      color: "#1a73e8",
+
+      // Visible stats
+      charisma: 78,
+      debate: 74,
+      fundraising: 88,
+      discipline: 70,
+      mediaHandling: 82,
+      baseEnthusiasm: 62,
+      crossoverAppeal: 48,
+      scandalResistance: 55,
+
+      // Hidden stats
+      staffCompetence: 80,
+      meltdownRisk: 25,
+      ideologicalElasticity: 65,
+      donorTrust: 90,
+      authenticity: 42,
+      eliteSupport: 88,
+      viralPotential: 55,
+      fatigueFactor: 45,
+
+      vulnerabilities: [
+        "Opposition attack line: presided over a California exodus of residents and businesses fleeing high taxes and cost of living",
+        "Reported criticism: attended a multi-course dinner at the French Laundry during COVID-19 lockdowns he himself imposed",
+        "Opposition research: California's unsheltered homeless population grew significantly during his governorship",
+        "Reported criticism: critics characterize his communication style as slick and rehearsed, questioning his authenticity",
+        "Opposition attack line: California state budget swung from surplus to a deficit exceeding $40 billion under his watch"
+      ],
+      strengths: [
+        "Prolific fundraiser with deep Silicon Valley and Hollywood donor networks",
+        "Telegenic and media-savvy with strong on-camera presence",
+        "Executive experience governing the world's fifth-largest economy",
+        "Early mover on climate, gun control, and reproductive rights policy",
+        "Demonstrated willingness to take on national Republican figures in debate"
+      ]
+    },
+
+    {
+      id: "buttigieg",
+      name: "Pete Buttigieg",
+      party: "Democrat",
+      title: "Former Secretary of Transportation",
+      age: 46,
+      homeState: "Indiana",
+      bio: "Pete Buttigieg served as U.S. Secretary of Transportation under President Biden and previously as Mayor of South Bend, Indiana. A Rhodes Scholar and Afghan War veteran, he broke barriers as the first openly gay major presidential candidate in 2020. He is regarded as one of the sharpest debaters in the party but has faced questions about his depth of executive experience.",
+      isWildcard: false,
+      portraitEmoji: "\uD83C\uDF93",
+      slogan: "A New Generation's Turn",
+      color: "#1565c0",
+
+      // Visible stats
+      charisma: 75,
+      debate: 92,
+      fundraising: 72,
+      discipline: 85,
+      mediaHandling: 88,
+      baseEnthusiasm: 65,
+      crossoverAppeal: 62,
+      scandalResistance: 72,
+
+      // Hidden stats
+      staffCompetence: 78,
+      meltdownRisk: 10,
+      ideologicalElasticity: 70,
+      donorTrust: 74,
+      authenticity: 60,
+      eliteSupport: 75,
+      viralPotential: 70,
+      fatigueFactor: 30,
+
+      vulnerabilities: [
+        "Opposition attack line: struggled with Black voter support during 2020 primary, polling near zero among Black voters in key states",
+        "Reported criticism: faced backlash for being slow to respond publicly to the East Palestine, Ohio train derailment",
+        "Opposition research: as mayor, faced tensions with South Bend's Black community over police department controversies",
+        "Reported criticism: detractors describe him as overly calculating and a 'McKinsey consultant' personality",
+        "Opposition attack line: limited executive experience — governed a city of roughly 100,000 people before joining the Cabinet"
+      ],
+      strengths: [
+        "Exceptional debater capable of articulating complex policy in plain language",
+        "Military veteran with deployment to Afghanistan",
+        "Youngest major candidate, represents generational change",
+        "Fluent in multiple languages, projects intellectual credibility",
+        "Strong ability to appear on Fox News and engage hostile interviewers"
+      ]
+    },
+
+    {
+      id: "aoc",
+      name: "Alexandria Ocasio-Cortez",
+      party: "Democrat",
+      title: "U.S. Representative, NY-14",
+      age: 38,
+      homeState: "New York",
+      bio: "Alexandria Ocasio-Cortez became the youngest woman ever elected to Congress in 2018, unseating a longtime incumbent in a stunning primary upset. She is the most prominent voice of the progressive wing, championing the Green New Deal and Medicare for All. Her massive social media following and grassroots fundraising operation make her a uniquely powerful figure in Democratic politics.",
+      isWildcard: false,
+      portraitEmoji: "\u2728",
+      slogan: "Courage to Change",
+      color: "#6a1b9a",
+
+      // Visible stats
+      charisma: 88,
+      debate: 76,
+      fundraising: 80,
+      discipline: 58,
+      mediaHandling: 72,
+      baseEnthusiasm: 92,
+      crossoverAppeal: 30,
+      scandalResistance: 60,
+
+      // Hidden stats
+      staffCompetence: 70,
+      meltdownRisk: 35,
+      ideologicalElasticity: 25,
+      donorTrust: 45,
+      authenticity: 90,
+      eliteSupport: 35,
+      viralPotential: 95,
+      fatigueFactor: 40,
+
+      vulnerabilities: [
+        "Opposition attack line: self-described democratic socialist label is a liability in general election polling",
+        "Reported criticism: the Green New Deal resolution was characterized by opponents as economically unrealistic",
+        "Opposition research: has no executive or statewide governing experience; legislative record is thin on passed bills",
+        "Reported criticism: attended the 2021 Met Gala in a 'Tax the Rich' dress, which critics called performative",
+        "Opposition attack line: among the most polarizing figures in American politics with high unfavorable ratings nationally"
+      ],
+      strengths: [
+        "Massive organic social media following across all platforms",
+        "Grassroots small-dollar fundraising powerhouse — raises millions without corporate PAC money",
+        "Authentic personal story as a former bartender resonates with working-class voters",
+        "Galvanizes youth turnout and progressive base like few other Democrats",
+        "Skilled at using viral moments and committee hearings to drive news cycles"
+      ]
+    },
+
+    {
+      id: "harris",
+      name: "Kamala Harris",
+      party: "Democrat",
+      title: "Former Vice President",
+      age: 63,
+      homeState: "California",
+      bio: "Kamala Harris served as the 49th Vice President of the United States, the first woman and first person of Black and South Asian descent to hold the office. She previously served as U.S. Senator from California and as California Attorney General. Despite her historic tenure, her 2024 presidential campaign ended in defeat, and she faces questions about whether she can rebuild a winning coalition.",
+      isWildcard: false,
+      portraitEmoji: "\uD83C\uDDFA\uD83C\uDDF8",
+      slogan: "We're Not Going Back — Again",
+      color: "#0d47a1",
+
+      // Visible stats
+      charisma: 62,
+      debate: 65,
+      fundraising: 82,
+      discipline: 60,
+      mediaHandling: 52,
+      baseEnthusiasm: 55,
+      crossoverAppeal: 50,
+      scandalResistance: 58,
+
+      // Hidden stats
+      staffCompetence: 55,
+      meltdownRisk: 30,
+      ideologicalElasticity: 55,
+      donorTrust: 70,
+      authenticity: 45,
+      eliteSupport: 72,
+      viralPotential: 40,
+      fatigueFactor: 70,
+
+      vulnerabilities: [
+        "Opposition attack line: lost the 2024 presidential election after a campaign that struggled to articulate a clear economic message",
+        "Reported criticism: high staff turnover during her vice presidency was widely covered as a sign of management issues",
+        "Opposition research: her record as California Attorney General drew criticism from criminal justice reform advocates",
+        "Reported criticism: unscripted media appearances frequently produced awkward viral moments and word-salad critiques",
+        "Opposition attack line: was assigned the border portfolio as VP and faced bipartisan criticism over immigration outcomes"
+      ],
+      strengths: [
+        "Historic figure who energizes key demographic coalitions",
+        "Extensive executive and legal experience at state and federal level",
+        "Proven ability to raise massive sums quickly when the party unifies behind her",
+        "Strong prosecutorial instincts in confrontational settings",
+        "Deep institutional relationships across the Democratic Party"
+      ]
+    },
+
+    {
+      id: "shapiro",
+      name: "Josh Shapiro",
+      party: "Democrat",
+      title: "Governor of Pennsylvania",
+      age: 55,
+      homeState: "Pennsylvania",
+      bio: "Josh Shapiro won the Pennsylvania governorship in 2022 by a decisive margin, establishing himself as a pragmatic Democrat who can win in the nation's most critical swing state. He previously served as Pennsylvania Attorney General, where he led the investigation into clergy abuse. His moderate positioning and swing-state credibility make him a compelling but relatively low-profile national figure.",
+      isWildcard: false,
+      portraitEmoji: "\uD83D\uDD11",
+      slogan: "Real Results for Real Americans",
+      color: "#2196f3",
+
+      // Visible stats
+      charisma: 65,
+      debate: 70,
+      fundraising: 68,
+      discipline: 82,
+      mediaHandling: 70,
+      baseEnthusiasm: 50,
+      crossoverAppeal: 78,
+      scandalResistance: 75,
+
+      // Hidden stats
+      staffCompetence: 82,
+      meltdownRisk: 12,
+      ideologicalElasticity: 72,
+      donorTrust: 76,
+      authenticity: 70,
+      eliteSupport: 74,
+      viralPotential: 35,
+      fatigueFactor: 20,
+
+      vulnerabilities: [
+        "Opposition attack line: relatively unknown on the national stage, with low name recognition outside Pennsylvania",
+        "Reported criticism: was passed over for the 2024 VP slot, fueling speculation about vetting concerns",
+        "Opposition research: his handling of Pennsylvania school voucher debates drew criticism from both sides",
+        "Reported criticism: some progressives view him as too centrist and insufficiently bold on key party priorities",
+        "Opposition attack line: limited foreign policy or federal-level experience"
+      ],
+      strengths: [
+        "Won decisively in the most important swing state in American politics",
+        "Moderate, pragmatic brand appeals to suburban and independent voters",
+        "Led landmark clergy abuse investigation, demonstrating prosecutorial credibility",
+        "Low-drama governing style viewed as steady and competent",
+        "Relative freshness — not yet weighed down by years of national opposition research"
+      ]
+    },
+
+    // ── DEMOCRAT WILDCARD ────────────────────────────────────────────
+    {
+      id: "stephensmith",
+      name: "Stephen A. Smith",
+      party: "Democrat",
+      title: "Media Personality & Commentator",
+      age: 60,
+      homeState: "New York",
+      bio: "Stephen A. Smith is one of the most recognizable sports media personalities in America, known for his bombastic style on ESPN's First Take. He has increasingly ventured into political commentary, interviewing major political figures and offering pointed opinions on social issues. His potential candidacy represents the ultimate outsider chaos factor in the Democratic field.",
+      isWildcard: true,
+      portraitEmoji: "\uD83C\uDFA4",
+      slogan: "Quite Frankly, I'm Running",
+      color: "#ff6f00",
+
+      // Visible stats
+      charisma: 85,
+      debate: 72,
+      fundraising: 55,
+      discipline: 30,
+      mediaHandling: 78,
+      baseEnthusiasm: 68,
+      crossoverAppeal: 55,
+      scandalResistance: 40,
+
+      // Hidden stats
+      staffCompetence: 35,
+      meltdownRisk: 80,
+      ideologicalElasticity: 60,
+      donorTrust: 25,
+      authenticity: 82,
+      eliteSupport: 15,
+      viralPotential: 95,
+      fatigueFactor: 35,
+
+      vulnerabilities: [
+        "Opposition attack line: zero political, governing, or policy experience of any kind",
+        "Reported criticism: has a long archive of controversial on-air comments about athletes and public figures",
+        "Opposition research: past remarks about domestic violence drew significant backlash and a suspension from ESPN",
+        "Reported criticism: political positions are largely undefined and untested beyond media commentary",
+        "Opposition attack line: candidacy would be framed as an ego-driven media stunt rather than a serious campaign"
+      ],
+      strengths: [
+        "Massive name recognition and built-in audience of millions of daily viewers",
+        "Natural entertainer who commands attention in any room or on any stage",
+        "Unmatched ability to generate viral moments and dominate news cycles",
+        "Appeals to male voters, particularly Black men, a key Democratic demographic",
+        "Outsider status could be an asset in an anti-establishment political environment"
+      ]
+    }
+  ],
+
+  republicans: [
+    // ── REPUBLICANS ─────────────────────────────────────────────────────
+    {
+      id: "vance",
+      name: "J.D. Vance",
+      party: "Republican",
+      title: "Vice President of the United States",
+      age: 43,
+      homeState: "Ohio",
+      bio: "J.D. Vance rose to fame with his memoir 'Hillbilly Elegy' and was elected to the U.S. Senate from Ohio in 2022 before being selected as Donald Trump's running mate. He served as Vice President and positioned himself as the heir to the populist-nationalist movement. Once a vocal Trump critic, his transformation into a loyal MAGA champion is both his greatest asset and his most scrutinized liability.",
+      isWildcard: false,
+      portraitEmoji: "\uD83C\uDFD4\uFE0F",
+      slogan: "Fight for the Forgotten",
+      color: "#c62828",
+
+      // Visible stats
+      charisma: 55,
+      debate: 78,
+      fundraising: 72,
+      discipline: 62,
+      mediaHandling: 60,
+      baseEnthusiasm: 70,
+      crossoverAppeal: 42,
+      scandalResistance: 48,
+
+      // Hidden stats
+      staffCompetence: 68,
+      meltdownRisk: 40,
+      ideologicalElasticity: 55,
+      donorTrust: 65,
+      authenticity: 38,
+      eliteSupport: 58,
+      viralPotential: 60,
+      fatigueFactor: 35,
+
+      vulnerabilities: [
+        "Opposition attack line: extensive archive of past anti-Trump statements, including reportedly calling Trump 'America's Hitler' in private messages",
+        "Reported criticism: 'childless cat ladies' remark about Democratic leaders became a widely circulated liability",
+        "Opposition research: his ideological conversion from Trump critic to Trump loyalist is framed as pure opportunism",
+        "Reported criticism: polling as VP showed persistently low favorability ratings, including among independents",
+        "Opposition attack line: venture capital career and Yale Law degree undercut his blue-collar populist branding"
+      ],
+      strengths: [
+        "Compelling personal narrative from Appalachian poverty to national office",
+        "Young enough to represent a generational shift for the Republican Party",
+        "Intellectual framework for populist-nationalism appeals to policy-minded conservatives",
+        "Strong debater with a prosecutorial, composed style",
+        "Direct line to the Trump base as the anointed successor"
+      ]
+    },
+
+    {
+      id: "rubio",
+      name: "Marco Rubio",
+      party: "Republican",
+      title: "Secretary of State",
+      age: 57,
+      homeState: "Florida",
+      bio: "Marco Rubio has served as Secretary of State and previously represented Florida in the U.S. Senate since 2011. Once hailed as the future of the Republican Party, his 2016 presidential bid collapsed after a damaging debate performance against Chris Christie. He has rebuilt his profile as a foreign policy hawk and establishment figure with appeal to Latino voters.",
+      isWildcard: false,
+      portraitEmoji: "\uD83C\uDF0E",
+      slogan: "A New American Century",
+      color: "#d32f2f",
+
+      // Visible stats
+      charisma: 62,
+      debate: 60,
+      fundraising: 70,
+      discipline: 68,
+      mediaHandling: 65,
+      baseEnthusiasm: 45,
+      crossoverAppeal: 58,
+      scandalResistance: 65,
+
+      // Hidden stats
+      staffCompetence: 72,
+      meltdownRisk: 45,
+      ideologicalElasticity: 60,
+      donorTrust: 72,
+      authenticity: 45,
+      eliteSupport: 78,
+      viralPotential: 30,
+      fatigueFactor: 60,
+
+      vulnerabilities: [
+        "Opposition attack line: the 2016 'robotic repetition' debate moment against Chris Christie remains a defining viral clip",
+        "Reported criticism: voted against bipartisan immigration reform he himself helped author, raising flip-flop accusations",
+        "Opposition research: repeatedly missed a high percentage of Senate votes, drawing 'absentee senator' criticism",
+        "Reported criticism: personal financial struggles and use of a Republican Party credit card were widely reported",
+        "Opposition attack line: failed to gain traction in 2016, losing his home state of Florida to Trump in the primary"
+      ],
+      strengths: [
+        "Deep foreign policy expertise, especially on Latin America and China",
+        "Significant appeal to Latino and Cuban-American voters",
+        "Polished public speaker when prepared and on-message",
+        "Establishment credibility with major party donors and institutions",
+        "Experience on the national stage as both candidate and Cabinet official"
+      ]
+    },
+
+    {
+      id: "desantis",
+      name: "Ron DeSantis",
+      party: "Republican",
+      title: "Governor of Florida",
+      age: 49,
+      homeState: "Florida",
+      bio: "Ron DeSantis won reelection as Florida Governor by nearly 20 points in 2022, establishing himself as one of the most dominant Republican state executives in a generation. His aggressive stance on cultural issues made him a hero to the party's base. However, his 2024 presidential bid collapsed amid criticism of his interpersonal skills and campaign management.",
+      isWildcard: false,
+      portraitEmoji: "\uD83C\uDF34",
+      slogan: "Make America Florida",
+      color: "#b71c1c",
+
+      // Visible stats
+      charisma: 40,
+      debate: 62,
+      fundraising: 75,
+      discipline: 72,
+      mediaHandling: 50,
+      baseEnthusiasm: 60,
+      crossoverAppeal: 40,
+      scandalResistance: 62,
+
+      // Hidden stats
+      staffCompetence: 60,
+      meltdownRisk: 35,
+      ideologicalElasticity: 30,
+      donorTrust: 55,
+      authenticity: 50,
+      eliteSupport: 55,
+      viralPotential: 45,
+      fatigueFactor: 65,
+
+      vulnerabilities: [
+        "Opposition attack line: 2024 presidential campaign burned through $150 million and collapsed before most primaries",
+        "Reported criticism: widely described as awkward in retail politics and interpersonal interactions with voters",
+        "Opposition research: his feud with Disney over the Reedy Creek district was characterized as government retaliation against free speech",
+        "Reported criticism: campaign staff turnover and dysfunction were extensively documented during the 2024 race",
+        "Opposition attack line: eating pudding with his fingers on a plane became an enduring and damaging viral moment"
+      ],
+      strengths: [
+        "Won reelection by historic margin in a major swing-turned-red state",
+        "Strong executive record on issues the Republican base prioritizes",
+        "Harvard and Yale educated, projects policy competence",
+        "Military veteran — served as a JAG officer deployed to Iraq and Guantanamo Bay",
+        "Demonstrated ability to govern aggressively and move state policy rightward"
+      ]
+    },
+
+    {
+      id: "trumpjr",
+      name: "Donald Trump Jr.",
+      party: "Republican",
+      title: "Political Commentator & Business Executive",
+      age: 50,
+      homeState: "Florida",
+      bio: "Donald Trump Jr. is the eldest son of former President Donald Trump and has served as a prominent surrogate and fundraiser for the MAGA movement. He is a bestselling author and a fixture on conservative media and the political rally circuit. His candidacy would test whether the Trump political dynasty can transfer its support to the next generation.",
+      isWildcard: false,
+      portraitEmoji: "\uD83E\uDD85",
+      slogan: "Keep the Fight Going",
+      color: "#e53935",
+
+      // Visible stats
+      charisma: 62,
+      debate: 48,
+      fundraising: 78,
+      discipline: 35,
+      mediaHandling: 55,
+      baseEnthusiasm: 72,
+      crossoverAppeal: 22,
+      scandalResistance: 35,
+
+      // Hidden stats
+      staffCompetence: 45,
+      meltdownRisk: 70,
+      ideologicalElasticity: 20,
+      donorTrust: 60,
+      authenticity: 52,
+      eliteSupport: 35,
+      viralPotential: 75,
+      fatigueFactor: 55,
+
+      vulnerabilities: [
+        "Opposition attack line: attended the June 2016 Trump Tower meeting with a Russian lawyer offering 'dirt' on Hillary Clinton",
+        "Reported criticism: no governing experience, elected office, or public policy credentials",
+        "Opposition research: his involvement in the Trump Organization's business dealings exposes him to ongoing legal scrutiny",
+        "Reported criticism: perceived as riding his father's name and movement rather than earning political standing independently",
+        "Opposition attack line: social media posts and public remarks frequently generate controversy and opposition attack ads"
+      ],
+      strengths: [
+        "Instant name recognition and automatic loyalty from the MAGA base",
+        "Proven fundraising ability through the Trump small-dollar donor network",
+        "Comfortable and effective as a rally speaker and red-meat campaigner",
+        "Strong relationships with conservative media and influencer ecosystem",
+        "Outdoor/hunting persona appeals to rural male voters"
+      ]
+    },
+
+    {
+      id: "ramaswamy",
+      name: "Vivek Ramaswamy",
+      party: "Republican",
+      title: "Entrepreneur & Former Presidential Candidate",
+      age: 42,
+      homeState: "Ohio",
+      bio: "Vivek Ramaswamy is a biotech entrepreneur who founded Roivant Sciences and burst onto the political scene with his 2024 presidential campaign. He ran as an outsider promising to dismantle the 'administrative state' and generated attention with his rapid-fire debate style. Despite dropping out and endorsing Trump, he built a national profile and donor base remarkably quickly.",
+      isWildcard: false,
+      portraitEmoji: "\uD83D\uDE80",
+      slogan: "Truth — Hard Truths for a Soft Nation",
+      color: "#ef5350",
+
+      // Visible stats
+      charisma: 70,
+      debate: 75,
+      fundraising: 65,
+      discipline: 50,
+      mediaHandling: 72,
+      baseEnthusiasm: 55,
+      crossoverAppeal: 38,
+      scandalResistance: 52,
+
+      // Hidden stats
+      staffCompetence: 50,
+      meltdownRisk: 55,
+      ideologicalElasticity: 65,
+      donorTrust: 55,
+      authenticity: 40,
+      eliteSupport: 40,
+      viralPotential: 72,
+      fatigueFactor: 45,
+
+      vulnerabilities: [
+        "Opposition attack line: zero governing or elected office experience of any kind",
+        "Reported criticism: debate performances were criticized as rehearsed and gimmicky, including an awkward Eminem rap moment",
+        "Opposition research: past statements praising figures across the political spectrum raise flip-flop concerns",
+        "Reported criticism: his pharmaceutical company Roivant faced investor lawsuits and questions about its business model",
+        "Opposition attack line: his rapid ideological shifts — from moderate to hard-right populist — undercut credibility"
+      ],
+      strengths: [
+        "Self-funded wealth eliminates dependence on donor class",
+        "Exceptionally fast and articulate communicator in any media format",
+        "Youth and energy stand out in the Republican field",
+        "First-generation American story appeals to aspirational voters",
+        "Willingness to go on hostile media and engage every question"
+      ]
+    },
+
+    // ── REPUBLICAN WILDCARD ─────────────────────────────────────────
+    {
+      id: "carlson",
+      name: "Tucker Carlson",
+      party: "Republican",
+      title: "Media Host & Political Commentator",
+      age: 58,
+      homeState: "Maine",
+      bio: "Tucker Carlson became the most-watched host in cable news history during his tenure at Fox News before his abrupt departure in 2023. He relaunched as an independent media figure, conducting high-profile interviews and building a massive direct audience. His populist-nationalist worldview and willingness to court controversy make him one of the most influential — and divisive — voices on the American right.",
+      isWildcard: true,
+      portraitEmoji: "\uD83D\uDCFA",
+      slogan: "Ask the Questions They Don't Want Asked",
+      color: "#ff1744",
+
+      // Visible stats
+      charisma: 75,
+      debate: 80,
+      fundraising: 62,
+      discipline: 42,
+      mediaHandling: 85,
+      baseEnthusiasm: 78,
+      crossoverAppeal: 25,
+      scandalResistance: 32,
+
+      // Hidden stats
+      staffCompetence: 50,
+      meltdownRisk: 60,
+      ideologicalElasticity: 35,
+      donorTrust: 40,
+      authenticity: 55,
+      eliteSupport: 30,
+      viralPotential: 90,
+      fatigueFactor: 40,
+
+      vulnerabilities: [
+        "Opposition attack line: fired from Fox News in 2023 amid the Dominion Voting Systems defamation lawsuit fallout",
+        "Reported criticism: private text messages revealed during the Dominion lawsuit showed contempt for Trump and Fox viewers",
+        "Opposition research: his 2024 interview with Vladimir Putin was widely criticized as softball and deferential",
+        "Reported criticism: former head writer resigned after being exposed for posting racist and sexist content online",
+        "Opposition attack line: years of archived Fox News segments provide extensive opposition research material on controversial claims"
+      ],
+      strengths: [
+        "One of the most talented television communicators of his generation",
+        "Massive independent media audience not reliant on any network",
+        "Populist messaging resonates with working-class voters disillusioned by both parties",
+        "Ability to frame narratives and set the political conversation",
+        "Outsider status — never held office, can credibly run against the political establishment"
+      ]
+    }
+  ]
+};

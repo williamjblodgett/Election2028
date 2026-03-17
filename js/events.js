@@ -416,6 +416,250 @@ window.EventSystem = {
             }
         ],
 
+        // ── NEW 2026-RESEARCH-BASED EVENTS ──
+        POLICY_CRISIS: [
+            {
+                id: "tariff_backlash", title: "Tariff Policy Sparks Economic Chaos",
+                description: "New tariffs trigger retaliatory measures from trading partners. Consumer prices spike on everyday goods. 55% of voters say the policy is harmful.",
+                category: "POLICY_CRISIS", phase: "both", probability: 0.07,
+                effects: { approval: -3, mediaScore: 4 },
+                choices: [
+                    { text: "Defend the tariffs as protecting American workers", effects: { baseEnthusiasm: 5, crossoverAppeal: -3, approval: 1 }, riskLevel: "moderate", outcomeText: "Manufacturing workers cheer. Suburban shoppers wince at higher prices." },
+                    { text: "Call for targeted relief while keeping the policy framework", effects: { approval: 2, donorConfidence: 2, crossoverAppeal: 2 }, riskLevel: "safe", outcomeText: "A balanced take. Policy wonks approve but nobody's excited." },
+                    { text: "Demand a complete overhaul of trade policy", effects: { donorConfidence: -3, baseEnthusiasm: 3, mediaScore: 5 }, riskLevel: "risky", outcomeText: "Bold positioning. Trade hawks are furious, free-trade advocates cautiously optimistic." }
+                ],
+                targetParty: "both", affectedStates: ["PA", "MI", "WI", "OH"], isBreakingNews: true, duration: 3
+            },
+            {
+                id: "government_shutdown", title: "Government Shutdown Enters Third Week",
+                description: "A federal government shutdown drags on as Congress fails to pass a spending bill. 29% of voters now rank government dysfunction as their top concern.",
+                category: "POLICY_CRISIS", phase: "both", probability: 0.06,
+                effects: { approval: -2, scandalVulnerability: 4 },
+                choices: [
+                    { text: "Propose a bipartisan compromise to end the shutdown", effects: { approval: 4, crossoverAppeal: 5, baseEnthusiasm: -3 }, riskLevel: "moderate", outcomeText: "The compromise plan gets praise from editorial boards. Your base calls it weak." },
+                    { text: "Blame the opposing party and campaign on the dysfunction", effects: { baseEnthusiasm: 5, mediaScore: 3, crossoverAppeal: -2 }, riskLevel: "safe", outcomeText: "Effective messaging with your base. Independents are tired of the blame game." },
+                    { text: "Call for a constitutional convention to fix government permanently", effects: { mediaScore: 6, baseEnthusiasm: 4, donorConfidence: -5 }, riskLevel: "desperate", outcomeText: "Radical proposal generates huge coverage but terrifies institutional donors." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 3
+            },
+            {
+                id: "ai_jobs_crisis", title: "AI Displacement Wave Hits White-Collar Jobs",
+                description: "Major corporations announce mass layoffs as AI systems replace knowledge workers. College-educated professionals are panicking about their futures.",
+                category: "POLICY_CRISIS", phase: "both", probability: 0.06,
+                effects: { approval: -2, scandalVulnerability: 3 },
+                choices: [
+                    { text: "Propose a national AI workforce transition program", effects: { approval: 3, debate: 3, donorConfidence: -2, persuadableSupport: 3 }, riskLevel: "moderate", outcomeText: "The plan is substantive. Tech workers feel heard. Silicon Valley donors are nervous." },
+                    { text: "Call for an AI development pause until regulations catch up", effects: { baseEnthusiasm: 4, donorConfidence: -4, crossoverAppeal: 2 }, riskLevel: "risky", outcomeText: "Populist energy surges. But tech leaders call you a Luddite." },
+                    { text: "Emphasize American innovation and promise to lead the AI race", effects: { donorConfidence: 4, approval: 1, baseEnthusiasm: -2 }, riskLevel: "safe", outcomeText: "Business-friendly message lands with donors. Displaced workers feel ignored." }
+                ],
+                targetParty: "both", affectedStates: ["CA", "TX", "NY", "WA"], isBreakingNews: true, duration: 2
+            },
+            {
+                id: "housing_crisis", title: "Housing Affordability Hits Crisis Levels",
+                description: "A new report shows 66% of Americans can't afford a home in their area. Rent prices hit record highs. Housing becomes the defining kitchen-table issue.",
+                category: "POLICY_CRISIS", phase: "both", probability: 0.07,
+                effects: { approval: -2, persuadableSupport: -3 },
+                choices: [
+                    { text: "Release a comprehensive housing plan: zoning reform, subsidies, building", effects: { approval: 3, persuadableSupport: 4, debate: 2, donorConfidence: -1 }, riskLevel: "moderate", outcomeText: "Housing advocates endorse the plan. NIMBYs in suburban districts push back." },
+                    { text: "Promise first-time buyer tax credits and down payment assistance", effects: { persuadableSupport: 3, approval: 2, baseEnthusiasm: 2, cash: -100000 }, riskLevel: "safe", outcomeText: "Popular but insufficient, say experts. Young voters appreciate the effort." },
+                    { text: "Blame corporate landlords and promise to break up housing monopolies", effects: { baseEnthusiasm: 6, donorConfidence: -5, crossoverAppeal: -1, mediaScore: 4 }, riskLevel: "risky", outcomeText: "Fiery populism. Young renters love it. Real estate donors flee." }
+                ],
+                targetParty: "both", affectedStates: ["NV", "AZ", "CO", "GA"], isBreakingNews: false, duration: 2
+            },
+            {
+                id: "immigration_reversal", title: "Net Migration Turns Negative — Shock Report",
+                description: "For the first time in decades, more people are leaving the US than arriving. Labor shortages worsen in key industries. The immigration debate flips.",
+                category: "POLICY_CRISIS", phase: "both", probability: 0.04,
+                effects: { mediaScore: 5 },
+                choices: [
+                    { text: "Call for welcoming legal immigration to fill labor gaps", effects: { crossoverAppeal: 4, donorConfidence: 3, baseEnthusiasm: -3 }, riskLevel: "moderate", outcomeText: "Business leaders applaud. Immigration hawks are livid." },
+                    { text: "Blame restrictive policies for causing an economic brain drain", effects: { baseEnthusiasm: 3, mediaScore: 3, approval: 1 }, riskLevel: "safe", outcomeText: "The 'brain drain' narrative gets traction in educated suburbs." },
+                    { text: "Promise a complete immigration system overhaul within 100 days", effects: { mediaScore: 5, baseEnthusiasm: 5, donorConfidence: -3 }, riskLevel: "risky", outcomeText: "Bold promise. Nobody believes the timeline but the ambition impresses." }
+                ],
+                targetParty: "both", affectedStates: ["TX", "AZ", "CA", "FL"], isBreakingNews: true, duration: 2
+            },
+            {
+                id: "social_media_ban", title: "Social Media Platform Ban Sparks Controversy",
+                description: "Congress passes legislation effectively banning a major social media platform. Millions of young users are outraged. Free speech debates erupt.",
+                category: "POLICY_CRISIS", phase: "both", probability: 0.05,
+                effects: { onlineInfluence: -3, scandalVulnerability: 4 },
+                choices: [
+                    { text: "Defend the ban as necessary for national security", effects: { approval: 1, crossoverAppeal: 2, baseEnthusiasm: -2, onlineInfluence: -3 }, riskLevel: "safe", outcomeText: "Parents approve. Young voters feel betrayed. Your online reach suffers." },
+                    { text: "Oppose the ban and champion digital free speech", effects: { onlineInfluence: 6, baseEnthusiasm: 4, crossoverAppeal: -2 }, riskLevel: "moderate", outcomeText: "Young voters flood your social media. Security hawks question your judgment." },
+                    { text: "Propose alternative regulation that addresses concerns without banning", effects: { approval: 3, debate: 2, onlineInfluence: 2 }, riskLevel: "moderate", outcomeText: "The nuanced position gets think-piece coverage. Most voters have already picked a side." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 2
+            },
+            {
+                id: "union_strike_wave", title: "Nationwide Strike Wave Paralyzes Key Industries",
+                description: "Auto workers, nurses, and teachers walk out simultaneously in what media calls 'Strike Summer 2028.' The country is divided between labor solidarity and economic disruption.",
+                category: "POLICY_CRISIS", phase: "both", probability: 0.05,
+                effects: { mediaScore: 3, scandalVulnerability: 3 },
+                choices: [
+                    { text: "Walk the picket line and stand with workers", effects: { baseEnthusiasm: 6, groundGame: 4, donorConfidence: -4, crossoverAppeal: -1 }, riskLevel: "risky", outcomeText: "Union members become your most passionate volunteers. Corporate donors send angry emails." },
+                    { text: "Call for both sides to negotiate while staying neutral", effects: { approval: 2, crossoverAppeal: 3, baseEnthusiasm: -3 }, riskLevel: "safe", outcomeText: "The diplomatic stance pleases moderates. Workers see it as cowardice." },
+                    { text: "Propose binding arbitration to end the strikes", effects: { approval: 1, debate: 2, donorConfidence: 2, baseEnthusiasm: -1 }, riskLevel: "moderate", outcomeText: "A wonky solution that shows leadership. Neither side is fully satisfied." }
+                ],
+                targetParty: "both", affectedStates: ["MI", "PA", "OH", "WI"], isBreakingNews: true, duration: 3
+            },
+            {
+                id: "midterm_fallout", title: "2026 Midterm Results Reshape the Race",
+                description: "The 2026 midterm results are still reverberating. Surprise outcomes in key states have rewritten the political map and shifted momentum.",
+                category: "POLICY_CRISIS", phase: "primary", probability: 0.08,
+                effects: { momentum: 5 },
+                choices: [
+                    { text: "Claim the midterms validate your campaign's message", effects: { baseEnthusiasm: 4, mediaScore: 3, momentum: 5 }, riskLevel: "safe", outcomeText: "Your messaging team spins the results effectively. The narrative sticks." },
+                    { text: "Promise to build on midterm gains with a bold agenda", effects: { baseEnthusiasm: 5, donorConfidence: 2, crossoverAppeal: -1 }, riskLevel: "moderate", outcomeText: "The base is energized. But some voters worry about overreach." },
+                    { text: "Reach across the aisle citing what voters actually want", effects: { crossoverAppeal: 5, approval: 3, baseEnthusiasm: -3 }, riskLevel: "moderate", outcomeText: "Swing voters respond positively. Party faithful question your commitment." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: false, duration: 2
+            }
+        ],
+
+        PRIMARY_MILESTONE: [
+            {
+                id: "iowa_caucus", title: "Iowa Caucus Results Shake the Field",
+                description: "The Iowa caucuses deliver surprising results. The first-in-the-nation contest sets the tone for the entire primary season.",
+                category: "PRIMARY_MILESTONE", phase: "primary", probability: 0,
+                effects: { momentum: 8, mediaScore: 5 },
+                choices: [
+                    { text: "Declare victory and push for New Hampshire momentum", effects: { baseEnthusiasm: 6, momentum: 10, donorConfidence: 4, mediaScore: 5 }, riskLevel: "safe", outcomeText: "The victory speech goes viral. Donors start calling instead of the other way around." },
+                    { text: "Set expectations for a long fight ahead", effects: { baseEnthusiasm: 2, discipline: 4, donorConfidence: 2, momentum: 3 }, riskLevel: "safe", outcomeText: "Measured. Smart. Boring. But donors appreciate the realism." },
+                    { text: "Challenge rivals to drop out and unify the party", effects: { baseEnthusiasm: 4, mediaScore: 6, crossoverAppeal: -3, momentum: 5 }, riskLevel: "risky", outcomeText: "Bold call for unity. Some rivals drop — others dig in harder." }
+                ],
+                targetParty: "both", affectedStates: ["IA"], isBreakingNews: true, duration: 1
+            },
+            {
+                id: "new_hampshire_primary", title: "New Hampshire Primary Upends Expectations",
+                description: "The New Hampshire primary delivers a dramatic result. The Granite State has spoken, and campaigns are scrambling to adjust.",
+                category: "PRIMARY_MILESTONE", phase: "primary", probability: 0,
+                effects: { momentum: 6, mediaScore: 4 },
+                choices: [
+                    { text: "Barnstorm South Carolina to lock up the next contest", effects: { baseEnthusiasm: 4, groundGame: 3, cash: -150000, momentum: 5 }, riskLevel: "moderate", outcomeText: "The South Carolina push shows organizational strength. Rivals scramble to catch up." },
+                    { text: "Launch a national media blitz with the New Hampshire result", effects: { mediaScore: 6, onlineInfluence: 4, cash: -200000, momentum: 4 }, riskLevel: "moderate", outcomeText: "Cable news runs your clips nonstop. Small-dollar donations surge." },
+                    { text: "Hold a unity rally with defeated rival's supporters", effects: { crossoverAppeal: 4, baseEnthusiasm: 3, approval: 2, momentum: 3 }, riskLevel: "safe", outcomeText: "The unity message resonates. The party starts coalescing earlier than expected." }
+                ],
+                targetParty: "both", affectedStates: ["NH"], isBreakingNews: true, duration: 1
+            },
+            {
+                id: "super_tuesday", title: "Super Tuesday: The Race Is Reshaped",
+                description: "Voters across a dozen states cast their ballots on Super Tuesday. The delegate math becomes clear. This is the make-or-break moment of the primary.",
+                category: "PRIMARY_MILESTONE", phase: "primary", probability: 0,
+                effects: { momentum: 12, mediaScore: 8 },
+                choices: [
+                    { text: "Declare the race effectively over and pivot to the general", effects: { baseEnthusiasm: 5, crossoverAppeal: 4, donorConfidence: 6, momentum: 10 }, riskLevel: "moderate", outcomeText: "The early pivot to the general election looks presidential. Party insiders breathe easy." },
+                    { text: "Thank every state and keep grinding through remaining contests", effects: { baseEnthusiasm: 6, groundGame: 3, discipline: 4, momentum: 5 }, riskLevel: "safe", outcomeText: "The humble approach wins respect. No coast-to-coronation narrative to fuel resentment." },
+                    { text: "Issue a bold policy vision speech as the presumptive nominee", effects: { mediaScore: 7, debate: 4, donorConfidence: 4, momentum: 8 }, riskLevel: "moderate", outcomeText: "The speech resets the race on your terms. Think pieces compare you to past nominees." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 2
+            },
+            {
+                id: "primary_clinch", title: "Nomination Mathematically Secured",
+                description: "With the latest primary results, you've crossed the delegate threshold needed to clinch the nomination. The primary is officially over.",
+                category: "PRIMARY_MILESTONE", phase: "primary", probability: 0,
+                effects: { momentum: 15, mediaScore: 10, baseEnthusiasm: 8 },
+                choices: [
+                    { text: "Give a historic unity speech calling the party together", effects: { baseEnthusiasm: 8, crossoverAppeal: 5, donorConfidence: 5, momentum: 10, approval: 3 }, riskLevel: "safe", outcomeText: "The unity speech is the moment the party officially comes home. Fundraising records shatter." },
+                    { text: "Immediately challenge your general election opponent", effects: { baseEnthusiasm: 6, mediaScore: 6, momentum: 8, crossoverAppeal: -2 }, riskLevel: "moderate", outcomeText: "The aggressive pivot catches your opponent off guard. The general election begins early." },
+                    { text: "Announce a listening tour to heal primary wounds", effects: { approval: 4, crossoverAppeal: 4, baseEnthusiasm: 3, groundGame: 3, momentum: 5 }, riskLevel: "safe", outcomeText: "Primary rivals' supporters feel respected. The healing begins ahead of schedule." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 2
+            }
+        ],
+
+        CONVENTION_EVENTS: [
+            {
+                id: "convention_floor_fight", title: "Convention Floor Fight Over Platform",
+                description: "Delegates erupt in a dramatic floor fight over a controversial platform plank. The party's unity is being tested on live television.",
+                category: "CONVENTION_EVENTS", phase: "general", probability: 0.04,
+                effects: { baseEnthusiasm: -4, mediaScore: -3 },
+                choices: [
+                    { text: "Personally intervene and negotiate a compromise plank", effects: { baseEnthusiasm: 3, approval: 3, donorConfidence: 2, discipline: 3 }, riskLevel: "moderate", outcomeText: "The backroom deal holds. Delegates grumble but unite. You look like a leader." },
+                    { text: "Let the delegates fight it out — this is democracy", effects: { authenticity: 4, baseEnthusiasm: -2, mediaScore: -3 }, riskLevel: "risky", outcomeText: "The messy process plays terribly on TV. But your base respects the openness." },
+                    { text: "Steamroll the opposition with procedural maneuvers", effects: { discipline: 5, baseEnthusiasm: -3, approval: -2 }, riskLevel: "safe", outcomeText: "You win the vote but the heavy-handedness alienates delegates from the losing side." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 1
+            },
+            {
+                id: "convention_protest", title: "Massive Protests Outside Convention Hall",
+                description: "Thousands of protesters surround the convention venue. Police clash with demonstrators. The split-screen coverage overshadows your message.",
+                category: "CONVENTION_EVENTS", phase: "general", probability: 0.04,
+                effects: { mediaScore: -5, scandalVulnerability: 4 },
+                choices: [
+                    { text: "Address the protesters' concerns in your acceptance speech", effects: { approval: 3, authenticity: 4, crossoverAppeal: 3, baseEnthusiasm: -2 }, riskLevel: "moderate", outcomeText: "The inclusive gesture plays well on morning shows. Hardliners think you caved." },
+                    { text: "Ignore the protests and deliver a flawless scripted speech", effects: { discipline: 4, donorConfidence: 3, mediaScore: 2, approval: -1 }, riskLevel: "safe", outcomeText: "The speech is strong but the contrast with chaos outside dominates the narrative." },
+                    { text: "Invite protest leaders inside for a public dialogue", effects: { mediaScore: 6, authenticity: 5, baseEnthusiasm: -3, crossoverAppeal: 4 }, riskLevel: "risky", outcomeText: "A stunning move. Either a stroke of genius or a tactical disaster. Pundits are divided." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 1
+            },
+            {
+                id: "convention_speech_triumph", title: "Convention Speech Electrifies the Nation",
+                description: "Your acceptance speech is being called one of the greatest convention addresses in modern history. Every cable network is replaying the highlights.",
+                category: "CONVENTION_EVENTS", phase: "general", probability: 0.06,
+                effects: { mediaScore: 8, baseEnthusiasm: 6, approval: 3 },
+                choices: [
+                    { text: "Ride the wave with a multi-state post-convention bus tour", effects: { baseEnthusiasm: 5, groundGame: 4, momentum: 8, cash: -200000 }, riskLevel: "safe", outcomeText: "The bus tour extends the convention bump into real momentum. Overflow crowds everywhere." },
+                    { text: "Launch a massive ad buy featuring convention highlights", effects: { mediaScore: 5, persuadableSupport: 4, onlineInfluence: 4, cash: -500000 }, riskLevel: "moderate", outcomeText: "The ads are everywhere. Your convention speech becomes the defining campaign moment." },
+                    { text: "Use the momentum for an unprecedented fundraising blitz", effects: { cash: 1000000, donorConfidence: 5, baseEnthusiasm: 3, momentum: 5 }, riskLevel: "safe", outcomeText: "Donations shatter records. The war chest swells to formidable levels." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 2
+            }
+        ],
+
+        VP_ANNOUNCEMENT: [
+            {
+                id: "vp_pick_praised", title: "VP Pick Draws Bipartisan Praise",
+                description: "Your vice presidential selection is being hailed as a masterstroke. Even opponents grudgingly admit it's a strong choice.",
+                category: "VP_ANNOUNCEMENT", phase: "general", probability: 0.05,
+                effects: { approval: 4, mediaScore: 6, donorConfidence: 4 },
+                choices: [
+                    { text: "Deploy your VP to swing states immediately", effects: { groundGame: 5, persuadableSupport: 3, surrogateStrength: 5 }, riskLevel: "safe", outcomeText: "Your VP proves to be a tireless campaigner. Swing state polling ticks up." },
+                    { text: "Hold a major joint rally to showcase the ticket", effects: { baseEnthusiasm: 5, mediaScore: 4, momentum: 5 }, riskLevel: "safe", outcomeText: "The joint rally is a blockbuster. The ticket radiates energy and competence." },
+                    { text: "Let your VP do tough interviews to handle attacks", effects: { mediaScore: 3, surrogateStrength: 4, scandalVulnerability: -3, debate: 2 }, riskLevel: "moderate", outcomeText: "Your VP handles the press skillfully, taking heat off the top of the ticket." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 2
+            },
+            {
+                id: "vp_pick_controversy", title: "VP Pick Generates Immediate Controversy",
+                description: "Your VP selection is drawing fire from all sides. Opposition researchers are digging, pundits are skeptical, and your own party is divided.",
+                category: "VP_ANNOUNCEMENT", phase: "general", probability: 0.04,
+                effects: { approval: -3, mediaScore: -2, scandalVulnerability: 5 },
+                choices: [
+                    { text: "Double down — your VP gives an aggressive introductory speech", effects: { baseEnthusiasm: 5, mediaScore: 3, crossoverAppeal: -2 }, riskLevel: "risky", outcomeText: "The speech fires up your base. But the controversy only deepens with moderates." },
+                    { text: "Let the VP personally address concerns in long-form media", effects: { approval: 2, authenticity: 3, mediaScore: 2, scandalVulnerability: -2 }, riskLevel: "moderate", outcomeText: "The interview tour helps humanize the pick. Some skeptics come around." },
+                    { text: "Shift focus back to your own campaign message", effects: { discipline: 4, approval: 0, mediaScore: -2 }, riskLevel: "safe", outcomeText: "You can't un-pick your VP. The controversy fades slowly but doesn't disappear." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 2
+            }
+        ],
+
+        ENDORSEMENT_CHAIN: [
+            {
+                id: "governor_endorsement_wave", title: "Wave of Governor Endorsements",
+                description: "Three popular governors endorse your campaign within 48 hours, creating a powerful cascade of support. The political establishment is consolidating behind you.",
+                category: "ENDORSEMENT_CHAIN", phase: "both", probability: 0.04,
+                effects: { surrogateStrength: 6, donorConfidence: 4 },
+                choices: [
+                    { text: "Deploy the governors to their home-state battlegrounds", effects: { groundGame: 5, surrogateStrength: 5, baseTurnout: 3 }, riskLevel: "safe", outcomeText: "The governors energize local volunteers. Three states see measurable polling gains." },
+                    { text: "Hold a joint press conference projecting unstoppable momentum", effects: { mediaScore: 5, momentum: 6, donorConfidence: 4 }, riskLevel: "moderate", outcomeText: "The optics are powerful. Your opponent scrambles to announce their own endorsements." },
+                    { text: "Announce major policy plans backed by the governors", effects: { approval: 3, debate: 3, policy: 3, persuadableSupport: 3 }, riskLevel: "safe", outcomeText: "Policy plus political muscle. Editorial boards take notice." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: true, duration: 2
+            },
+            {
+                id: "youth_influencer_coalition", title: "Major Influencer Coalition Backs Campaign",
+                description: "A coalition of 50+ social media influencers with a combined following of 200 million announce support for your campaign. The digital landscape shifts overnight.",
+                category: "ENDORSEMENT_CHAIN", phase: "both", probability: 0.04,
+                effects: { onlineInfluence: 8, mediaScore: 3 },
+                choices: [
+                    { text: "Integrate influencers into your digital campaign strategy", effects: { onlineInfluence: 6, baseEnthusiasm: 4, cash: 200000 }, riskLevel: "moderate", outcomeText: "Your social media explodes. Voter registration links go viral. Small-dollar donations spike." },
+                    { text: "Keep it at arm's length — thank them but stay traditional", effects: { onlineInfluence: 2, approval: 1, discipline: 2 }, riskLevel: "safe", outcomeText: "You get the headlines without the risk. But you're leaving digital engagement on the table." },
+                    { text: "Launch a TikTok/social media blitz with influencer content", effects: { onlineInfluence: 8, baseEnthusiasm: 5, crossoverAppeal: -2, cash: -150000 }, riskLevel: "risky", outcomeText: "The content goes viral. Young voter enthusiasm skyrockets. Traditional media mocks the approach." }
+                ],
+                targetParty: "both", affectedStates: null, isBreakingNews: false, duration: 2
+            }
+        ],
+
         OCTOBER_SURPRISE: [
             {
                 id: "oppo_drop", title: "Devastating Opposition Research Drops",
@@ -496,10 +740,14 @@ window.EventSystem = {
             // Determine eligible events
             const eligible = [];
             for (const cat of allCategories) {
+                // Primary milestones are triggered by the engine, not randomly
+                if (cat === 'PRIMARY_MILESTONE') continue;
                 for (const evt of window.EventSystem.EVENTS[cat]) {
                     if (this.usedEvents.has(evt.id)) continue;
                     if (evt.phase !== 'both' && evt.phase !== gameState.phase) continue;
                     if (evt.category === 'OCTOBER_SURPRISE' && gameState.week < gameState.totalWeeks - 6) continue;
+                    if (evt.category === 'CONVENTION_EVENTS' && (gameState.week < 20 || gameState.week > 26)) continue;
+                    if (evt.category === 'VP_ANNOUNCEMENT' && !gameState.vpPicked) continue;
                     eligible.push(evt);
                 }
             }
@@ -534,6 +782,22 @@ window.EventSystem = {
             }
 
             return events;
+        },
+
+        getPrimaryMilestone(week) {
+            const milestones = {
+                4: 'iowa_caucus',
+                5: 'new_hampshire_primary',
+                8: 'super_tuesday',
+                12: 'primary_clinch'
+            };
+            const eventId = milestones[week];
+            if (!eventId || this.usedEvents.has(eventId)) return null;
+            const events = window.EventSystem.EVENTS.PRIMARY_MILESTONE || [];
+            const evt = events.find(e => e.id === eventId);
+            if (!evt) return null;
+            this.usedEvents.add(eventId);
+            return JSON.parse(JSON.stringify(evt));
         },
 
         reset() {

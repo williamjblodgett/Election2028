@@ -17,14 +17,93 @@ window.GameUI = {
     selectedStates: [],
     currentStrategy: 'positive',
     activeTab: 'map',
+    mobileActiveTab: 'map',
+    isMobile: false,
+    mapViewMode: 'map', // 'map' or 'list'
 
     // ═══════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════
     init() {
+        this.checkMobile();
+        this.checkSavedGame();
         this.renderTitleScreen();
         this.showScreen('title');
         this.initTicker();
+
+        // Responsive listeners
+        window.addEventListener('resize', () => {
+            this.checkMobile();
+            if (this.currentScreen === 'game') this.updateMobileNav();
+        });
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                this.checkMobile();
+                if (this.currentScreen === 'game') this.renderGameScreen();
+            }, 150);
+        });
+    },
+
+    checkMobile() {
+        this.isMobile = window.innerWidth <= 768;
+        const nav = document.getElementById('mobile-nav');
+        if (nav) {
+            if (this.isMobile && this.currentScreen === 'game') {
+                nav.classList.remove('hidden');
+            } else {
+                nav.classList.add('hidden');
+            }
+        }
+    },
+
+    // ═══════════════════════════════════════════════
+    // SAVE / LOAD
+    // ═══════════════════════════════════════════════
+    checkSavedGame() {
+        const btn = document.getElementById('continue-btn');
+        if (!btn) return;
+        const save = localStorage.getItem('election2028_save');
+        if (save) {
+            try {
+                const data = JSON.parse(save);
+                btn.classList.remove('hidden');
+                btn.textContent = `CONTINUE (Week ${data.week})`;
+            } catch(e) {
+                btn.classList.add('hidden');
+            }
+        }
+    },
+
+    saveGame() {
+        if (!window.GameEngine.state) return;
+        const data = window.GameEngine.serialize();
+        localStorage.setItem('election2028_save', data);
+        localStorage.setItem('election2028_save_time', new Date().toISOString());
+        this.showToast('Game saved!', 'success');
+    },
+
+    loadGame() {
+        const save = localStorage.getItem('election2028_save');
+        if (!save) { this.showToast('No saved game found', 'error'); return; }
+        try {
+            window.GameEngine.deserialize(save);
+            // Restore UI state from engine state
+            const gs = window.GameEngine.state;
+            this.playerParty = gs.playerParty;
+            this.selectedDemocrat = gs.playerParty === 'democrat' ? gs.playerCandidate : gs.opponentCandidate;
+            this.selectedRepublican = gs.playerParty === 'republican' ? gs.playerCandidate : gs.opponentCandidate;
+            this.showScreen('game');
+            this.renderGameScreen();
+            this.showToast(`Campaign resumed — ${window.GameEngine.getWeekLabel()}`, 'success');
+        } catch(e) {
+            this.showToast('Failed to load save', 'error');
+        }
+    },
+
+    autoSave() {
+        if (window.GameEngine.state && window.GameEngine.state.difficulty !== 'iron') {
+            localStorage.setItem('election2028_save', window.GameEngine.serialize());
+        }
     },
 
     initTicker() {
@@ -43,6 +122,64 @@ window.GameUI = {
         if (target) {
             target.classList.remove('hidden');
             this.currentScreen = screenId;
+        }
+        // Show/hide mobile nav
+        const nav = document.getElementById('mobile-nav');
+        if (nav) {
+            if (this.isMobile && screenId === 'game') {
+                nav.classList.remove('hidden');
+            } else {
+                nav.classList.add('hidden');
+            }
+        }
+    },
+
+    // ═══════════════════════════════════════════════
+    // MOBILE NAVIGATION
+    // ═══════════════════════════════════════════════
+    switchMobileTab(tab) {
+        this.mobileActiveTab = tab;
+        this.updateMobileNav();
+
+        const left = document.getElementById('game-left-panel');
+        const center = document.getElementById('game-center');
+        const right = document.getElementById('game-right-panel');
+
+        // Reset visibility
+        if (left) { left.classList.remove('mobile-visible'); }
+        if (center) { center.classList.remove('mobile-hidden'); center.classList.add('mobile-hidden'); }
+        if (right) { right.classList.remove('mobile-visible'); }
+
+        switch (tab) {
+            case 'map':
+                if (center) center.classList.remove('mobile-hidden');
+                this.activeTab = 'map';
+                this.renderTabContent();
+                break;
+            case 'actions':
+                if (left) left.classList.add('mobile-visible');
+                break;
+            case 'intel':
+                if (right) right.classList.add('mobile-visible');
+                break;
+            case 'events':
+                if (center) center.classList.remove('mobile-hidden');
+                this.activeTab = 'events';
+                this.renderTabContent();
+                break;
+        }
+    },
+
+    updateMobileNav() {
+        document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === this.mobileActiveTab);
+        });
+        // Show event count badge
+        const evtBtn = document.querySelector('.mobile-nav-btn[data-tab="events"]');
+        if (evtBtn && this.weeklyEvents.length > 0) {
+            evtBtn.querySelector('.mobile-nav-label').textContent = `Events (${this.weeklyEvents.length})`;
+        } else if (evtBtn) {
+            evtBtn.querySelector('.mobile-nav-label').textContent = 'Events';
         }
     },
 
@@ -306,7 +443,8 @@ window.GameUI = {
                 <div class="momentum-display ${momClass}">
                     ${momIcon} <span>${Math.round(Math.abs(gs.campaign.momentum))}</span>
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="GameUI.handleEndWeek()">ADVANCE WEEK →</button>
+                <button class="btn btn-sm" onclick="GameUI.saveGame()">💾</button>
+                <button class="btn btn-primary btn-sm" onclick="GameUI.handleEndWeek()">ADVANCE →</button>
             </div>`;
     },
 
@@ -466,7 +604,13 @@ window.GameUI = {
         if (!container) return;
 
         switch (this.activeTab) {
-            case 'map': this.renderMap(container); break;
+            case 'map':
+                if (this.isMobile && this.mapViewMode === 'list') {
+                    this.renderMapListView(container);
+                } else {
+                    this.renderMap(container);
+                }
+                break;
             case 'events': this.renderEventsTab(container); break;
             case 'stats': this.renderStatsTab(container); break;
             case 'history': this.renderHistoryTab(container); break;
@@ -522,6 +666,7 @@ window.GameUI = {
                     </div>
                 </div>
             </div>
+            ${this.isMobile ? '<div style="text-align:center;margin-top:8px;"><button class="btn btn-sm btn-ghost" onclick="GameUI.toggleMapView()">📋 List View</button></div>' : ''}
             <div id="state-detail-area"></div>`;
     },
 
@@ -832,6 +977,12 @@ window.GameUI = {
     handleEndWeek() {
         const gs = window.GameEngine.state;
 
+        // Check for VP pick (week 24-26, general phase)
+        if (gs.phase === 'general' && !gs.vpPicked && gs.week >= 24 && gs.week <= 26) {
+            this.showVPPickModal();
+            return; // VP pick must happen before advancing
+        }
+
         // Check for convention (week 20-22)
         if (gs.phase === 'general' && !gs.conventionDone && gs.week >= 20 && gs.week <= 22) {
             const result = window.GameEngine.processConvention();
@@ -847,6 +998,9 @@ window.GameUI = {
         // Store events for display
         this.weeklyEvents = result.events;
         this.pendingEventChoices = {};
+
+        // Auto-save after each week
+        this.autoSave();
 
         // Update ticker with new headlines
         if (result.summary.newsHeadlines.length > 0) {
@@ -869,6 +1023,7 @@ window.GameUI = {
         // Show events if any
         if (this.weeklyEvents.length > 0) {
             this.activeTab = 'events';
+            if (this.isMobile) this.switchMobileTab('events');
             this.showToast(`Week ${gs.week - 1} complete. ${this.weeklyEvents.length} event(s) need your response!`, 'info');
         } else {
             this.showToast(`Week ${gs.week - 1} complete.`, 'info');
@@ -1037,6 +1192,117 @@ window.GameUI = {
         this.closeModal();
         this.updateTopBar();
         this.renderCenterContent();
+    },
+
+    // ═══════════════════════════════════════════════
+    // VP PICK
+    // ═══════════════════════════════════════════════
+    showVPPickModal() {
+        const gs = window.GameEngine.state;
+        const isDem = gs.playerParty === 'democrat';
+
+        // Generate VP options based on party
+        const vpOptions = isDem ? [
+            { name: 'Gov. Wes Moore (MD)', home: 'Maryland', desc: 'Young, charismatic governor. Boosts minority turnout and enthusiasm.', effects: { enthusiasm: 8, baseTurnout: 5, onlineInfluence: 4 } },
+            { name: 'Sen. Mark Kelly (AZ)', home: 'Arizona', desc: 'Astronaut, veteran, swing-state senator. Maximizes crossover appeal.', effects: { crossoverAppeal: 8, approval: 4, persuadableSupport: 5 } },
+            { name: 'Gov. Gretchen Whitmer (MI)', home: 'Michigan', desc: 'Proven swing-state winner. Strengthens Midwest firewall.', effects: { groundGame: 6, baseTurnout: 4, surrogateStrength: 5 } },
+            { name: 'Sen. Raphael Warnock (GA)', home: 'Georgia', desc: 'Powerful orator from Georgia. Energizes the base and Southern strategy.', effects: { baseEnthusiasm: 7, enthusiasm: 5, surrogateStrength: 4 } },
+            { name: 'Gov. Andy Beshear (KY)', home: 'Kentucky', desc: 'Won in deep-red Kentucky. Ultimate electability argument.', effects: { crossoverAppeal: 10, persuadableSupport: 6, donorConfidence: 4 } },
+        ] : [
+            { name: 'Gov. Glenn Youngkin (VA)', home: 'Virginia', desc: 'Business-friendly governor. Locks down suburban and donor support.', effects: { donorConfidence: 7, crossoverAppeal: 5, persuadableSupport: 5 } },
+            { name: 'Sen. Tim Scott (SC)', home: 'South Carolina', desc: 'Optimistic messenger with broad appeal. Expands the coalition.', effects: { crossoverAppeal: 6, approval: 5, enthusiasm: 4 } },
+            { name: 'Rep. Elise Stefanik (NY)', home: 'New York', desc: 'Fighter who energizes the MAGA base. Strong media presence.', effects: { baseEnthusiasm: 8, mediaScore: 5, onlineInfluence: 4 } },
+            { name: 'Gov. Brian Kemp (GA)', home: 'Georgia', desc: 'Proven Georgia winner. Ground game and swing-state credibility.', effects: { groundGame: 6, baseTurnout: 5, crossoverAppeal: 4 } },
+            { name: 'Sen. Katie Britt (AL)', home: 'Alabama', desc: 'Youngest woman in the Senate. Fresh face with fundraising strength.', effects: { fundraising: 5, enthusiasm: 5, onlineInfluence: 5 } },
+        ];
+
+        const html = `
+            <p class="text-muted mb-2">This is one of the most important decisions of your campaign. Your VP pick will affect your coalition, messaging, and electoral map for the rest of the race.</p>
+            <div style="display:grid;gap:10px;">
+                ${vpOptions.map((vp, i) => `
+                    <button class="btn action-btn" onclick="GameUI.pickVP(${i})" style="flex-direction:column;align-items:flex-start;padding:16px;">
+                        <div style="font-weight:700;font-size:1rem;">${vp.name}</div>
+                        <div style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0;">${vp.desc}</div>
+                        <div style="font-size:0.75rem;color:var(--accent-green);">
+                            ${Object.entries(vp.effects).map(([k, v]) => `+${v} ${k.replace(/([A-Z])/g, ' $1').trim()}`).join(' | ')}
+                        </div>
+                    </button>
+                `).join('')}
+            </div>`;
+
+        this._vpOptions = vpOptions;
+        this.showModal('Choose Your Running Mate', html);
+    },
+
+    pickVP(index) {
+        const vp = this._vpOptions[index];
+        if (!vp) return;
+
+        const result = window.GameEngine.processVPPick(vp.name);
+
+        // Apply VP-specific stat bonuses
+        const c = window.GameEngine.state.campaign;
+        for (const [key, val] of Object.entries(vp.effects)) {
+            if (c.hasOwnProperty(key)) c[key] += val;
+        }
+
+        this.showToast(result.message || `VP Pick: ${vp.name}!`, 'success');
+        this.closeModal();
+        this.updateTopBar();
+        this.renderCenterContent();
+
+        // Now advance the week that was pending
+        setTimeout(() => this.handleEndWeek(), 500);
+    },
+
+    // ═══════════════════════════════════════════════
+    // MAP LIST VIEW (Mobile Alternative)
+    // ═══════════════════════════════════════════════
+    toggleMapView() {
+        this.mapViewMode = this.mapViewMode === 'map' ? 'list' : 'map';
+        this.renderTabContent();
+    },
+
+    renderMapListView(container) {
+        const gs = window.GameEngine.state;
+        const states = window.StateData
+            .filter(s => s.isBattleground)
+            .sort((a, b) => {
+                const pa = gs.statePolling[a.id], pb = gs.statePolling[b.id];
+                return Math.abs(pa.player - pa.opponent) - Math.abs(pb.player - pb.opponent);
+            });
+
+        container.innerHTML = `
+            <div class="flex justify-between items-center mb-1">
+                <h3 style="font-size:1rem;">Battleground States</h3>
+                <button class="btn btn-sm btn-ghost" onclick="GameUI.toggleMapView()">🗺️ Map View</button>
+            </div>
+            ${states.map(st => {
+                const poll = gs.statePolling[st.id];
+                if (!poll) return '';
+                const margin = (poll.player - poll.opponent).toFixed(1);
+                const pct = Math.round(poll.player);
+                const opct = Math.round(poll.opponent);
+                const trendIcon = poll.trend > 0.5 ? '▲' : poll.trend < -0.5 ? '▼' : '';
+                const trendClass = poll.trend > 0.5 ? 'text-green' : poll.trend < -0.5 ? 'text-red' : '';
+                return `
+                    <div class="poll-card" onclick="GameUI.handleStateClick('${st.id}')" style="cursor:pointer;">
+                        <div class="poll-card-header">
+                            <span class="poll-card-state">${st.name} <span class="${trendClass}">${trendIcon}</span></span>
+                            <span class="poll-card-ev">${st.electoralVotes} EV</span>
+                        </div>
+                        <div class="poll-mini-bar">
+                            <div class="poll-mini-dem" style="width:${pct / (pct + opct) * 100}%"></div>
+                            <div class="poll-mini-rep" style="width:${opct / (pct + opct) * 100}%"></div>
+                        </div>
+                        <div class="poll-card-numbers">
+                            <span class="text-dem">${pct}%</span>
+                            <span style="color:${margin > 0 ? 'var(--accent-green)' : 'var(--accent-red)'};font-weight:700;">${margin > 0 ? '+' : ''}${margin}</span>
+                            <span class="text-rep">${opct}%</span>
+                        </div>
+                    </div>`;
+            }).join('')}
+            <div id="state-detail-area"></div>`;
     },
 
     // ═══════════════════════════════════════════════

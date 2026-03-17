@@ -1,0 +1,14 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 192 192'>
+  <defs>
+    <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#0a0e17'/>
+      <stop offset='100%' stop-color='#111827'/>
+    </linearGradient>
+  </defs>
+  <rect width='192' height='192' rx='28.799999999999997' fill='url(#bg)'/>
+  <text x='96' y='72.96000000000001' text-anchor='middle' font-family='system-ui,sans-serif' font-weight='900' font-size='38.400000000000006' fill='white' letter-spacing='-1'>2028</text>
+  <rect x='28.799999999999997' y='86.4' width='61.44' height='9.600000000000001' rx='2' fill='#2166d4'/>
+  <rect x='101.76' y='86.4' width='61.44' height='9.600000000000001' rx='2' fill='#d42121'/>
+  <text x='96' y='134.39999999999998' text-anchor='middle' font-family='system-ui,sans-serif' font-weight='700' font-size='13.440000000000001' fill='#8899b3' letter-spacing='3'>ELECTION</text>
+  <text x='96' y='157.44' text-anchor='middle' font-size='24.96'>🗳️</text>
+</svg>

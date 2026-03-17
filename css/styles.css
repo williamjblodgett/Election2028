@@ -200,7 +200,8 @@ h3 { font-size: 1.25rem; }
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 12px 24px;
+    padding: 14px 24px;
+    min-height: 48px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     background: var(--bg-card);
@@ -212,6 +213,8 @@ h3 { font-size: 1.25rem; }
     text-transform: uppercase;
     letter-spacing: 1px;
     font-family: var(--font-display);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 .btn:hover {
     background: var(--bg-card-hover);
@@ -244,8 +247,8 @@ h3 { font-size: 1.25rem; }
     background: linear-gradient(135deg, var(--rep-red), #b01a1a);
     border-color: var(--rep-red);
 }
-.btn-sm { padding: 8px 16px; font-size: 0.8rem; }
-.btn-lg { padding: 16px 32px; font-size: 1.1rem; }
+.btn-sm { padding: 12px 16px; font-size: 0.8rem; min-height: 44px; }
+.btn-lg { padding: 16px 32px; font-size: 1.1rem; min-height: 52px; }
 .btn-ghost { background: transparent; border-color: transparent; }
 .btn-ghost:hover { background: rgba(255,255,255,0.05); border-color: var(--border-color); }
 .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -488,12 +491,13 @@ h3 { font-size: 1.25rem; }
 .action-btn {
     width: 100%;
     text-align: left;
-    padding: 10px 12px;
+    padding: 14px 12px;
     margin-bottom: 4px;
     font-size: 0.85rem;
     text-transform: none;
     letter-spacing: 0;
     justify-content: flex-start;
+    min-height: 48px;
 }
 .action-btn .action-icon { font-size: 1.1rem; flex-shrink: 0; }
 .action-btn .action-label { flex: 1; }
@@ -545,6 +549,8 @@ h3 { font-size: 1.25rem; }
     color: white;
     text-shadow: 0 1px 2px rgba(0,0,0,0.5);
     border: 1px solid rgba(255,255,255,0.1);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 .map-state:hover {
     transform: scale(1.15);
@@ -741,7 +747,8 @@ h3 { font-size: 1.25rem; }
     gap: 8px;
 }
 .event-choice {
-    padding: 10px 14px;
+    padding: 14px 16px;
+    min-height: 48px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
@@ -751,6 +758,7 @@ h3 { font-size: 1.25rem; }
     color: var(--text-primary);
     font-size: 0.85rem;
     font-family: var(--font-display);
+    touch-action: manipulation;
 }
 .event-choice:hover {
     border-color: var(--accent-blue);
@@ -898,7 +906,8 @@ h3 { font-size: 1.25rem; }
     margin: 1.5rem auto;
 }
 .debate-response {
-    padding: 14px 18px;
+    padding: 16px 18px;
+    min-height: 48px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
@@ -908,6 +917,7 @@ h3 { font-size: 1.25rem; }
     color: var(--text-primary);
     font-family: var(--font-display);
     font-size: 0.9rem;
+    touch-action: manipulation;
 }
 .debate-response:hover {
     border-color: var(--accent-blue);
@@ -1130,12 +1140,52 @@ h3 { font-size: 1.25rem; }
 }
 
 /* ══════════════════════════════════
+   MOBILE BOTTOM NAVIGATION
+   ══════════════════════════════════ */
+.mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    z-index: 200;
+    display: flex;
+    align-items: stretch;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    padding: 6px 4px;
+    min-height: 48px;
+}
+.mobile-nav-btn.active { color: var(--accent-blue); }
+.mobile-nav-btn:hover { color: var(--text-primary); }
+.mobile-nav-icon { font-size: 1.3rem; line-height: 1; }
+.mobile-nav-label { font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+
+/* ══════════════════════════════════
    RESPONSIVE / MOBILE
    ══════════════════════════════════ */
 @media (max-width: 1024px) {
     #screen-game {
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto;
+        grid-template-rows: auto auto auto auto;
     }
     .game-left-panel, .game-right-panel {
         max-height: none;
@@ -1156,23 +1206,125 @@ h3 { font-size: 1.25rem; }
     }
     .game-right-panel { order: 3; }
 }
+
 @media (max-width: 768px) {
     .title-logo h1 { font-size: 2.5rem; }
     .candidate-grid { grid-template-columns: 1fr; }
     .spending-grid { grid-template-columns: 1fr; }
     .state-info-grid { grid-template-columns: 1fr; }
-    .game-top-bar { flex-direction: column; align-items: flex-start; }
+    .game-top-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 8px 12px;
+    }
+    .top-bar-left, .top-bar-center, .top-bar-right {
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
     .summary-cards { grid-template-columns: repeat(2, 1fr); }
     h1 { font-size: 1.8rem; }
     h2 { font-size: 1.3rem; }
-    .ec-counter { flex-direction: column; gap: 4px; }
+    .ec-counter { flex-direction: row; gap: 12px; }
+
+    /* Mobile: hide side panels, show via bottom nav */
+    .mobile-nav { display: flex; }
+    #screen-game { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .game-left-panel { display: none; }
+    .game-right-panel { display: none; }
+    .game-left-panel.mobile-visible { display: block; padding: 12px; }
+    .game-right-panel.mobile-visible { display: block; }
+    .game-center { padding: 12px; }
+    .game-center.mobile-hidden { display: none; }
+
+    /* Bottom nav spacing */
+    #app { padding-bottom: 64px; }
+
+    /* Map states bigger for touch */
+    .map-state { min-width: 26px; min-height: 26px; font-size: 0.55rem; }
+
+    /* Bottom sheet modals */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal-content {
+        max-width: 100%;
+        width: 100%;
+        max-height: 85vh;
+        padding: 1.25rem;
+        border-radius: 16px 16px 0 0;
+        margin: 0;
+        animation: modalSlideUp 0.3s ease;
+    }
+    @keyframes modalSlideUp {
+        from { opacity: 0; transform: translateY(100%); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Ticker: hide label on mobile to save space */
+    #breaking-news-ticker .ticker-label { display: none; }
+    #breaking-news-ticker { font-size: 0.8rem; }
+    #breaking-news-ticker .ticker-content span { padding: 0 24px; }
+
+    /* Candidate cards: touch friendly */
+    .candidate-card { padding: 1rem; }
+
+    /* Setup screen mobile */
+    #screen-select { padding: 1rem; }
+    .mode-cards { grid-template-columns: 1fr; gap: 10px; }
+    .difficulty-options { grid-template-columns: 1fr; }
 }
+
+/* ── Landscape Mobile ── */
+@media (max-width: 900px) and (orientation: landscape) {
+    #screen-game {
+        grid-template-columns: 260px 1fr;
+        grid-template-rows: auto 1fr;
+    }
+    .game-top-bar { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; padding: 6px 12px; }
+    .game-left-panel {
+        display: block !important;
+        max-height: calc(100vh - 36px - 48px);
+        overflow-y: auto;
+        border-right: 1px solid var(--border-color);
+        padding: 8px;
+    }
+    .game-left-panel .panel-section { min-width: auto; }
+    .game-center {
+        display: block !important;
+        max-height: calc(100vh - 36px - 48px);
+        overflow-y: auto;
+        padding: 8px;
+    }
+    .game-right-panel { display: none; }
+    .mobile-nav { height: 44px; }
+    .mobile-nav-label { display: none; }
+    .mobile-nav-icon { font-size: 1.1rem; }
+    #breaking-news-ticker { height: 28px; font-size: 0.7rem; }
+    #app { margin-top: 28px; padding-bottom: 48px; }
+
+    /* Smaller elements in landscape */
+    .summary-cards { grid-template-columns: repeat(3, 1fr); }
+    .summary-card { padding: 8px; }
+    .summary-card .sc-value { font-size: 1.1rem; }
+
+    /* Title screen landscape */
+    #screen-title { min-height: auto; padding: 1rem; }
+    .title-logo h1 { font-size: 2rem; }
+    .title-tagline { margin: 0.5rem 0 1rem; }
+
+    /* Debate landscape */
+    .debate-stage { padding: 1rem; }
+    .debate-question-box { padding: 1rem; margin: 0.75rem auto; }
+}
+
 @media (max-width: 480px) {
     .title-logo h1 { font-size: 2rem; }
     .summary-cards { grid-template-columns: 1fr 1fr; }
-    .modal-content { padding: 1.25rem; }
     #app { margin-top: 32px; }
-    #breaking-news-ticker { height: 32px; font-size: 0.75rem; }
+    #breaking-news-ticker { height: 32px; }
+    .polling-pill { font-size: 0.75rem; padding: 4px 10px; }
+    .week-display { font-size: 0.9rem; }
+    .cash-display { font-size: 0.85rem; }
 }
 
 /* ── Utility ── */
@@ -1355,3 +1507,251 @@ h3 { font-size: 1.25rem; }
 .strategy-info { flex: 1; }
 .strategy-info h4 { font-size: 0.9rem; margin-bottom: 2px; }
 .strategy-info p { font-size: 0.75rem; color: var(--text-secondary); }
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE CSS — Bottom Nav, Touch Targets, Panels, Bottom Sheets
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Mobile Bottom Navigation Bar ── */
+.mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    z-index: 100;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+}
+.mobile-nav.hidden {
+    display: none !important;
+}
+.mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: none;
+    border: none;
+    border-top: 3px solid transparent;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-family: var(--font-display);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 4px 0;
+}
+.mobile-nav-btn .mobile-nav-icon {
+    font-size: 1.3rem;
+    line-height: 1;
+}
+.mobile-nav-btn .mobile-nav-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.mobile-nav-btn.active {
+    color: var(--accent-blue);
+    border-top-color: var(--accent-blue);
+}
+.mobile-nav-btn:hover {
+    color: var(--text-primary);
+}
+
+/* ── 2. Touch Target Fixes ── */
+@media (max-width: 768px) {
+    .btn {
+        min-height: 48px;
+        padding: 14px 20px;
+    }
+    .btn-sm {
+        min-height: 44px;
+        padding: 12px 16px;
+    }
+    .action-btn {
+        min-height: 48px;
+        padding: 14px 12px;
+    }
+    .event-choice {
+        min-height: 48px;
+        padding: 14px 16px;
+    }
+    .debate-response {
+        min-height: 48px;
+        padding: 16px;
+    }
+    .strategy-option {
+        min-height: 48px;
+        padding: 14px;
+    }
+    .map-state {
+        min-width: 26px;
+        min-height: 26px;
+        font-size: 0.5rem;
+    }
+    .candidate-card {
+        padding: 1rem;
+    }
+}
+
+/* ── 3. Mobile Panel Management ── */
+@media (max-width: 768px) {
+    .game-left-panel,
+    .game-right-panel {
+        display: none;
+    }
+    .game-left-panel.mobile-visible,
+    .game-right-panel.mobile-visible {
+        display: block;
+        position: fixed;
+        top: 36px;
+        left: 0;
+        right: 0;
+        bottom: 56px;
+        z-index: 50;
+        overflow-y: auto;
+        background: var(--bg-secondary);
+    }
+    .game-center {
+        width: 100%;
+        padding-bottom: 64px;
+    }
+}
+
+/* ── 4. Bottom Sheet Modals on Mobile ── */
+@media (max-width: 768px) {
+    .modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+    .modal-content {
+        max-width: 100%;
+        width: 100%;
+        padding: 1.25rem;
+        max-height: 85vh;
+        border-radius: 16px 16px 0 0;
+        margin: 0;
+        animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+}
+
+/* ── 5. Landscape Orientation ── */
+@media (max-width: 900px) and (orientation: landscape) {
+    #screen-game {
+        grid-template-columns: 260px 1fr;
+        grid-template-rows: auto 1fr;
+    }
+    .game-left-panel {
+        display: block !important;
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
+        border-right: 1px solid var(--border-color);
+    }
+    .game-right-panel {
+        display: none;
+    }
+    .game-center {
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
+    }
+    .mobile-nav {
+        height: 44px;
+    }
+    .mobile-nav-label {
+        display: none;
+    }
+    .mobile-nav-icon {
+        font-size: 1.2rem;
+    }
+    #breaking-news-ticker {
+        height: 28px;
+        font-size: 0.7rem;
+    }
+    #app {
+        margin-top: 28px;
+    }
+    .game-top-bar {
+        padding: 6px 12px;
+    }
+}
+
+/* ── 6. Ticker Mobile Fix ── */
+@media (max-width: 480px) {
+    .ticker-label {
+        display: none;
+    }
+    #breaking-news-ticker {
+        font-size: 0.8rem;
+    }
+}
+
+/* ── 7. Map Mobile Optimization ── */
+@media (max-width: 768px) {
+    .us-map-container {
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .map-state {
+        touch-action: manipulation;
+    }
+}
+
+/* ── 8. PWA Safe Area Insets ── */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .mobile-nav {
+        padding-bottom: env(safe-area-inset-bottom);
+        height: calc(56px + env(safe-area-inset-bottom));
+    }
+    #app {
+        padding-top: env(safe-area-inset-top);
+    }
+}
+
+/* ── 9. Mobile Game Top Bar ── */
+@media (max-width: 768px) {
+    .game-top-bar {
+        padding: 8px 12px;
+        gap: 8px;
+        font-size: 0.85rem;
+    }
+    .top-bar-left {
+        gap: 10px;
+        width: 100%;
+    }
+    .top-bar-center {
+        flex-wrap: wrap;
+        gap: 8px;
+        width: 100%;
+    }
+    .top-bar-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .polling-pill {
+        font-size: 0.75rem;
+        padding: 4px 10px;
+    }
+    .week-display {
+        font-size: 0.95rem;
+    }
+    #btn-advance-week {
+        width: 100%;
+        min-height: 48px;
+        font-size: 1rem;
+    }
+}
+
+/* ── 10. Mobile Visible Utility ── */
+.mobile-visible {
+    display: block !important;
+}

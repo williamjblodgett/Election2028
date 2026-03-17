@@ -21,8 +21,9 @@ window.StateData = [
     composition: { urban: 37, suburban: 40, rural: 23 },
     educationSplit: { college: 35, nonCollege: 65 },
     issueSalience: {
-      economy: 90, immigration: 60, abortion: 70, crime: 65, cultureWar: 50,
-      labor: 80, energy: 75, healthcare: 72, education: 60, gunPolicy: 55
+      economy: 90, immigration: 72, abortion: 70, crime: 65, cultureWar: 50,
+      labor: 80, energy: 75, healthcare: 72, education: 60, gunPolicy: 55,
+      government: 82
     },
     adCostMultiplier: 1.5,
     turnoutPotential: 72,
@@ -41,8 +42,9 @@ window.StateData = [
     composition: { urban: 35, suburban: 38, rural: 27 },
     educationSplit: { college: 32, nonCollege: 68 },
     issueSalience: {
-      economy: 92, immigration: 55, abortion: 65, crime: 62, cultureWar: 45,
-      labor: 85, energy: 65, healthcare: 70, education: 62, gunPolicy: 50
+      economy: 92, immigration: 67, abortion: 65, crime: 62, cultureWar: 45,
+      labor: 85, energy: 65, healthcare: 70, education: 62, gunPolicy: 50,
+      government: 82
     },
     adCostMultiplier: 1.2,
     turnoutPotential: 70,
@@ -61,8 +63,9 @@ window.StateData = [
     composition: { urban: 30, suburban: 35, rural: 35 },
     educationSplit: { college: 33, nonCollege: 67 },
     issueSalience: {
-      economy: 88, immigration: 55, abortion: 68, crime: 58, cultureWar: 50,
-      labor: 82, energy: 60, healthcare: 72, education: 65, gunPolicy: 48
+      economy: 88, immigration: 67, abortion: 68, crime: 58, cultureWar: 50,
+      labor: 82, energy: 60, healthcare: 72, education: 65, gunPolicy: 48,
+      government: 80
     },
     adCostMultiplier: 1.1,
     turnoutPotential: 74,
@@ -81,8 +84,9 @@ window.StateData = [
     composition: { urban: 38, suburban: 37, rural: 25 },
     educationSplit: { college: 34, nonCollege: 66 },
     issueSalience: {
-      economy: 88, immigration: 65, abortion: 72, crime: 70, cultureWar: 55,
-      labor: 60, energy: 55, healthcare: 68, education: 62, gunPolicy: 58
+      economy: 88, immigration: 78, abortion: 72, crime: 70, cultureWar: 55,
+      labor: 60, energy: 55, healthcare: 68, education: 62, gunPolicy: 58,
+      government: 80
     },
     adCostMultiplier: 1.2,
     turnoutPotential: 68,
@@ -101,8 +105,9 @@ window.StateData = [
     composition: { urban: 40, suburban: 38, rural: 22 },
     educationSplit: { college: 33, nonCollege: 67 },
     issueSalience: {
-      economy: 85, immigration: 92, abortion: 62, crime: 65, cultureWar: 50,
-      labor: 55, energy: 60, healthcare: 65, education: 58, gunPolicy: 52
+      economy: 85, immigration: 100, abortion: 62, crime: 65, cultureWar: 50,
+      labor: 55, energy: 60, healthcare: 65, education: 58, gunPolicy: 52,
+      government: 82
     },
     adCostMultiplier: 1.15,
     turnoutPotential: 65,
@@ -121,8 +126,9 @@ window.StateData = [
     composition: { urban: 45, suburban: 35, rural: 20 },
     educationSplit: { college: 27, nonCollege: 73 },
     issueSalience: {
-      economy: 90, immigration: 72, abortion: 55, crime: 62, cultureWar: 42,
-      labor: 78, energy: 55, healthcare: 70, education: 55, gunPolicy: 48
+      economy: 90, immigration: 85, abortion: 55, crime: 62, cultureWar: 42,
+      labor: 78, energy: 55, healthcare: 70, education: 55, gunPolicy: 48,
+      government: 85
     },
     adCostMultiplier: 1.0,
     turnoutPotential: 60,
@@ -141,8 +147,9 @@ window.StateData = [
     composition: { urban: 32, suburban: 38, rural: 30 },
     educationSplit: { college: 35, nonCollege: 65 },
     issueSalience: {
-      economy: 86, immigration: 62, abortion: 68, crime: 60, cultureWar: 55,
-      labor: 58, energy: 58, healthcare: 65, education: 65, gunPolicy: 55
+      economy: 86, immigration: 75, abortion: 68, crime: 60, cultureWar: 55,
+      labor: 58, energy: 58, healthcare: 65, education: 65, gunPolicy: 55,
+      government: 80
     },
     adCostMultiplier: 1.15,
     turnoutPotential: 67,
@@ -158,15 +165,16 @@ window.StateData = [
     id: "MN",
     name: "Minnesota",
     electoralVotes: 10,
-    partisanLean: -2,
-    swingVolatility: 45,
+    partisanLean: -4,
+    swingVolatility: 55,
     isBattleground: true,
     demographics: { white: 79, black: 7, hispanic: 6, asian: 5, other: 3 },
     composition: { urban: 33, suburban: 37, rural: 30 },
     educationSplit: { college: 39, nonCollege: 61 },
     issueSalience: {
-      economy: 82, immigration: 55, abortion: 62, crime: 60, cultureWar: 48,
-      labor: 75, energy: 58, healthcare: 70, education: 68, gunPolicy: 50
+      economy: 82, immigration: 68, abortion: 62, crime: 60, cultureWar: 48,
+      labor: 75, energy: 58, healthcare: 70, education: 68, gunPolicy: 50,
+      government: 82
     },
     adCostMultiplier: 1.05,
     turnoutPotential: 78,
@@ -185,8 +193,9 @@ window.StateData = [
     composition: { urban: 22, suburban: 45, rural: 33 },
     educationSplit: { college: 40, nonCollege: 60 },
     issueSalience: {
-      economy: 80, immigration: 48, abortion: 60, crime: 45, cultureWar: 42,
-      labor: 55, energy: 50, healthcare: 68, education: 62, gunPolicy: 55
+      economy: 80, immigration: 60, abortion: 60, crime: 45, cultureWar: 42,
+      labor: 55, energy: 50, healthcare: 68, education: 62, gunPolicy: 55,
+      government: 85
     },
     adCostMultiplier: 1.3,
     turnoutPotential: 75,
@@ -205,8 +214,9 @@ window.StateData = [
     composition: { urban: 18, suburban: 28, rural: 54 },
     educationSplit: { college: 35, nonCollege: 65 },
     issueSalience: {
-      economy: 78, immigration: 42, abortion: 55, crime: 35, cultureWar: 40,
-      labor: 65, energy: 55, healthcare: 72, education: 60, gunPolicy: 52
+      economy: 78, immigration: 55, abortion: 55, crime: 35, cultureWar: 40,
+      labor: 65, energy: 55, healthcare: 72, education: 60, gunPolicy: 52,
+      government: 85
     },
     adCostMultiplier: 0.85,
     turnoutPotential: 73,
@@ -225,8 +235,9 @@ window.StateData = [
     composition: { urban: 36, suburban: 42, rural: 22 },
     educationSplit: { college: 42, nonCollege: 58 },
     issueSalience: {
-      economy: 82, immigration: 58, abortion: 65, crime: 55, cultureWar: 52,
-      labor: 55, energy: 50, healthcare: 62, education: 72, gunPolicy: 60
+      economy: 82, immigration: 70, abortion: 65, crime: 55, cultureWar: 52,
+      labor: 55, energy: 50, healthcare: 62, education: 72, gunPolicy: 60,
+      government: 82
     },
     adCostMultiplier: 1.4,
     turnoutPotential: 70,
@@ -249,8 +260,9 @@ window.StateData = [
     composition: { urban: 45, suburban: 40, rural: 15 },
     educationSplit: { college: 36, nonCollege: 64 },
     issueSalience: {
-      economy: 82, immigration: 70, abortion: 60, crime: 65, cultureWar: 55,
-      labor: 68, energy: 72, healthcare: 75, education: 70, gunPolicy: 62
+      economy: 82, immigration: 82, abortion: 60, crime: 65, cultureWar: 55,
+      labor: 68, energy: 72, healthcare: 75, education: 70, gunPolicy: 62,
+      government: 75
     },
     adCostMultiplier: 2.5,
     turnoutPotential: 62,
@@ -269,8 +281,9 @@ window.StateData = [
     composition: { urban: 48, suburban: 32, rural: 20 },
     educationSplit: { college: 39, nonCollege: 61 },
     issueSalience: {
-      economy: 85, immigration: 62, abortion: 58, crime: 70, cultureWar: 50,
-      labor: 65, energy: 55, healthcare: 72, education: 65, gunPolicy: 60
+      economy: 85, immigration: 75, abortion: 58, crime: 70, cultureWar: 50,
+      labor: 65, energy: 55, healthcare: 72, education: 65, gunPolicy: 60,
+      government: 75
     },
     adCostMultiplier: 2.8,
     turnoutPotential: 60,
@@ -289,8 +302,9 @@ window.StateData = [
     composition: { urban: 40, suburban: 38, rural: 22 },
     educationSplit: { college: 37, nonCollege: 63 },
     issueSalience: {
-      economy: 85, immigration: 55, abortion: 58, crime: 72, cultureWar: 45,
-      labor: 70, energy: 55, healthcare: 68, education: 65, gunPolicy: 65
+      economy: 85, immigration: 68, abortion: 58, crime: 72, cultureWar: 45,
+      labor: 70, energy: 55, healthcare: 68, education: 65, gunPolicy: 65,
+      government: 78
     },
     adCostMultiplier: 1.6,
     turnoutPotential: 63,
@@ -303,14 +317,15 @@ window.StateData = [
     name: "New Jersey",
     electoralVotes: 14,
     partisanLean: -14,
-    swingVolatility: 25,
+    swingVolatility: 35,
     isBattleground: false,
     demographics: { white: 55, black: 13, hispanic: 21, asian: 10, other: 1 },
     composition: { urban: 35, suburban: 50, rural: 15 },
     educationSplit: { college: 42, nonCollege: 58 },
     issueSalience: {
-      economy: 84, immigration: 58, abortion: 55, crime: 60, cultureWar: 42,
-      labor: 62, energy: 48, healthcare: 68, education: 70, gunPolicy: 58
+      economy: 84, immigration: 70, abortion: 55, crime: 60, cultureWar: 42,
+      labor: 62, energy: 48, healthcare: 68, education: 70, gunPolicy: 58,
+      government: 78
     },
     adCostMultiplier: 2.2,
     turnoutPotential: 64,
@@ -329,8 +344,9 @@ window.StateData = [
     composition: { urban: 38, suburban: 40, rural: 22 },
     educationSplit: { college: 39, nonCollege: 61 },
     issueSalience: {
-      economy: 78, immigration: 50, abortion: 55, crime: 58, cultureWar: 48,
-      labor: 65, energy: 68, healthcare: 70, education: 65, gunPolicy: 55
+      economy: 78, immigration: 62, abortion: 55, crime: 58, cultureWar: 48,
+      labor: 65, energy: 68, healthcare: 70, education: 65, gunPolicy: 55,
+      government: 75
     },
     adCostMultiplier: 1.4,
     turnoutPotential: 70,
@@ -349,8 +365,9 @@ window.StateData = [
     composition: { urban: 42, suburban: 42, rural: 16 },
     educationSplit: { college: 47, nonCollege: 53 },
     issueSalience: {
-      economy: 78, immigration: 45, abortion: 52, crime: 48, cultureWar: 40,
-      labor: 60, energy: 58, healthcare: 75, education: 78, gunPolicy: 55
+      economy: 78, immigration: 57, abortion: 52, crime: 48, cultureWar: 40,
+      labor: 60, energy: 58, healthcare: 75, education: 78, gunPolicy: 55,
+      government: 72
     },
     adCostMultiplier: 1.8,
     turnoutPotential: 68,
@@ -369,8 +386,9 @@ window.StateData = [
     composition: { urban: 35, suburban: 50, rural: 15 },
     educationSplit: { college: 42, nonCollege: 58 },
     issueSalience: {
-      economy: 80, immigration: 50, abortion: 55, crime: 62, cultureWar: 42,
-      labor: 58, energy: 48, healthcare: 68, education: 72, gunPolicy: 60
+      economy: 80, immigration: 62, abortion: 55, crime: 62, cultureWar: 42,
+      labor: 58, energy: 48, healthcare: 68, education: 72, gunPolicy: 60,
+      government: 78
     },
     adCostMultiplier: 1.6,
     turnoutPotential: 67,
@@ -389,8 +407,9 @@ window.StateData = [
     composition: { urban: 35, suburban: 40, rural: 25 },
     educationSplit: { college: 44, nonCollege: 56 },
     issueSalience: {
-      economy: 78, immigration: 58, abortion: 58, crime: 52, cultureWar: 48,
-      labor: 52, energy: 65, healthcare: 62, education: 65, gunPolicy: 58
+      economy: 78, immigration: 70, abortion: 58, crime: 52, cultureWar: 48,
+      labor: 52, energy: 65, healthcare: 62, education: 65, gunPolicy: 58,
+      government: 78
     },
     adCostMultiplier: 1.15,
     turnoutPotential: 72,
@@ -409,8 +428,9 @@ window.StateData = [
     composition: { urban: 32, suburban: 38, rural: 30 },
     educationSplit: { college: 36, nonCollege: 64 },
     issueSalience: {
-      economy: 78, immigration: 48, abortion: 55, crime: 58, cultureWar: 50,
-      labor: 62, energy: 68, healthcare: 68, education: 62, gunPolicy: 52
+      economy: 78, immigration: 60, abortion: 55, crime: 58, cultureWar: 50,
+      labor: 62, energy: 68, healthcare: 68, education: 62, gunPolicy: 52,
+      government: 78
     },
     adCostMultiplier: 1.1,
     turnoutPotential: 70,
@@ -429,8 +449,9 @@ window.StateData = [
     composition: { urban: 30, suburban: 52, rural: 18 },
     educationSplit: { college: 41, nonCollege: 59 },
     issueSalience: {
-      economy: 80, immigration: 48, abortion: 52, crime: 50, cultureWar: 38,
-      labor: 58, energy: 48, healthcare: 70, education: 72, gunPolicy: 60
+      economy: 80, immigration: 60, abortion: 52, crime: 50, cultureWar: 38,
+      labor: 58, energy: 48, healthcare: 70, education: 72, gunPolicy: 60,
+      government: 72
     },
     adCostMultiplier: 1.9,
     turnoutPotential: 66,
@@ -443,14 +464,15 @@ window.StateData = [
     name: "New Mexico",
     electoralVotes: 5,
     partisanLean: -10,
-    swingVolatility: 28,
+    swingVolatility: 30,
     isBattleground: false,
     demographics: { white: 37, black: 2, hispanic: 49, asian: 2, other: 10 },
     composition: { urban: 28, suburban: 30, rural: 42 },
     educationSplit: { college: 30, nonCollege: 70 },
     issueSalience: {
-      economy: 82, immigration: 75, abortion: 52, crime: 55, cultureWar: 40,
-      labor: 55, energy: 65, healthcare: 70, education: 65, gunPolicy: 48
+      economy: 82, immigration: 88, abortion: 52, crime: 55, cultureWar: 40,
+      labor: 55, energy: 65, healthcare: 70, education: 65, gunPolicy: 48,
+      government: 80
     },
     adCostMultiplier: 0.7,
     turnoutPotential: 58,
@@ -469,8 +491,9 @@ window.StateData = [
     composition: { urban: 40, suburban: 35, rural: 25 },
     educationSplit: { college: 34, nonCollege: 66 },
     issueSalience: {
-      economy: 80, immigration: 35, abortion: 45, crime: 40, cultureWar: 30,
-      labor: 60, energy: 65, healthcare: 70, education: 60, gunPolicy: 40
+      economy: 80, immigration: 47, abortion: 45, crime: 40, cultureWar: 30,
+      labor: 60, energy: 65, healthcare: 70, education: 60, gunPolicy: 40,
+      government: 70
     },
     adCostMultiplier: 1.2,
     turnoutPotential: 50,
@@ -489,8 +512,9 @@ window.StateData = [
     composition: { urban: 42, suburban: 40, rural: 18 },
     educationSplit: { college: 36, nonCollege: 64 },
     issueSalience: {
-      economy: 82, immigration: 45, abortion: 50, crime: 48, cultureWar: 35,
-      labor: 62, energy: 48, healthcare: 72, education: 65, gunPolicy: 55
+      economy: 82, immigration: 57, abortion: 50, crime: 48, cultureWar: 35,
+      labor: 62, energy: 48, healthcare: 72, education: 65, gunPolicy: 55,
+      government: 72
     },
     adCostMultiplier: 1.3,
     turnoutPotential: 62,
@@ -509,8 +533,9 @@ window.StateData = [
     composition: { urban: 28, suburban: 48, rural: 24 },
     educationSplit: { college: 35, nonCollege: 65 },
     issueSalience: {
-      economy: 80, immigration: 48, abortion: 52, crime: 55, cultureWar: 38,
-      labor: 58, energy: 48, healthcare: 65, education: 62, gunPolicy: 52
+      economy: 80, immigration: 60, abortion: 52, crime: 55, cultureWar: 38,
+      labor: 58, energy: 48, healthcare: 65, education: 62, gunPolicy: 52,
+      government: 75
     },
     adCostMultiplier: 1.5,
     turnoutPotential: 64,
@@ -529,8 +554,9 @@ window.StateData = [
     composition: { urban: 12, suburban: 28, rural: 60 },
     educationSplit: { college: 42, nonCollege: 58 },
     issueSalience: {
-      economy: 75, immigration: 35, abortion: 48, crime: 30, cultureWar: 38,
-      labor: 60, energy: 65, healthcare: 75, education: 68, gunPolicy: 52
+      economy: 75, immigration: 47, abortion: 48, crime: 30, cultureWar: 38,
+      labor: 60, energy: 65, healthcare: 75, education: 68, gunPolicy: 52,
+      government: 75
     },
     adCostMultiplier: 0.7,
     turnoutPotential: 72,
@@ -549,8 +575,9 @@ window.StateData = [
     composition: { urban: 100, suburban: 0, rural: 0 },
     educationSplit: { college: 60, nonCollege: 40 },
     issueSalience: {
-      economy: 78, immigration: 45, abortion: 55, crime: 68, cultureWar: 50,
-      labor: 55, energy: 48, healthcare: 70, education: 72, gunPolicy: 65
+      economy: 78, immigration: 57, abortion: 55, crime: 68, cultureWar: 50,
+      labor: 55, energy: 48, healthcare: 70, education: 72, gunPolicy: 65,
+      government: 90
     },
     adCostMultiplier: 2.0,
     turnoutPotential: 62,
@@ -573,8 +600,9 @@ window.StateData = [
     composition: { urban: 40, suburban: 38, rural: 22 },
     educationSplit: { college: 32, nonCollege: 68 },
     issueSalience: {
-      economy: 85, immigration: 90, abortion: 62, crime: 65, cultureWar: 58,
-      labor: 55, energy: 85, healthcare: 62, education: 58, gunPolicy: 60
+      economy: 85, immigration: 100, abortion: 62, crime: 65, cultureWar: 58,
+      labor: 55, energy: 85, healthcare: 62, education: 58, gunPolicy: 60,
+      government: 82
     },
     adCostMultiplier: 1.6,
     turnoutPotential: 58,
@@ -593,8 +621,9 @@ window.StateData = [
     composition: { urban: 40, suburban: 42, rural: 18 },
     educationSplit: { college: 33, nonCollege: 67 },
     issueSalience: {
-      economy: 85, immigration: 72, abortion: 58, crime: 62, cultureWar: 58,
-      labor: 52, energy: 55, healthcare: 72, education: 62, gunPolicy: 58
+      economy: 85, immigration: 85, abortion: 58, crime: 62, cultureWar: 58,
+      labor: 52, energy: 55, healthcare: 72, education: 62, gunPolicy: 58,
+      government: 78
     },
     adCostMultiplier: 1.7,
     turnoutPotential: 65,
@@ -613,8 +642,9 @@ window.StateData = [
     composition: { urban: 32, suburban: 38, rural: 30 },
     educationSplit: { college: 31, nonCollege: 69 },
     issueSalience: {
-      economy: 88, immigration: 55, abortion: 62, crime: 58, cultureWar: 50,
-      labor: 78, energy: 65, healthcare: 68, education: 58, gunPolicy: 52
+      economy: 88, immigration: 68, abortion: 62, crime: 58, cultureWar: 50,
+      labor: 78, energy: 65, healthcare: 68, education: 58, gunPolicy: 52,
+      government: 85
     },
     adCostMultiplier: 1.1,
     turnoutPotential: 66,
@@ -633,8 +663,9 @@ window.StateData = [
     composition: { urban: 30, suburban: 35, rural: 35 },
     educationSplit: { college: 29, nonCollege: 71 },
     issueSalience: {
-      economy: 85, immigration: 55, abortion: 58, crime: 55, cultureWar: 52,
-      labor: 68, energy: 58, healthcare: 62, education: 55, gunPolicy: 48
+      economy: 85, immigration: 68, abortion: 58, crime: 55, cultureWar: 52,
+      labor: 68, energy: 58, healthcare: 62, education: 55, gunPolicy: 48,
+      government: 80
     },
     adCostMultiplier: 0.9,
     turnoutPotential: 60,
@@ -653,8 +684,9 @@ window.StateData = [
     composition: { urban: 30, suburban: 32, rural: 38 },
     educationSplit: { college: 30, nonCollege: 70 },
     issueSalience: {
-      economy: 82, immigration: 55, abortion: 58, crime: 55, cultureWar: 58,
-      labor: 52, energy: 52, healthcare: 60, education: 55, gunPolicy: 52
+      economy: 82, immigration: 68, abortion: 58, crime: 55, cultureWar: 58,
+      labor: 52, energy: 52, healthcare: 60, education: 55, gunPolicy: 52,
+      government: 82
     },
     adCostMultiplier: 0.9,
     turnoutPotential: 58,
@@ -673,8 +705,9 @@ window.StateData = [
     composition: { urban: 28, suburban: 32, rural: 40 },
     educationSplit: { college: 32, nonCollege: 68 },
     issueSalience: {
-      economy: 84, immigration: 55, abortion: 60, crime: 60, cultureWar: 52,
-      labor: 60, energy: 55, healthcare: 62, education: 58, gunPolicy: 55
+      economy: 84, immigration: 68, abortion: 60, crime: 60, cultureWar: 52,
+      labor: 60, energy: 55, healthcare: 62, education: 58, gunPolicy: 55,
+      government: 82
     },
     adCostMultiplier: 0.95,
     turnoutPotential: 62,
@@ -693,8 +726,9 @@ window.StateData = [
     composition: { urban: 25, suburban: 35, rural: 40 },
     educationSplit: { college: 30, nonCollege: 70 },
     issueSalience: {
-      economy: 82, immigration: 58, abortion: 55, crime: 55, cultureWar: 55,
-      labor: 48, energy: 50, healthcare: 62, education: 58, gunPolicy: 52
+      economy: 82, immigration: 70, abortion: 55, crime: 55, cultureWar: 55,
+      labor: 48, energy: 50, healthcare: 62, education: 58, gunPolicy: 52,
+      government: 80
     },
     adCostMultiplier: 0.85,
     turnoutPotential: 60,
@@ -713,8 +747,9 @@ window.StateData = [
     composition: { urban: 24, suburban: 28, rural: 48 },
     educationSplit: { college: 27, nonCollege: 73 },
     issueSalience: {
-      economy: 82, immigration: 55, abortion: 55, crime: 55, cultureWar: 58,
-      labor: 48, energy: 52, healthcare: 62, education: 55, gunPolicy: 48
+      economy: 82, immigration: 67, abortion: 55, crime: 55, cultureWar: 58,
+      labor: 48, energy: 52, healthcare: 62, education: 55, gunPolicy: 48,
+      government: 80
     },
     adCostMultiplier: 0.7,
     turnoutPotential: 55,
@@ -733,8 +768,9 @@ window.StateData = [
     composition: { urban: 28, suburban: 28, rural: 44 },
     educationSplit: { college: 26, nonCollege: 74 },
     issueSalience: {
-      economy: 84, immigration: 55, abortion: 52, crime: 62, cultureWar: 52,
-      labor: 52, energy: 72, healthcare: 65, education: 55, gunPolicy: 48
+      economy: 84, immigration: 67, abortion: 52, crime: 62, cultureWar: 52,
+      labor: 52, energy: 72, healthcare: 65, education: 55, gunPolicy: 48,
+      government: 80
     },
     adCostMultiplier: 0.8,
     turnoutPotential: 55,
@@ -753,8 +789,9 @@ window.StateData = [
     composition: { urban: 22, suburban: 30, rural: 48 },
     educationSplit: { college: 27, nonCollege: 73 },
     issueSalience: {
-      economy: 85, immigration: 50, abortion: 55, crime: 50, cultureWar: 55,
-      labor: 62, energy: 72, healthcare: 65, education: 58, gunPolicy: 50
+      economy: 85, immigration: 62, abortion: 55, crime: 50, cultureWar: 55,
+      labor: 62, energy: 72, healthcare: 65, education: 58, gunPolicy: 50,
+      government: 82
     },
     adCostMultiplier: 0.8,
     turnoutPotential: 58,
@@ -773,8 +810,9 @@ window.StateData = [
     composition: { urban: 25, suburban: 30, rural: 45 },
     educationSplit: { college: 28, nonCollege: 72 },
     issueSalience: {
-      economy: 82, immigration: 62, abortion: 52, crime: 50, cultureWar: 55,
-      labor: 48, energy: 78, healthcare: 58, education: 55, gunPolicy: 48
+      economy: 82, immigration: 75, abortion: 52, crime: 50, cultureWar: 55,
+      labor: 48, energy: 78, healthcare: 58, education: 55, gunPolicy: 48,
+      government: 85
     },
     adCostMultiplier: 0.7,
     turnoutPotential: 55,
@@ -793,8 +831,9 @@ window.StateData = [
     composition: { urban: 22, suburban: 28, rural: 50 },
     educationSplit: { college: 31, nonCollege: 69 },
     issueSalience: {
-      economy: 85, immigration: 55, abortion: 55, crime: 42, cultureWar: 48,
-      labor: 68, energy: 62, healthcare: 65, education: 62, gunPolicy: 45
+      economy: 85, immigration: 68, abortion: 55, crime: 42, cultureWar: 48,
+      labor: 68, energy: 62, healthcare: 65, education: 62, gunPolicy: 45,
+      government: 85
     },
     adCostMultiplier: 0.8,
     turnoutPotential: 70,
@@ -813,8 +852,9 @@ window.StateData = [
     composition: { urban: 24, suburban: 30, rural: 46 },
     educationSplit: { college: 35, nonCollege: 65 },
     issueSalience: {
-      economy: 82, immigration: 55, abortion: 62, crime: 48, cultureWar: 50,
-      labor: 50, energy: 60, healthcare: 60, education: 60, gunPolicy: 48
+      economy: 82, immigration: 68, abortion: 62, crime: 48, cultureWar: 50,
+      labor: 50, energy: 60, healthcare: 60, education: 60, gunPolicy: 48,
+      government: 80
     },
     adCostMultiplier: 0.75,
     turnoutPotential: 62,
@@ -833,8 +873,9 @@ window.StateData = [
     composition: { urban: 30, suburban: 42, rural: 28 },
     educationSplit: { college: 36, nonCollege: 64 },
     issueSalience: {
-      economy: 80, immigration: 55, abortion: 48, crime: 42, cultureWar: 52,
-      labor: 42, energy: 60, healthcare: 58, education: 62, gunPolicy: 42
+      economy: 80, immigration: 67, abortion: 48, crime: 42, cultureWar: 52,
+      labor: 42, energy: 60, healthcare: 58, education: 62, gunPolicy: 42,
+      government: 82
     },
     adCostMultiplier: 0.8,
     turnoutPotential: 65,
@@ -853,8 +894,9 @@ window.StateData = [
     composition: { urban: 20, suburban: 25, rural: 55 },
     educationSplit: { college: 25, nonCollege: 75 },
     issueSalience: {
-      economy: 82, immigration: 52, abortion: 52, crime: 48, cultureWar: 55,
-      labor: 50, energy: 55, healthcare: 62, education: 55, gunPolicy: 48
+      economy: 82, immigration: 65, abortion: 52, crime: 48, cultureWar: 55,
+      labor: 50, energy: 55, healthcare: 62, education: 55, gunPolicy: 48,
+      government: 82
     },
     adCostMultiplier: 0.6,
     turnoutPotential: 52,
@@ -873,8 +915,9 @@ window.StateData = [
     composition: { urban: 18, suburban: 22, rural: 60 },
     educationSplit: { college: 23, nonCollege: 77 },
     issueSalience: {
-      economy: 85, immigration: 48, abortion: 50, crime: 55, cultureWar: 52,
-      labor: 48, energy: 52, healthcare: 68, education: 58, gunPolicy: 45
+      economy: 85, immigration: 60, abortion: 50, crime: 55, cultureWar: 52,
+      labor: 48, energy: 52, healthcare: 68, education: 58, gunPolicy: 45,
+      government: 78
     },
     adCostMultiplier: 0.55,
     turnoutPotential: 52,
@@ -893,8 +936,9 @@ window.StateData = [
     composition: { urban: 24, suburban: 28, rural: 48 },
     educationSplit: { college: 34, nonCollege: 66 },
     issueSalience: {
-      economy: 82, immigration: 55, abortion: 52, crime: 45, cultureWar: 48,
-      labor: 55, energy: 60, healthcare: 58, education: 58, gunPolicy: 45
+      economy: 82, immigration: 68, abortion: 52, crime: 45, cultureWar: 48,
+      labor: 55, energy: 60, healthcare: 58, education: 58, gunPolicy: 45,
+      government: 82
     },
     adCostMultiplier: 0.7,
     turnoutPotential: 65,
@@ -913,8 +957,9 @@ window.StateData = [
     composition: { urban: 12, suburban: 22, rural: 66 },
     educationSplit: { college: 22, nonCollege: 78 },
     issueSalience: {
-      economy: 88, immigration: 48, abortion: 48, crime: 42, cultureWar: 55,
-      labor: 68, energy: 82, healthcare: 68, education: 52, gunPolicy: 48
+      economy: 88, immigration: 60, abortion: 48, crime: 42, cultureWar: 55,
+      labor: 68, energy: 82, healthcare: 68, education: 52, gunPolicy: 48,
+      government: 88
     },
     adCostMultiplier: 0.55,
     turnoutPotential: 52,
@@ -933,8 +978,9 @@ window.StateData = [
     composition: { urban: 18, suburban: 30, rural: 52 },
     educationSplit: { college: 30, nonCollege: 70 },
     issueSalience: {
-      economy: 78, immigration: 58, abortion: 48, crime: 40, cultureWar: 55,
-      labor: 45, energy: 58, healthcare: 55, education: 55, gunPolicy: 48
+      economy: 78, immigration: 70, abortion: 48, crime: 40, cultureWar: 55,
+      labor: 45, energy: 58, healthcare: 55, education: 55, gunPolicy: 48,
+      government: 88
     },
     adCostMultiplier: 0.6,
     turnoutPotential: 62,
@@ -953,8 +999,9 @@ window.StateData = [
     composition: { urban: 14, suburban: 22, rural: 64 },
     educationSplit: { college: 34, nonCollege: 66 },
     issueSalience: {
-      economy: 78, immigration: 48, abortion: 48, crime: 35, cultureWar: 48,
-      labor: 52, energy: 62, healthcare: 58, education: 52, gunPolicy: 50
+      economy: 78, immigration: 60, abortion: 48, crime: 35, cultureWar: 48,
+      labor: 52, energy: 62, healthcare: 58, education: 52, gunPolicy: 50,
+      government: 88
     },
     adCostMultiplier: 0.55,
     turnoutPotential: 65,
@@ -973,8 +1020,9 @@ window.StateData = [
     composition: { urban: 20, suburban: 18, rural: 62 },
     educationSplit: { college: 30, nonCollege: 70 },
     issueSalience: {
-      economy: 80, immigration: 42, abortion: 42, crime: 38, cultureWar: 45,
-      labor: 55, energy: 82, healthcare: 58, education: 50, gunPolicy: 52
+      economy: 80, immigration: 55, abortion: 42, crime: 38, cultureWar: 45,
+      labor: 55, energy: 82, healthcare: 58, education: 50, gunPolicy: 52,
+      government: 88
     },
     adCostMultiplier: 0.8,
     turnoutPotential: 58,
@@ -993,8 +1041,9 @@ window.StateData = [
     composition: { urban: 15, suburban: 22, rural: 63 },
     educationSplit: { college: 31, nonCollege: 69 },
     issueSalience: {
-      economy: 80, immigration: 48, abortion: 48, crime: 35, cultureWar: 48,
-      labor: 50, energy: 58, healthcare: 58, education: 55, gunPolicy: 42
+      economy: 80, immigration: 60, abortion: 48, crime: 35, cultureWar: 48,
+      labor: 50, energy: 58, healthcare: 58, education: 55, gunPolicy: 42,
+      government: 85
     },
     adCostMultiplier: 0.5,
     turnoutPotential: 62,
@@ -1013,8 +1062,9 @@ window.StateData = [
     composition: { urban: 14, suburban: 20, rural: 66 },
     educationSplit: { college: 32, nonCollege: 68 },
     issueSalience: {
-      economy: 80, immigration: 45, abortion: 45, crime: 32, cultureWar: 48,
-      labor: 52, energy: 72, healthcare: 55, education: 52, gunPolicy: 42
+      economy: 80, immigration: 57, abortion: 45, crime: 32, cultureWar: 48,
+      labor: 52, energy: 72, healthcare: 55, education: 52, gunPolicy: 42,
+      government: 85
     },
     adCostMultiplier: 0.5,
     turnoutPotential: 62,
@@ -1033,8 +1083,9 @@ window.StateData = [
     composition: { urban: 10, suburban: 18, rural: 72 },
     educationSplit: { college: 28, nonCollege: 72 },
     issueSalience: {
-      economy: 78, immigration: 50, abortion: 42, crime: 30, cultureWar: 50,
-      labor: 45, energy: 82, healthcare: 52, education: 48, gunPolicy: 50
+      economy: 78, immigration: 62, abortion: 42, crime: 30, cultureWar: 50,
+      labor: 45, energy: 82, healthcare: 52, education: 48, gunPolicy: 50,
+      government: 90
     },
     adCostMultiplier: 0.45,
     turnoutPotential: 60,

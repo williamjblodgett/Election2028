@@ -240,8 +240,14 @@ window.GameEngine = {
             this.processFinances({});
         }
 
-        // 7. Generate and process events
+        // 7. Generate and process events (including primary milestones)
         const events = window.EventSystem.ScenarioEngine.generateWeeklyEvents(this.state);
+        if (this.state.phase === 'primary') {
+            const milestone = window.EventSystem.ScenarioEngine.getPrimaryMilestone(this.state.week);
+            if (milestone) {
+                events.unshift(milestone);
+            }
+        }
         summary.events = events;
 
         // 8. Process event choices (if provided)

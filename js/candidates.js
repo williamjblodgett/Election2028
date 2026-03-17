@@ -14,7 +14,7 @@ window.CandidateData = {
       title: "Governor of California",
       age: 60,
       homeState: "California",
-      bio: "Gavin Newsom has served as Governor of California since 2019, previously serving as Mayor of San Francisco and Lieutenant Governor. He built a national profile through aggressive climate and social policy but faces persistent criticism over California's cost-of-living crisis and homelessness challenges. He is widely regarded as one of the most polished communicators in the Democratic Party.",
+      bio: "Gavin Newsom has served as Governor of California since 2019, previously serving as Mayor of San Francisco and Lieutenant Governor. He built a national profile through aggressive climate and social policy but faces persistent criticism over California's cost-of-living crisis and homelessness challenges. As of early 2026, he is surging in Democratic presidential polls at 19-25%, positioning himself as a top-tier contender. He is widely regarded as one of the most polished communicators in the Democratic Party.",
       isWildcard: false,
       portraitEmoji: "\uD83D\uDC54",
       slogan: "California Dreaming, American Delivering",
@@ -34,7 +34,7 @@ window.CandidateData = {
       staffCompetence: 80,
       meltdownRisk: 25,
       ideologicalElasticity: 65,
-      donorTrust: 90,
+      donorTrust: 92,
       authenticity: 42,
       eliteSupport: 88,
       viralPotential: 55,
@@ -161,7 +161,7 @@ window.CandidateData = {
       title: "Former Vice President",
       age: 63,
       homeState: "California",
-      bio: "Kamala Harris served as the 49th Vice President of the United States, the first woman and first person of Black and South Asian descent to hold the office. She previously served as U.S. Senator from California and as California Attorney General. Despite her historic tenure, her 2024 presidential campaign ended in defeat, and she faces questions about whether she can rebuild a winning coalition.",
+      bio: "Kamala Harris served as the 49th Vice President of the United States, the first woman and first person of Black and South Asian descent to hold the office. She previously served as U.S. Senator from California and as California Attorney General. Despite losing the 2024 presidential election, she leads 2028 Democratic primary polls at 26-39%, reflecting her enduring institutional support and name recognition. She faces questions about whether a rematch candidate can overcome the fatigue and baggage of a prior defeat.",
       isWildcard: false,
       portraitEmoji: "\uD83C\uDDFA\uD83C\uDDF8",
       slogan: "We're Not Going Back — Again",
@@ -173,7 +173,7 @@ window.CandidateData = {
       fundraising: 82,
       discipline: 60,
       mediaHandling: 52,
-      baseEnthusiasm: 55,
+      baseEnthusiasm: 58,
       crossoverAppeal: 50,
       scandalResistance: 58,
 
@@ -192,7 +192,8 @@ window.CandidateData = {
         "Reported criticism: high staff turnover during her vice presidency was widely covered as a sign of management issues",
         "Opposition research: her record as California Attorney General drew criticism from criminal justice reform advocates",
         "Reported criticism: unscripted media appearances frequently produced awkward viral moments and word-salad critiques",
-        "Opposition attack line: was assigned the border portfolio as VP and faced bipartisan criticism over immigration outcomes"
+        "Opposition attack line: was assigned the border portfolio as VP and faced bipartisan criticism over immigration outcomes",
+        "Opposition attack line: 2024 election loss will be used to frame her as a proven loser who already had her chance and failed to close"
       ],
       strengths: [
         "Historic figure who energizes key demographic coalitions",
@@ -260,7 +261,7 @@ window.CandidateData = {
       title: "Media Personality & Commentator",
       age: 60,
       homeState: "New York",
-      bio: "Stephen A. Smith is one of the most recognizable sports media personalities in America, known for his bombastic style on ESPN's First Take. He has increasingly ventured into political commentary, interviewing major political figures and offering pointed opinions on social issues. His potential candidacy represents the ultimate outsider chaos factor in the Democratic field.",
+      bio: "Stephen A. Smith is one of the most recognizable sports media personalities in America, known for his bombastic style on ESPN's First Take. He officially ruled out running for president in March 2026 after signing a $100M deal with ESPN, but his flirtation with politics and increasingly pointed political commentary had generated real buzz. What if he changed his mind? His potential candidacy represents the ultimate outsider chaos factor in the Democratic field.",
       isWildcard: true,
       portraitEmoji: "\uD83C\uDFA4",
       slogan: "Quite Frankly, I'm Running",
@@ -281,7 +282,7 @@ window.CandidateData = {
       meltdownRisk: 80,
       ideologicalElasticity: 60,
       donorTrust: 25,
-      authenticity: 82,
+      authenticity: 70,
       eliteSupport: 15,
       viralPotential: 95,
       fatigueFactor: 35,
@@ -312,7 +313,7 @@ window.CandidateData = {
       title: "Vice President of the United States",
       age: 43,
       homeState: "Ohio",
-      bio: "J.D. Vance rose to fame with his memoir 'Hillbilly Elegy' and was elected to the U.S. Senate from Ohio in 2022 before being selected as Donald Trump's running mate. He served as Vice President and positioned himself as the heir to the populist-nationalist movement. Once a vocal Trump critic, his transformation into a loyal MAGA champion is both his greatest asset and his most scrutinized liability.",
+      bio: "J.D. Vance is the sitting Vice President of the United States and the massive 2028 Republican frontrunner, polling at 46% in GOP primary surveys as of early 2026. He rose to fame with his memoir 'Hillbilly Elegy,' was elected to the U.S. Senate from Ohio in 2022, and was selected as Donald Trump's running mate in 2024. As VP, he has positioned himself as the heir apparent to the populist-nationalist movement. Once a vocal Trump critic, his transformation into a loyal MAGA champion is both his greatest asset and his most scrutinized liability.",
       isWildcard: false,
       portraitEmoji: "\uD83C\uDFD4\uFE0F",
       slogan: "Fight for the Forgotten",
@@ -321,7 +322,7 @@ window.CandidateData = {
       // Visible stats
       charisma: 55,
       debate: 78,
-      fundraising: 72,
+      fundraising: 82,
       discipline: 62,
       mediaHandling: 60,
       baseEnthusiasm: 70,
@@ -334,7 +335,7 @@ window.CandidateData = {
       ideologicalElasticity: 55,
       donorTrust: 65,
       authenticity: 38,
-      eliteSupport: 58,
+      eliteSupport: 85,
       viralPotential: 60,
       fatigueFactor: 35,
 
@@ -343,7 +344,8 @@ window.CandidateData = {
         "Reported criticism: 'childless cat ladies' remark about Democratic leaders became a widely circulated liability",
         "Opposition research: his ideological conversion from Trump critic to Trump loyalist is framed as pure opportunism",
         "Reported criticism: polling as VP showed persistently low favorability ratings, including among independents",
-        "Opposition attack line: venture capital career and Yale Law degree undercut his blue-collar populist branding"
+        "Opposition attack line: venture capital career and Yale Law degree undercut his blue-collar populist branding",
+        "Opposition attack line: tied to Trump administration's controversial policies including tariffs that 55% of Americans say hurt the economy"
       ],
       strengths: [
         "Compelling personal narrative from Appalachian poverty to national office",
@@ -361,7 +363,7 @@ window.CandidateData = {
       title: "Secretary of State",
       age: 57,
       homeState: "Florida",
-      bio: "Marco Rubio has served as Secretary of State and previously represented Florida in the U.S. Senate since 2011. Once hailed as the future of the Republican Party, his 2016 presidential bid collapsed after a damaging debate performance against Chris Christie. He has rebuilt his profile as a foreign policy hawk and establishment figure with appeal to Latino voters.",
+      bio: "Marco Rubio serves as Secretary of State in the Trump administration, having left his Florida Senate seat to join the Cabinet. Previously representing Florida in the U.S. Senate since 2011 and once hailed as the future of the Republican Party, his 2016 presidential bid collapsed after a damaging debate performance against Chris Christie. His Cabinet role has given him significant foreign policy credentials, but he is now closely tied to the administration's record.",
       isWildcard: false,
       portraitEmoji: "\uD83C\uDF0E",
       slogan: "A New American Century",
@@ -392,7 +394,8 @@ window.CandidateData = {
         "Reported criticism: voted against bipartisan immigration reform he himself helped author, raising flip-flop accusations",
         "Opposition research: repeatedly missed a high percentage of Senate votes, drawing 'absentee senator' criticism",
         "Reported criticism: personal financial struggles and use of a Republican Party credit card were widely reported",
-        "Opposition attack line: failed to gain traction in 2016, losing his home state of Florida to Trump in the primary"
+        "Opposition attack line: failed to gain traction in 2016, losing his home state of Florida to Trump in the primary",
+        "Opposition attack line: left the Senate to join an administration critics describe as chaotic"
       ],
       strengths: [
         "Deep foreign policy expertise, especially on Latin America and China",
@@ -558,7 +561,7 @@ window.CandidateData = {
       title: "Media Host & Political Commentator",
       age: 58,
       homeState: "Maine",
-      bio: "Tucker Carlson became the most-watched host in cable news history during his tenure at Fox News before his abrupt departure in 2023. He relaunched as an independent media figure, conducting high-profile interviews and building a massive direct audience. His populist-nationalist worldview and willingness to court controversy make him one of the most influential — and divisive — voices on the American right.",
+      bio: "Tucker Carlson became the most-watched host in cable news history during his tenure at Fox News before his abrupt departure in 2023. He relaunched as an independent media figure, conducting high-profile interviews and building a massive direct audience. In March 2026, President Trump publicly criticized Carlson, saying he 'lost his way,' while Rep. Marjorie Taylor Greene suggested he should run for president — developments that paradoxically make him MORE viable as a wildcard outsider candidate. His populist-nationalist worldview and willingness to court controversy make him one of the most influential — and divisive — voices on the American right.",
       isWildcard: true,
       portraitEmoji: "\uD83D\uDCFA",
       slogan: "Ask the Questions They Don't Want Asked",
@@ -589,7 +592,8 @@ window.CandidateData = {
         "Reported criticism: private text messages revealed during the Dominion lawsuit showed contempt for Trump and Fox viewers",
         "Opposition research: his 2024 interview with Vladimir Putin was widely criticized as softball and deferential",
         "Reported criticism: former head writer resigned after being exposed for posting racist and sexist content online",
-        "Opposition attack line: years of archived Fox News segments provide extensive opposition research material on controversial claims"
+        "Opposition attack line: years of archived Fox News segments provide extensive opposition research material on controversial claims",
+        "Reported development: publicly rebuked by President Trump in March 2026, creating potential rift with MAGA base"
       ],
       strengths: [
         "One of the most talented television communicators of his generation",

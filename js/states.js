@@ -29,7 +29,7 @@ window.StateData = [
     turnoutPotential: 72,
     region: "northeast",
     keyCity: "Philadelphia",
-    cx: 76, cy: 32
+    cx: 77, cy: 30
   },
   {
     id: "MI",
@@ -50,7 +50,7 @@ window.StateData = [
     turnoutPotential: 70,
     region: "midwest",
     keyCity: "Detroit",
-    cx: 66, cy: 26
+    cx: 66, cy: 19
   },
   {
     id: "WI",
@@ -71,7 +71,7 @@ window.StateData = [
     turnoutPotential: 74,
     region: "midwest",
     keyCity: "Milwaukee",
-    cx: 58, cy: 24
+    cx: 57, cy: 18
   },
   {
     id: "GA",
@@ -113,7 +113,7 @@ window.StateData = [
     turnoutPotential: 65,
     region: "southwest",
     keyCity: "Phoenix",
-    cx: 22, cy: 55
+    cx: 20, cy: 52
   },
   {
     id: "NV",
@@ -134,7 +134,7 @@ window.StateData = [
     turnoutPotential: 60,
     region: "west",
     keyCity: "Las Vegas",
-    cx: 15, cy: 42
+    cx: 13, cy: 34
   },
   {
     id: "NC",
@@ -155,7 +155,7 @@ window.StateData = [
     turnoutPotential: 67,
     region: "southeast",
     keyCity: "Charlotte",
-    cx: 74, cy: 47
+    cx: 75, cy: 46
   },
 
   // ============================================================
@@ -180,7 +180,7 @@ window.StateData = [
     turnoutPotential: 78,
     region: "midwest",
     keyCity: "Minneapolis",
-    cx: 52, cy: 20
+    cx: 50, cy: 15
   },
   {
     id: "NH",
@@ -201,7 +201,7 @@ window.StateData = [
     turnoutPotential: 75,
     region: "northeast",
     keyCity: "Manchester",
-    cx: 84, cy: 18
+    cx: 85, cy: 15
   },
   {
     id: "ME",
@@ -222,7 +222,7 @@ window.StateData = [
     turnoutPotential: 73,
     region: "northeast",
     keyCity: "Portland",
-    cx: 87, cy: 14
+    cx: 89, cy: 9
   },
   {
     id: "VA",
@@ -243,7 +243,7 @@ window.StateData = [
     turnoutPotential: 70,
     region: "southeast",
     keyCity: "Virginia Beach",
-    cx: 76, cy: 42
+    cx: 76, cy: 41
   },
 
   // ============================================================
@@ -268,7 +268,7 @@ window.StateData = [
     turnoutPotential: 62,
     region: "pacific",
     keyCity: "Los Angeles",
-    cx: 8, cy: 42
+    cx: 7, cy: 40
   },
   {
     id: "NY",
@@ -289,7 +289,7 @@ window.StateData = [
     turnoutPotential: 60,
     region: "northeast",
     keyCity: "New York City",
-    cx: 80, cy: 28
+    cx: 80, cy: 23
   },
   {
     id: "IL",
@@ -310,7 +310,7 @@ window.StateData = [
     turnoutPotential: 63,
     region: "midwest",
     keyCity: "Chicago",
-    cx: 60, cy: 32
+    cx: 59, cy: 33
   },
   {
     id: "NJ",
@@ -331,7 +331,7 @@ window.StateData = [
     turnoutPotential: 64,
     region: "northeast",
     keyCity: "Newark",
-    cx: 79, cy: 33
+    cx: 82, cy: 33
   },
   {
     id: "WA",
@@ -352,7 +352,7 @@ window.StateData = [
     turnoutPotential: 70,
     region: "pacific",
     keyCity: "Seattle",
-    cx: 10, cy: 10
+    cx: 12, cy: 8
   },
   {
     id: "MA",
@@ -373,7 +373,7 @@ window.StateData = [
     turnoutPotential: 68,
     region: "northeast",
     keyCity: "Boston",
-    cx: 86, cy: 22
+    cx: 87, cy: 23
   },
   {
     id: "MD",
@@ -394,7 +394,7 @@ window.StateData = [
     turnoutPotential: 67,
     region: "northeast",
     keyCity: "Baltimore",
-    cx: 77, cy: 38
+    cx: 79, cy: 38
   },
   {
     id: "CO",
@@ -415,7 +415,7 @@ window.StateData = [
     turnoutPotential: 72,
     region: "west",
     keyCity: "Denver",
-    cx: 30, cy: 38
+    cx: 31, cy: 38
   },
   {
     id: "OR",
@@ -436,7 +436,7 @@ window.StateData = [
     turnoutPotential: 70,
     region: "pacific",
     keyCity: "Portland",
-    cx: 9, cy: 18
+    cx: 10, cy: 18
   },
   {
     id: "CT",
@@ -457,7 +457,7 @@ window.StateData = [
     turnoutPotential: 66,
     region: "northeast",
     keyCity: "Hartford",
-    cx: 83, cy: 25
+    cx: 85, cy: 28
   },
   {
     id: "NM",
@@ -478,7 +478,7 @@ window.StateData = [
     turnoutPotential: 58,
     region: "southwest",
     keyCity: "Albuquerque",
-    cx: 24, cy: 52
+    cx: 28, cy: 52
   },
   {
     id: "HI",
@@ -499,7 +499,7 @@ window.StateData = [
     turnoutPotential: 50,
     region: "pacific",
     keyCity: "Honolulu",
-    cx: 18, cy: 82
+    cx: 26, cy: 83
   },
   {
     id: "RI",
@@ -520,7 +520,7 @@ window.StateData = [
     turnoutPotential: 62,
     region: "northeast",
     keyCity: "Providence",
-    cx: 85, cy: 24
+    cx: 88, cy: 26
   },
   {
     id: "DE",
@@ -541,7 +541,7 @@ window.StateData = [
     turnoutPotential: 64,
     region: "northeast",
     keyCity: "Wilmington",
-    cx: 79, cy: 36
+    cx: 82, cy: 38
   },
   {
     id: "VT",
@@ -562,7 +562,7 @@ window.StateData = [
     turnoutPotential: 72,
     region: "northeast",
     keyCity: "Burlington",
-    cx: 82, cy: 14
+    cx: 82, cy: 15
   },
   {
     id: "DC",
@@ -583,7 +583,7 @@ window.StateData = [
     turnoutPotential: 62,
     region: "northeast",
     keyCity: "Washington",
-    cx: 77, cy: 40
+    cx: 78, cy: 41
   },
 
   // ============================================================
@@ -608,7 +608,7 @@ window.StateData = [
     turnoutPotential: 58,
     region: "southwest",
     keyCity: "Houston",
-    cx: 42, cy: 65
+    cx: 39, cy: 63
   },
   {
     id: "FL",
@@ -629,7 +629,7 @@ window.StateData = [
     turnoutPotential: 65,
     region: "southeast",
     keyCity: "Miami",
-    cx: 76, cy: 68
+    cx: 74, cy: 70
   },
   {
     id: "OH",
@@ -650,7 +650,7 @@ window.StateData = [
     turnoutPotential: 66,
     region: "midwest",
     keyCity: "Columbus",
-    cx: 69, cy: 34
+    cx: 70, cy: 31
   },
   {
     id: "IN",
@@ -671,7 +671,7 @@ window.StateData = [
     turnoutPotential: 60,
     region: "midwest",
     keyCity: "Indianapolis",
-    cx: 64, cy: 36
+    cx: 64, cy: 33
   },
   {
     id: "TN",
@@ -692,7 +692,7 @@ window.StateData = [
     turnoutPotential: 58,
     region: "southeast",
     keyCity: "Nashville",
-    cx: 64, cy: 48
+    cx: 64, cy: 47
   },
   {
     id: "MO",
@@ -713,7 +713,7 @@ window.StateData = [
     turnoutPotential: 62,
     region: "midwest",
     keyCity: "Kansas City",
-    cx: 50, cy: 40
+    cx: 53, cy: 41
   },
   {
     id: "SC",
@@ -734,7 +734,7 @@ window.StateData = [
     turnoutPotential: 60,
     region: "southeast",
     keyCity: "Charleston",
-    cx: 74, cy: 52
+    cx: 73, cy: 51
   },
   {
     id: "AL",
@@ -755,7 +755,7 @@ window.StateData = [
     turnoutPotential: 55,
     region: "southeast",
     keyCity: "Birmingham",
-    cx: 62, cy: 55
+    cx: 63, cy: 55
   },
   {
     id: "LA",
@@ -776,7 +776,7 @@ window.StateData = [
     turnoutPotential: 55,
     region: "southeast",
     keyCity: "New Orleans",
-    cx: 55, cy: 62
+    cx: 54, cy: 62
   },
   {
     id: "KY",
@@ -797,7 +797,7 @@ window.StateData = [
     turnoutPotential: 58,
     region: "southeast",
     keyCity: "Louisville",
-    cx: 66, cy: 40
+    cx: 67, cy: 41
   },
   {
     id: "OK",
@@ -818,7 +818,7 @@ window.StateData = [
     turnoutPotential: 55,
     region: "southwest",
     keyCity: "Oklahoma City",
-    cx: 44, cy: 50
+    cx: 43, cy: 49
   },
   {
     id: "IA",
@@ -839,7 +839,7 @@ window.StateData = [
     turnoutPotential: 70,
     region: "midwest",
     keyCity: "Des Moines",
-    cx: 51, cy: 30
+    cx: 51, cy: 28
   },
   {
     id: "KS",
@@ -860,7 +860,7 @@ window.StateData = [
     turnoutPotential: 62,
     region: "midwest",
     keyCity: "Wichita",
-    cx: 44, cy: 42
+    cx: 42, cy: 39
   },
   {
     id: "UT",
@@ -881,7 +881,7 @@ window.StateData = [
     turnoutPotential: 65,
     region: "west",
     keyCity: "Salt Lake City",
-    cx: 21, cy: 38
+    cx: 22, cy: 36
   },
   {
     id: "AR",
@@ -923,7 +923,7 @@ window.StateData = [
     turnoutPotential: 52,
     region: "southeast",
     keyCity: "Jackson",
-    cx: 58, cy: 58
+    cx: 58, cy: 57
   },
   {
     id: "NE",
@@ -944,7 +944,7 @@ window.StateData = [
     turnoutPotential: 65,
     region: "midwest",
     keyCity: "Omaha",
-    cx: 44, cy: 32
+    cx: 42, cy: 29
   },
   {
     id: "WV",
@@ -965,7 +965,7 @@ window.StateData = [
     turnoutPotential: 52,
     region: "southeast",
     keyCity: "Charleston",
-    cx: 72, cy: 40
+    cx: 72, cy: 38
   },
   {
     id: "ID",
@@ -986,7 +986,7 @@ window.StateData = [
     turnoutPotential: 62,
     region: "west",
     keyCity: "Boise",
-    cx: 17, cy: 24
+    cx: 17, cy: 21
   },
   {
     id: "MT",
@@ -1007,7 +1007,7 @@ window.StateData = [
     turnoutPotential: 65,
     region: "west",
     keyCity: "Billings",
-    cx: 26, cy: 14
+    cx: 25, cy: 11
   },
   {
     id: "AK",
@@ -1028,7 +1028,7 @@ window.StateData = [
     turnoutPotential: 58,
     region: "pacific",
     keyCity: "Anchorage",
-    cx: 8, cy: 82
+    cx: 12, cy: 83
   },
   {
     id: "SD",
@@ -1049,7 +1049,7 @@ window.StateData = [
     turnoutPotential: 62,
     region: "midwest",
     keyCity: "Sioux Falls",
-    cx: 42, cy: 22
+    cx: 40, cy: 21
   },
   {
     id: "ND",
@@ -1070,7 +1070,7 @@ window.StateData = [
     turnoutPotential: 62,
     region: "midwest",
     keyCity: "Fargo",
-    cx: 42, cy: 14
+    cx: 40, cy: 11
   },
   {
     id: "WY",
@@ -1091,6 +1091,6 @@ window.StateData = [
     turnoutPotential: 60,
     region: "west",
     keyCity: "Cheyenne",
-    cx: 30, cy: 28
+    cx: 28, cy: 24
   }
 ];

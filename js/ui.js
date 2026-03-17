@@ -630,7 +630,7 @@ window.GameUI = {
             if (!poll) continue;
             const margin = poll.player - poll.opponent;
             const colorClass = this.getStateColorClass(margin, st.isBattleground);
-            const size = Math.max(20, Math.min(40, 14 + st.electoralVotes * 1.2));
+            const size = Math.max(18, Math.min(42, 12 + st.electoralVotes * 0.9));
 
             statesHTML += `<div class="map-state ${colorClass} ${st.isBattleground ? 'battleground' : ''}"
                 style="left:${st.cx}%;top:${st.cy}%;width:${size}px;height:${size}px;margin-left:${-size/2}px;margin-top:${-size/2}px;"

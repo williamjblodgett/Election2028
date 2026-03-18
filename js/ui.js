@@ -13,6 +13,9 @@ window.GameUI = {
     setupStep: 1,
     pendingActions: {},
     pendingEventChoices: {},
+    // Point allocation system
+    campaignPerks: { warChest: 0, groundSwell: 0, mediaDarling: 0, partyMachine: 0, digitalArmy: 0, teflonCandidate: 0 },
+    totalPerkPoints: 8,
     weeklyEvents: [],
     selectedStates: [],
     currentStrategy: 'positive',
@@ -197,6 +200,7 @@ window.GameUI = {
         this.playerParty = null;
         this.selectedDifficulty = 'realistic';
         this.selectedMode = 'campaign';
+        this.campaignPerks = { warChest: 0, groundSwell: 0, mediaDarling: 0, partyMachine: 0, digitalArmy: 0, teflonCandidate: 0 };
         this.showScreen('select');
         this.renderSetupStep();
     },
@@ -216,7 +220,7 @@ window.GameUI = {
         switch (this.setupStep) {
             case 1: // Game Mode
                 title.textContent = 'Choose Your Mode';
-                subtitle.textContent = 'Step 1 of 5';
+                subtitle.textContent = 'Step 1 of 6';
                 nextBtn.textContent = 'NEXT';
                 content.innerHTML = `
                     <div class="mode-cards">
@@ -240,7 +244,7 @@ window.GameUI = {
 
             case 2: // Party Selection
                 title.textContent = 'Choose Your Party';
-                subtitle.textContent = 'Step 2 of 5';
+                subtitle.textContent = 'Step 2 of 6';
                 content.innerHTML = `
                     <div class="mode-cards" style="max-width:500px;margin:0 auto;">
                         <div class="mode-card ${this.playerParty === 'democrat' ? 'selected' : ''}" onclick="GameUI.selectParty('democrat')" style="border-color:${this.playerParty === 'democrat' ? 'var(--dem-blue)' : 'var(--border-color)'}">
@@ -258,7 +262,7 @@ window.GameUI = {
 
             case 3: // Candidate Selection
                 title.textContent = `Choose Your ${this.playerParty === 'democrat' ? 'Democratic' : 'Republican'} Candidate`;
-                subtitle.textContent = 'Step 3 of 5';
+                subtitle.textContent = 'Step 3 of 6';
                 const candidates = this.playerParty === 'democrat' ? window.CandidateData.democrats : window.CandidateData.republicans;
                 const selected = this.playerParty === 'democrat' ? this.selectedDemocrat : this.selectedRepublican;
                 content.innerHTML = `<div class="candidate-grid">${candidates.map(c => this.renderCandidateCard(c, selected)).join('')}</div>`;
@@ -266,7 +270,7 @@ window.GameUI = {
 
             case 4: // Opponent Selection
                 title.textContent = `Choose Your ${this.playerParty === 'democrat' ? 'Republican' : 'Democratic'} Opponent`;
-                subtitle.textContent = 'Step 4 of 5';
+                subtitle.textContent = 'Step 4 of 6';
                 const oppCandidates = this.playerParty === 'democrat' ? window.CandidateData.republicans : window.CandidateData.democrats;
                 const oppSelected = this.playerParty === 'democrat' ? this.selectedRepublican : this.selectedDemocrat;
                 content.innerHTML = `<div class="candidate-grid">${oppCandidates.map(c => this.renderCandidateCard(c, oppSelected, true)).join('')}</div>`;
@@ -274,8 +278,8 @@ window.GameUI = {
 
             case 5: // Difficulty
                 title.textContent = 'Choose Difficulty';
-                subtitle.textContent = 'Step 5 of 5';
-                nextBtn.textContent = 'START CAMPAIGN';
+                subtitle.textContent = 'Step 5 of 6';
+                nextBtn.textContent = 'NEXT';
                 content.innerHTML = `
                     <div class="difficulty-options">
                         <div class="difficulty-card ${this.selectedDifficulty === 'arcade' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('arcade')">
@@ -296,6 +300,58 @@ window.GameUI = {
                         </div>
                     </div>`;
                 break;
+
+            case 6: // Campaign Perks (point allocation)
+                title.textContent = 'Campaign Advantages';
+                subtitle.textContent = 'Step 6 of 6';
+                nextBtn.textContent = 'START CAMPAIGN';
+                const perks = this.campaignPerks;
+                const usedPoints = Object.values(perks).reduce((a, b) => a + b, 0);
+                const remaining = this.totalPerkPoints - usedPoints;
+
+                const perkData = [
+                    { key: 'warChest', icon: '💵', name: 'War Chest', flavor: 'Big donors lined up early', desc: '+$1.5M starting cash per point', val: perks.warChest },
+                    { key: 'groundSwell', icon: '📈', name: 'Ground Swell', flavor: 'A viral moment sparked a movement', desc: '+5 enthusiasm & +3 turnout per point', val: perks.groundSwell },
+                    { key: 'mediaDarling', icon: '📺', name: 'Media Darling', flavor: "The press can't stop covering you", desc: '+8 media score per point', val: perks.mediaDarling },
+                    { key: 'partyMachine', icon: '🏛️', name: 'Party Machine', flavor: 'The establishment is behind you', desc: '+5 ground game & +5 surrogates per point', val: perks.partyMachine },
+                    { key: 'digitalArmy', icon: '📱', name: 'Digital Army', flavor: 'Your memes are winning the internet', desc: '+8 online influence per point', val: perks.digitalArmy },
+                    { key: 'teflonCandidate', icon: '🛡️', name: 'Teflon Candidate', flavor: 'Opposition research came up empty', desc: '-10 scandal vulnerability per point', val: perks.teflonCandidate },
+                ];
+
+                content.innerHTML = `
+                    <div class="perk-allocation">
+                        <div class="perk-points-header">
+                            <div class="perk-points-remaining">
+                                <span class="perk-points-num">${remaining}</span>
+                                <span class="perk-points-label">Points Remaining</span>
+                            </div>
+                            <div class="perk-points-dots">
+                                ${Array(this.totalPerkPoints).fill(0).map((_, i) => `<div class="perk-dot ${i < usedPoints ? 'used' : 'available'}"></div>`).join('')}
+                            </div>
+                        </div>
+                        <div class="perk-grid">
+                            ${perkData.map(p => `
+                                <div class="perk-card ${p.val > 0 ? 'perk-active' : ''}">
+                                    <div class="perk-card-top">
+                                        <div class="perk-icon">${p.icon}</div>
+                                        <div class="perk-info">
+                                            <div class="perk-name">${p.name}</div>
+                                            <div class="perk-flavor">"${p.flavor}"</div>
+                                        </div>
+                                    </div>
+                                    <div class="perk-desc">${p.desc}</div>
+                                    <div class="perk-controls">
+                                        <button class="perk-btn" onclick="GameUI.adjustPerk('${p.key}', -1)" ${p.val <= 0 ? 'disabled' : ''}>−</button>
+                                        <div class="perk-pips">
+                                            ${[1,2,3].map(i => `<div class="perk-pip ${i <= p.val ? 'filled' : ''}"></div>`).join('')}
+                                        </div>
+                                        <button class="perk-btn" onclick="GameUI.adjustPerk('${p.key}', 1)" ${p.val >= 3 || remaining <= 0 ? 'disabled' : ''}>+</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                break;
         }
     },
 
@@ -309,6 +365,16 @@ window.GameUI = {
     },
     selectDifficulty(diff) {
         this.selectedDifficulty = diff;
+        this.renderSetupStep();
+    },
+
+    adjustPerk(key, delta) {
+        const current = this.campaignPerks[key] || 0;
+        const newVal = current + delta;
+        if (newVal < 0 || newVal > 3) return;
+        const usedPoints = Object.values(this.campaignPerks).reduce((a, b) => a + b, 0);
+        if (delta > 0 && usedPoints >= this.totalPerkPoints) return;
+        this.campaignPerks[key] = newVal;
         this.renderSetupStep();
     },
 
@@ -374,7 +440,7 @@ window.GameUI = {
             if (!sel) { this.showToast('Please choose an opponent', 'warning'); return; }
         }
 
-        if (this.setupStep >= 5) {
+        if (this.setupStep >= 6) {
             this.launchGame();
             return;
         }
@@ -394,6 +460,36 @@ window.GameUI = {
         const oppCand = this.playerParty === 'democrat' ? this.selectedRepublican : this.selectedDemocrat;
 
         window.GameEngine.initGame(playerCand, oppCand, this.selectedMode, this.selectedDifficulty);
+
+        // Apply campaign perk bonuses
+        const perks = this.campaignPerks;
+        const c = window.GameEngine.state.campaign;
+        const f = window.GameEngine.state.finances;
+
+        if (perks.warChest > 0) {
+            const bonus = perks.warChest * 1500000;
+            f.cashOnHand += bonus;
+            f.totalRaised += bonus;
+            c.cash = f.cashOnHand;
+        }
+        if (perks.groundSwell > 0) {
+            c.enthusiasm += perks.groundSwell * 5;
+            c.baseTurnout += perks.groundSwell * 3;
+        }
+        if (perks.mediaDarling > 0) {
+            c.mediaScore += perks.mediaDarling * 8;
+        }
+        if (perks.partyMachine > 0) {
+            c.groundGame += perks.partyMachine * 5;
+            c.surrogateStrength += perks.partyMachine * 5;
+        }
+        if (perks.digitalArmy > 0) {
+            c.onlineInfluence += perks.digitalArmy * 8;
+        }
+        if (perks.teflonCandidate > 0) {
+            c.scandalVulnerability = Math.max(0, c.scandalVulnerability - perks.teflonCandidate * 10);
+        }
+
         this.showScreen('game');
         this.renderGameScreen();
         this.showToast(`Campaign launched! You are ${playerCand.name}.`, 'success');
@@ -419,6 +515,9 @@ window.GameUI = {
         const momClass = gs.campaign.momentum > 5 ? 'momentum-up' : gs.campaign.momentum < -5 ? 'momentum-down' : 'momentum-flat';
         const momIcon = gs.campaign.momentum > 5 ? '▲' : gs.campaign.momentum < -5 ? '▼' : '—';
 
+        const pColor = this.getPlayerColorVar();
+        const oColor = this.getOpponentColorVar();
+
         topBar.innerHTML = `
             <div class="top-bar-left">
                 <span class="week-display">${weekLabel}</span>
@@ -426,16 +525,16 @@ window.GameUI = {
             </div>
             <div class="top-bar-center">
                 <div class="polling-pill">
-                    <span class="text-dem">YOU</span>
-                    <span class="poll-num" style="color:var(--dem-blue-light)">${Math.round(gs.campaign.nationalPolling)}%</span>
+                    <span style="color:${pColor}">YOU</span>
+                    <span class="poll-num" style="color:${pColor}">${Math.round(gs.campaign.nationalPolling)}%</span>
                     <span class="text-muted">vs</span>
-                    <span class="poll-num" style="color:var(--rep-red-light)">${Math.round(gs.opponent.nationalPolling)}%</span>
-                    <span class="text-rep">OPP</span>
+                    <span class="poll-num" style="color:${oColor}">${Math.round(gs.opponent.nationalPolling)}%</span>
+                    <span style="color:${oColor}">OPP</span>
                 </div>
                 <div class="polling-pill">
-                    <span style="color:var(--dem-blue-light)">${map.playerEV}</span>
+                    <span style="color:${pColor}">${map.playerEV}</span>
                     <span class="text-muted">EV</span>
-                    <span style="color:var(--rep-red-light)">${map.opponentEV}</span>
+                    <span style="color:${oColor}">${map.opponentEV}</span>
                 </div>
             </div>
             <div class="top-bar-right">
@@ -500,13 +599,10 @@ window.GameUI = {
             </div>
             <div class="panel-section">
                 <div class="panel-section-title">Money</div>
-                <button class="btn action-btn" onclick="GameUI.doActivity('fundraiser')">
+                <button class="btn action-btn fundraising-blitz-btn" onclick="GameUI.startFundraisingBlitz()">
                     <span class="action-icon">💰</span>
-                    <span class="action-label">Fundraiser</span>
-                </button>
-                <button class="btn action-btn" onclick="GameUI.doActivity('donorEvent')">
-                    <span class="action-icon">🎩</span>
-                    <span class="action-label">Donor Event</span>
+                    <span class="action-label">Fundraising Blitz</span>
+                    <span class="action-cost" style="color:var(--accent-green);">$1.5-3M</span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.doActivity('fieldOffice')">
                     <span class="action-icon">🏢</span>
@@ -624,25 +720,12 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const map = window.GameEngine.calculateElectoralMap();
 
-        let statesHTML = '';
-        for (const st of window.StateData) {
-            const poll = gs.statePolling[st.id];
-            if (!poll) continue;
-            const margin = poll.player - poll.opponent;
-            const colorClass = this.getStateColorClass(margin, st.isBattleground);
-            const size = Math.max(18, Math.min(42, 12 + st.electoralVotes * 0.9));
-
-            statesHTML += `<div class="map-state ${colorClass} ${st.isBattleground ? 'battleground' : ''}"
-                style="left:${st.cx}%;top:${st.cy}%;width:${size}px;height:${size}px;margin-left:${-size/2}px;margin-top:${-size/2}px;"
-                onclick="GameUI.handleStateClick('${st.id}')"
-                title="${st.name}: ${Math.round(poll.player)}% - ${Math.round(poll.opponent)}%">
-                ${st.id}
-            </div>`;
-        }
+        // Build SVG map using real state shapes
+        const svgMap = window.USMapPaths ? this.buildSVGMap(gs) : this.buildFallbackMap(gs);
 
         container.innerHTML = `
-            <div class="us-map-container">
-                ${statesHTML}
+            <div class="us-map-container svg-map-container">
+                ${svgMap}
                 <div class="map-legend">
                     <div class="legend-item"><div class="legend-color" style="background:#1a47a0"></div>Safe D</div>
                     <div class="legend-item"><div class="legend-color" style="background:#2d6fd4"></div>Lean D</div>
@@ -653,14 +736,14 @@ window.GameUI = {
                     <div class="legend-item"><div class="legend-color" style="background:#a01a1a"></div>Safe R</div>
                 </div>
                 <div class="ec-counter">
-                    <div class="ec-count dem">
+                    <div class="ec-count ${this.getPlayerColorClass()}">
                         <div class="ec-num">${map.playerEV}</div>
                         <div class="ec-label">${gs.playerCandidate.name.split(' ').pop()}</div>
                     </div>
                     <div class="ec-count" style="color:var(--text-muted);">
                         <div class="ec-num" style="font-size:1rem;">270 to win</div>
                     </div>
-                    <div class="ec-count rep">
+                    <div class="ec-count ${this.getOpponentColorClass()}">
                         <div class="ec-num">${map.opponentEV}</div>
                         <div class="ec-label">${gs.opponentCandidate.name.split(' ').pop()}</div>
                     </div>
@@ -670,9 +753,88 @@ window.GameUI = {
             <div id="state-detail-area"></div>`;
     },
 
+    buildSVGMap(gs) {
+        const mapData = window.USMapPaths;
+        const paths = [];
+        const labels = [];
+
+        for (const [abbr, data] of Object.entries(mapData.states)) {
+            const poll = gs.statePolling[abbr];
+            const st = window.StateData.find(s => s.id === abbr);
+            if (!poll || !st) continue;
+
+            const margin = poll.player - poll.opponent;
+            const colorClass = this.getStateColorClass(margin, st.isBattleground);
+            const fillColor = this.getMapFillColor(colorClass);
+            const strokeColor = st.isBattleground ? '#f1c40f' : 'rgba(255,255,255,0.2)';
+            const strokeWidth = st.isBattleground ? '2' : '0.5';
+            const title = `${st.name}: ${Math.round(poll.player)}% - ${Math.round(poll.opponent)}%`;
+
+            if (data.circle) {
+                paths.push(
+                    `<circle data-state="${abbr}" cx="${data.cx}" cy="${data.cy}" r="${data.r}" ` +
+                    `fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" ` +
+                    `onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;" >` +
+                    `<title>${title}</title></circle>`
+                );
+            } else {
+                paths.push(
+                    `<path data-state="${abbr}" d="${data.d}" ` +
+                    `fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" ` +
+                    `onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;" >` +
+                    `<title>${title}</title></path>`
+                );
+            }
+
+            const fontSize = data.circle ? 5 : (st.electoralVotes > 15 ? 12 : st.electoralVotes > 8 ? 10 : 8);
+            labels.push(
+                `<text x="${data.cx}" y="${data.cy}" text-anchor="middle" dominant-baseline="middle" ` +
+                `font-size="${fontSize}" font-weight="700" fill="#fff" ` +
+                `pointer-events="none" style="text-shadow:0 1px 2px rgba(0,0,0,0.7);">${abbr}</text>`
+            );
+        }
+
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" class="us-map-svg">` +
+            `<g>${paths.join('')}</g>` +
+            `<g>${labels.join('')}</g>` +
+            `</svg>`;
+    },
+
+    getMapFillColor(colorClass) {
+        const colors = {
+            'dem-safe': '#1a47a0',
+            'dem-lean': '#2d6fd4',
+            'dem-tilt': '#5a9ae8',
+            'tossup': '#8855aa',
+            'rep-tilt': '#e85a5a',
+            'rep-lean': '#d42d2d',
+            'rep-safe': '#a01a1a',
+        };
+        return colors[colorClass] || '#8855aa';
+    },
+
+    buildFallbackMap(gs) {
+        // Fallback to circle-based map if SVG paths aren't loaded
+        let statesHTML = '';
+        for (const st of window.StateData) {
+            const poll = gs.statePolling[st.id];
+            if (!poll) continue;
+            const margin = poll.player - poll.opponent;
+            const colorClass = this.getStateColorClass(margin, st.isBattleground);
+            const size = Math.max(18, Math.min(42, 12 + st.electoralVotes * 0.9));
+            statesHTML += `<div class="map-state ${colorClass} ${st.isBattleground ? 'battleground' : ''}"
+                style="left:${st.cx}%;top:${st.cy}%;width:${size}px;height:${size}px;margin-left:${-size/2}px;margin-top:${-size/2}px;"
+                onclick="GameUI.handleStateClick('${st.id}')"
+                title="${st.name}: ${Math.round(poll.player)}% - ${Math.round(poll.opponent)}%">
+                ${st.id}
+            </div>`;
+        }
+        return statesHTML;
+    },
+
     getStateColorClass(margin, isBattleground) {
         const isPlayerDem = window.GameEngine.state.playerParty === 'democrat';
-        // margin > 0 means player leads
+        // margin > 0 means player leads; convert to dem margin
         let demMargin = isPlayerDem ? margin : -margin;
 
         if (demMargin > 15) return 'dem-safe';
@@ -682,6 +844,24 @@ window.GameUI = {
         if (demMargin < -8) return 'rep-lean';
         if (demMargin < -2) return 'rep-tilt';
         return 'tossup';
+    },
+
+    // Helper: returns the correct party color class for player/opponent
+    getPlayerColorClass() {
+        const gs = window.GameEngine.state;
+        return gs && gs.playerParty === 'republican' ? 'rep' : 'dem';
+    },
+    getOpponentColorClass() {
+        const gs = window.GameEngine.state;
+        return gs && gs.playerParty === 'republican' ? 'dem' : 'rep';
+    },
+    getPlayerColorVar() {
+        const gs = window.GameEngine.state;
+        return gs && gs.playerParty === 'republican' ? 'var(--rep-red-light)' : 'var(--dem-blue-light)';
+    },
+    getOpponentColorVar() {
+        const gs = window.GameEngine.state;
+        return gs && gs.playerParty === 'republican' ? 'var(--dem-blue-light)' : 'var(--rep-red-light)';
     },
 
     handleStateClick(stateId) {
@@ -708,8 +888,8 @@ window.GameUI = {
                     <span class="state-ev-badge">${st.electoralVotes} EV</span>
                 </div>
                 <div class="state-poll-bar">
-                    <div class="state-poll-dem" style="width:${playerPct}%">${pName} ${playerPct}%</div>
-                    <div class="state-poll-rep" style="width:${oppPct}%">${oName} ${oppPct}%</div>
+                    <div class="state-poll-${this.getPlayerColorClass()}" style="width:${playerPct}%">${pName} ${playerPct}%</div>
+                    <div class="state-poll-${this.getOpponentColorClass()}" style="width:${oppPct}%">${oName} ${oppPct}%</div>
                 </div>
                 <div class="state-info-grid">
                     <div class="state-info-item">
@@ -835,7 +1015,7 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const c = gs.campaign;
         const f = gs.finances;
-        const barClass = gs.playerParty === 'democrat' ? 'dem' : 'rep';
+        const barClass = this.getPlayerColorClass();
 
         container.innerHTML = `
             <div class="week-summary">
@@ -923,12 +1103,12 @@ window.GameUI = {
                         <span class="poll-card-ev">${st.electoralVotes} EV</span>
                     </div>
                     <div class="poll-mini-bar">
-                        <div class="poll-mini-dem" style="width:${pPct}%"></div>
-                        <div class="poll-mini-rep" style="width:${oPct}%"></div>
+                        <div class="poll-mini-${this.getPlayerColorClass()}" style="width:${pPct}%"></div>
+                        <div class="poll-mini-${this.getOpponentColorClass()}" style="width:${oPct}%"></div>
                     </div>
                     <div class="poll-card-numbers">
-                        <span class="text-dem">${Math.round(poll.player * 10) / 10}%</span>
-                        <span class="text-rep">${Math.round(poll.opponent * 10) / 10}%</span>
+                        <span class="text-${this.getPlayerColorClass()}">${Math.round(poll.player * 10) / 10}%</span>
+                        <span class="text-${this.getOpponentColorClass()}">${Math.round(poll.opponent * 10) / 10}%</span>
                     </div>
                 </div>`;
         }).join('');
@@ -964,8 +1144,8 @@ window.GameUI = {
                 <div class="panel-section-title">Opponent Intel</div>
                 <div style="font-size:0.8rem;color:var(--text-secondary);">
                     <div style="margin-bottom:4px;">${gs.opponentCandidate.name}</div>
-                    ${this.createStatBar('Approval', Math.round(gs.opponent.approval), 'red')}
-                    ${this.createStatBar('Enthusiasm', Math.round(gs.opponent.enthusiasm), 'red')}
+                    ${this.createStatBar('Approval', Math.round(gs.opponent.approval), this.getOpponentColorClass())}
+                    ${this.createStatBar('Enthusiasm', Math.round(gs.opponent.enthusiasm), this.getOpponentColorClass())}
                     ${this.createStatBar('Cash', Math.min(100, Math.round(gs.opponent.cash / 100000)), 'yellow')}
                 </div>
             </div>`;
@@ -1033,6 +1213,38 @@ window.GameUI = {
         this.renderGameScreen();
     },
 
+    startFundraisingBlitz() {
+        this.showModal('Fundraising Blitz', `
+            <div style="text-align:center;padding:1rem;">
+                <div style="font-size:3rem;margin-bottom:1rem;">💰</div>
+                <h3 style="margin-bottom:0.5rem;">Dedicate Your Entire Week to Fundraising</h3>
+                <p class="text-muted" style="margin-bottom:1.5rem;">Cancel all campaign events and go all-in on the phones, dinners, and donor meetings. You'll raise <strong>$1.5M - $3.5M</strong> depending on donor confidence, but your momentum and enthusiasm will take a hit.</p>
+                <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:12px;margin-bottom:1.5rem;text-align:left;">
+                    <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:4px;">Trade-offs:</div>
+                    <div style="font-size:0.85rem;color:var(--accent-green);">+ $1.5M - $3.5M raised</div>
+                    <div style="font-size:0.85rem;color:var(--accent-green);">+ Donor Confidence +5</div>
+                    <div style="font-size:0.85rem;color:var(--accent-red);">- Enthusiasm -2 (neglecting the base)</div>
+                    <div style="font-size:0.85rem;color:var(--accent-red);">- Momentum -3 (off the trail)</div>
+                    <div style="font-size:0.85rem;color:var(--accent-yellow);">⚠ Uses your entire week — advances to next turn</div>
+                </div>
+                <div class="btn-group" style="justify-content:center;">
+                    <button class="btn btn-primary btn-lg" onclick="GameUI.executeFundraisingBlitz()">MAKE THE CALLS</button>
+                    <button class="btn btn-lg" onclick="GameUI.closeModal()">NEVERMIND</button>
+                </div>
+            </div>`);
+    },
+
+    executeFundraisingBlitz() {
+        const result = window.GameEngine.applyActivityEffects('fundraisingBlitz');
+        window.GameEngine.state.campaign.cash = window.GameEngine.state.finances.cashOnHand;
+
+        this.closeModal();
+        this.showToast(`Fundraising Blitz! Raised $${this.formatMoney(result.cashRaised)}! Now advancing the week...`, 'success');
+
+        // Fundraising blitz uses the whole week — auto-advance
+        setTimeout(() => this.handleEndWeek(), 800);
+    },
+
     doActivity(activity) {
         const gs = window.GameEngine.state;
         const costMap = { rally: 60000, townhall: 30000, podcast: 5000, oppoResearch: 150000, fieldOffice: 200000, surrogateDeployment: 40000 };
@@ -1042,7 +1254,7 @@ window.GameUI = {
             return;
         }
         const result = window.GameEngine.applyActivityEffects(activity);
-        const labels = { rally: 'Rally', townhall: 'Town Hall', podcast: 'Podcast', interview: 'Interview', fundraiser: 'Fundraiser', donorEvent: 'Donor Event', debatePrep: 'Debate Prep', surrogateDeployment: 'Surrogate Deployment', oppoResearch: 'Oppo Research', fieldOffice: 'Field Office' };
+        const labels = { rally: 'Rally', townhall: 'Town Hall', podcast: 'Podcast', interview: 'Interview', fundraisingBlitz: 'Fundraising Blitz', debatePrep: 'Debate Prep', surrogateDeployment: 'Surrogate Deployment', oppoResearch: 'Oppo Research', fieldOffice: 'Field Office' };
         const msg = result.cashRaised ? `${labels[activity]}! Raised $${this.formatMoney(result.cashRaised)}` : `${labels[activity]} complete!`;
         this.showToast(msg, 'success');
         this.updateTopBar();
@@ -1292,13 +1504,13 @@ window.GameUI = {
                             <span class="poll-card-ev">${st.electoralVotes} EV</span>
                         </div>
                         <div class="poll-mini-bar">
-                            <div class="poll-mini-dem" style="width:${pct / (pct + opct) * 100}%"></div>
-                            <div class="poll-mini-rep" style="width:${opct / (pct + opct) * 100}%"></div>
+                            <div class="poll-mini-${GameUI.getPlayerColorClass()}" style="width:${pct / (pct + opct) * 100}%"></div>
+                            <div class="poll-mini-${GameUI.getOpponentColorClass()}" style="width:${opct / (pct + opct) * 100}%"></div>
                         </div>
                         <div class="poll-card-numbers">
-                            <span class="text-dem">${pct}%</span>
+                            <span class="text-${GameUI.getPlayerColorClass()}">${pct}%</span>
                             <span style="color:${margin > 0 ? 'var(--accent-green)' : 'var(--accent-red)'};font-weight:700;">${margin > 0 ? '+' : ''}${margin}</span>
-                            <span class="text-rep">${opct}%</span>
+                            <span class="text-${GameUI.getOpponentColorClass()}">${opct}%</span>
                         </div>
                     </div>`;
             }).join('')}
@@ -1417,14 +1629,14 @@ window.GameUI = {
             <h1>ELECTION NIGHT 2028</h1>
             <p class="en-subtitle">${results.playerName} vs ${results.opponentName}</p>
             <div class="ec-counter" style="position:relative;justify-content:center;margin:2rem auto;background:rgba(0,0,0,0.4);display:inline-flex;padding:16px 40px;border-radius:var(--radius-lg);">
-                <div class="ec-count dem">
+                <div class="ec-count ${this.getPlayerColorClass()}">
                     <div class="ec-num" id="en-player-ev">0</div>
                     <div class="ec-label">${results.playerName}</div>
                 </div>
                 <div class="ec-count" style="padding:0 30px;">
                     <div class="ec-num" style="font-size:1rem;color:var(--text-muted);">270 to win</div>
                 </div>
-                <div class="ec-count rep">
+                <div class="ec-count ${this.getOpponentColorClass()}">
                     <div class="ec-num" id="en-opp-ev">0</div>
                     <div class="ec-label">${results.opponentName}</div>
                 </div>
@@ -1444,7 +1656,8 @@ window.GameUI = {
                 else oppEVSoFar += call.ev;
 
                 const callEl = document.createElement('span');
-                callEl.className = `state-call ${isPlayer ? 'dem-call' : 'rep-call'}`;
+                const callClass = isPlayer ? this.getPlayerColorClass() : this.getOpponentColorClass();
+                callEl.className = `state-call ${callClass}-call`;
                 callEl.innerHTML = `${call.stateName} <strong>${call.ev}</strong>`;
                 callsContainer.appendChild(callEl);
 
@@ -1466,7 +1679,8 @@ window.GameUI = {
         const isPlayerWin = results.winner === 'player';
         const winnerName = isPlayerWin ? results.playerName : results.opponentName;
         const winnerEV = isPlayerWin ? results.playerEV : results.opponentEV;
-        const winClass = isPlayerWin ? 'dem-winner' : 'rep-winner';
+        const winnerParty = isPlayerWin ? this.getPlayerColorClass() : this.getOpponentColorClass();
+        const winClass = winnerParty + '-winner';
 
         banner.innerHTML = `
             <div class="winner-banner ${winClass}">

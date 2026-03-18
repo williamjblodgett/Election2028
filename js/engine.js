@@ -425,20 +425,18 @@ window.GameEngine = {
                 }
                 effects.mediaScore = 3;
                 break;
-            case 'fundraiser':
-                const raised = 200000 + Math.random() * 300000;
-                this.state.finances.cashOnHand += raised;
-                this.state.finances.totalRaised += raised;
-                c.donorConfidence += 2;
-                effects.cashRaised = raised;
-                break;
-            case 'donorEvent':
-                const bigRaise = 500000 + Math.random() * 500000;
-                this.state.finances.cashOnHand += bigRaise;
-                this.state.finances.totalRaised += bigRaise;
-                c.donorConfidence += 4;
-                c.authenticity = (c.authenticity || 50) - 2;
-                effects.cashRaised = bigRaise;
+            case 'fundraisingBlitz':
+                // Full-week fundraising blitz — $1.5M-$3.5M based on donor confidence
+                const blitzBase = 1500000 + Math.random() * 1000000;
+                const confidenceMultiplier = 0.5 + (c.donorConfidence / 100);
+                const blitzRaised = Math.floor(blitzBase * confidenceMultiplier);
+                this.state.finances.cashOnHand += blitzRaised;
+                this.state.finances.totalRaised += blitzRaised;
+                c.donorConfidence += 5;
+                c.enthusiasm -= 2; // Spending the week fundraising costs momentum
+                c.momentum -= 3;
+                effects.cashRaised = blitzRaised;
+                effects.note = "Full week dedicated to fundraising";
                 break;
             case 'debatePrep':
                 c.debateSkill += 3; c.discipline = (c.discipline || 50) + 2;

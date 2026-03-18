@@ -515,6 +515,28 @@ h3 { font-size: 1.25rem; }
     position: relative;
 }
 
+/* ── SVG Map ── */
+.svg-map-container {
+    aspect-ratio: auto;
+    overflow: visible;
+}
+.us-map-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+.us-map-svg path,
+.us-map-svg circle {
+    transition: all 150ms ease;
+    stroke-linejoin: round;
+}
+.us-map-svg path:hover,
+.us-map-svg circle:hover {
+    filter: brightness(1.3);
+    stroke: #fff;
+    stroke-width: 2;
+}
+
 /* ── Right Panel: Intel ── */
 .game-right-panel {
     background: var(--bg-secondary);
@@ -1422,6 +1444,155 @@ h3 { font-size: 1.25rem; }
 }
 .difficulty-card h4 { margin-bottom: 4px; }
 .difficulty-card p { font-size: 0.75rem; color: var(--text-secondary); }
+
+/* ── Campaign Perks (Point Allocation) ── */
+.perk-allocation {
+    max-width: 750px;
+    margin: 0 auto;
+}
+.perk-points-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+.perk-points-remaining {
+    margin-bottom: 8px;
+}
+.perk-points-num {
+    font-size: 2.5rem;
+    font-weight: 900;
+    font-family: var(--font-mono);
+    color: var(--gold);
+}
+.perk-points-label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+}
+.perk-points-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+.perk-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--gold);
+    transition: all var(--transition-fast);
+}
+.perk-dot.available {
+    background: var(--gold);
+    box-shadow: 0 0 8px rgba(255,215,0,0.4);
+}
+.perk-dot.used {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    opacity: 0.4;
+}
+.perk-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.perk-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    transition: all var(--transition-fast);
+}
+.perk-card.perk-active {
+    border-color: var(--gold);
+    background: rgba(255,215,0,0.05);
+}
+.perk-card-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+.perk-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+.perk-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+.perk-flavor {
+    font-size: 0.7rem;
+    font-style: italic;
+    color: var(--text-muted);
+}
+.perk-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+.perk-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.perk-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--border-highlight);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-family: var(--font-display);
+}
+.perk-btn:hover:not(:disabled) {
+    border-color: var(--gold);
+    background: rgba(255,215,0,0.15);
+    color: var(--gold);
+}
+.perk-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.perk-pips {
+    display: flex;
+    gap: 6px;
+}
+.perk-pip {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 2px solid var(--border-color);
+    background: var(--bg-secondary);
+    transition: all var(--transition-fast);
+}
+.perk-pip.filled {
+    background: var(--gold);
+    border-color: var(--gold);
+    box-shadow: 0 0 6px rgba(255,215,0,0.3);
+}
+@media (max-width: 768px) {
+    .perk-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Fundraising Blitz Button ── */
+.fundraising-blitz-btn {
+    border: 1px dashed var(--accent-yellow) !important;
+    background: rgba(241,196,15,0.05) !important;
+}
+.fundraising-blitz-btn:hover {
+    background: rgba(241,196,15,0.12) !important;
+    border-style: solid !important;
+}
 
 /* ── Week Summary ── */
 .week-summary {

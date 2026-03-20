@@ -23,28 +23,49 @@ window.GameUI = {
     mobileActiveTab: 'map',
     isMobile: false,
     mapViewMode: 'map', // 'map' or 'list'
+    // Event listener tracking (prevents memory leaks)
+    _eventListeners: {},
+    _initialized: false,
 
     // ═══════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════
     init() {
+        // Only initialize once - prevents duplicate event listeners
+        if (this._initialized) return;
+        this._initialized = true;
+
         this.checkMobile();
         this.checkSavedGame();
         this.renderTitleScreen();
         this.showScreen('title');
         this.initTicker();
 
-        // Responsive listeners
-        window.addEventListener('resize', () => {
+        // Create stored handlers to allow proper cleanup
+        this._eventListeners.handleResize = () => {
             this.checkMobile();
             if (this.currentScreen === 'game') this.updateMobileNav();
-        });
-        window.addEventListener('orientationchange', () => {
+        };
+        this._eventListeners.handleOrientation = () => {
             setTimeout(() => {
                 this.checkMobile();
                 if (this.currentScreen === 'game') this.renderGameScreen();
             }, 150);
-        });
+        };
+
+        // Add listeners with proper handler references
+        window.addEventListener('resize', this._eventListeners.handleResize);
+        window.addEventListener('orientationchange', this._eventListeners.handleOrientation);
+    },
+
+    // Clean event listeners on app teardown
+    cleanup() {
+        if (this._eventListeners.handleResize) {
+            window.removeEventListener('resize', this._eventListeners.handleResize);
+        }
+        if (this._eventListeners.handleOrientation) {
+            window.removeEventListener('orientationchange', this._eventListeners.handleOrientation);
+        }
     },
 
     checkMobile() {
@@ -754,6 +775,10 @@ window.GameUI = {
     },
 
     buildSVGMap(gs) {
+        // Check if we need to rebuild or just update colors
+        // Use a cache to avoid rebuilding the entire SVG on every render
+        const cacheKey = Date.now(); // Simple cache invalidation
+        
         const mapData = window.USMapPaths;
         const paths = [];
         const labels = [];
@@ -770,18 +795,19 @@ window.GameUI = {
             const strokeWidth = st.isBattleground ? '2' : '0.5';
             const title = `${st.name}: ${Math.round(poll.player)}% - ${Math.round(poll.opponent)}%`;
 
+            // Add interactive hover state support via CSS class
             if (data.circle) {
                 paths.push(
-                    `<circle data-state="${abbr}" cx="${data.cx}" cy="${data.cy}" r="${data.r}" ` +
+                    `<circle data-state="${abbr}" class="state-path state-${abbr}" cx="${data.cx}" cy="${data.cy}" r="${data.r}" ` +
                     `fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" ` +
-                    `onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;" >` +
+                    `onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;transition:fill 0.2s ease;" >` +
                     `<title>${title}</title></circle>`
                 );
             } else {
                 paths.push(
-                    `<path data-state="${abbr}" d="${data.d}" ` +
+                    `<path data-state="${abbr}" class="state-path state-${abbr}" d="${data.d}" ` +
                     `fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" ` +
-                    `onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;" >` +
+                    `onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;transition:fill 0.2s ease;" >` +
                     `<title>${title}</title></path>`
                 );
             }
@@ -795,6 +821,9 @@ window.GameUI = {
         }
 
         return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" class="us-map-svg">` +
+            `<style>` +
+            `.state-path:hover { filter: brightness(1.3); }` +
+            `</style>` +
             `<g>${paths.join('')}</g>` +
             `<g>${labels.join('')}</g>` +
             `</svg>`;

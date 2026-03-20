@@ -1,0 +1,142 @@
+/**
+ * Election 2028 — Global Game Constants
+ * Centralized configuration for all game mechanics, costs, and thresholds
+ */
+
+window.GameConstants = {
+    // ═══════════════════════════════════════════════
+    // CAMPAIGN TIMELINE
+    // ═══════════════════════════════════════════════
+    PRIMARY_WEEKS: 16,
+    TOTAL_WEEKS: 40,
+    GENERAL_WEEKS: 24,
+
+    // Debate schedule: weeks when debates occur
+    DEBATE_WEEKS: [12, 28, 34, 38],
+    DEBATE_QUESTIONS_PER_ROUND: 5,
+
+    // Convention and VP selection windows
+    CONVENTION_WEEK_START: 20,
+    CONVENTION_WEEK_END: 22,
+    VP_SELECTION_WEEK_START: 24,
+    VP_SELECTION_WEEK_END: 26,
+
+    // ═══════════════════════════════════════════════
+    // CAMPAIGN ACTIONS & COSTS
+    // ═══════════════════════════════════════════════
+    ACTION_COSTS: {
+        CAMPAIGN_VISIT: 80000,
+        RALLY: 60000,
+        TOWN_HALL: 30000,
+        PODCAST: 5000,
+        TV_INTERVIEW: 0,
+        AD_BUY_BASELINE: 100000,
+        OPPO_RESEARCH: 150000,
+        FIELD_OFFICE: 200000,
+        SURROGATE_DEPLOYMENT: 40000,
+    },
+
+    // ═══════════════════════════════════════════════
+    // POLLING THRESHOLDS (state margin percentages)
+    // ═══════════════════════════════════════════════
+    POLLING_THRESHOLDS: {
+        SAFE_THRESHOLD: 15,        // >15% = Safe
+        LEAN_THRESHOLD: 8,         // >8% = Lean  
+        TILT_THRESHOLD: 2,         // >2% = Tilt
+        // <-2% to 2% = Toss-up
+    },
+
+    // ═══════════════════════════════════════════════
+    // STARTING FINANCES
+    // ═══════════════════════════════════════════════
+    STARTING_CASH: 5000000,
+    WEEKLY_SMALL_DOLLAR: 200000,
+    WEEKLY_HIGH_DOLLAR: 500000,
+    BURN_RATE: 300000,
+
+    // ═══════════════════════════════════════════════
+    // STARTING CAMPAIGN STATS
+    // ═══════════════════════════════════════════════
+    STARTING_STATS: {
+        APPROVAL: 45,
+        ENTHUSIASM: 50,
+        BASE_TURNOUT: 50,
+        PERSUADABLE_SUPPORT: 30,
+        MEDIA_SCORE: 50,
+        SCANDAL_VULNERABILITY: 30,
+        DEBATE_SKILL: 50,
+        GROUND_GAME: 30,
+        DONOR_CONFIDENCE: 60,
+        ONLINE_INFLUENCE: 40,
+        SURROGATE_STRENGTH: 30,
+        NATIONAL_POLLING: 45,
+    },
+
+    // ═══════════════════════════════════════════════
+    // PERK BONUSES (campaign perks allocated at start)
+    // ═══════════════════════════════════════════════
+    PERK_BONUSES: {
+        warChest: { cash: 1500000 }, // per point
+        groundSwell: { enthusiasm: 5, baseTurnout: 3 },
+        mediaDarling: { mediaScore: 8 },
+        partyMachine: { groundGame: 5, surrogateStrength: 5 },
+        digitalArmy: { onlineInfluence: 8 },
+        teflonCandidate: { scandalVulnerability: -10 }, // reduces by 10
+    },
+    TOTAL_PERK_POINTS: 8,
+    MAX_PERK_POINTS_PER_CATEGORY: 3,
+
+    // ═══════════════════════════════════════════════
+    // DIFFICULTY MODIFIERS
+    // ═══════════════════════════════════════════════
+    DIFFICULTY: {
+        arcade: { cashMod: 1.5, fundraisingMod: 1.3, scandalsPerWeek: 0.5, opponentSkill: 0.7 },
+        realistic: { cashMod: 1.0, fundraisingMod: 1.0, scandalsPerWeek: 1.0, opponentSkill: 1.0 },
+        chaos: { cashMod: 0.8, fundraisingMod: 0.9, scandalsPerWeek: 2.0, opponentSkill: 1.2 },
+        iron: { cashMod: 0.9, fundraisingMod: 0.8, scandalsPerWeek: 1.5, opponentSkill: 1.3, noSaves: true },
+    },
+
+    // ═══════════════════════════════════════════════
+    // DEBATE SYSTEM
+    // ═══════════════════════════════════════════════
+    DEBATE: {
+        SCORE_CATEGORIES: ['viral', 'donors', 'press', 'authenticity', 'policy', 'base', 'suburban'],
+        MIN_SCORE: 0,
+        MAX_SCORE: 100,
+        BASE_DIFFICULTY: 50, // Score needed to "win" a question
+    },
+
+    // ═══════════════════════════════════════════════
+    // SCANDAL & RISK
+    // ═══════════════════════════════════════════════
+    SCANDAL: {
+        VULNERABILITY_LOW: 30,      // <30 = Low risk
+        VULNERABILITY_MEDIUM: 50,   // 30-50 = Medium
+        VULNERABILITY_HIGH: 70,     // >70 = Critical
+    },
+
+    // ═══════════════════════════════════════════════
+    // ELECTORAL MATH
+    // ═══════════════════════════════════════════════
+    ELECTORAL_DEFAULT: 538,
+    ELECTORAL_TO_WIN: 270,
+
+    // ═══════════════════════════════════════════════
+    // UI / UX
+    // ═══════════════════════════════════════════════
+    MOBILE_BREAKPOINT: 768,
+    TOAST_DURATION_MS: 3000,
+
+    // ═══════════════════════════════════════════════
+    // ANIMATION TIMINGS
+    // ═══════════════════════════════════════════════
+    ANIMATIONS: {
+        SCREEN_FADE_MS: 200,
+        STATE_COLOR_CHANGE_MS: 200,
+        POLLING_UPDATE_MS: 500,
+        TOAST_FADE_MS: 300,
+    },
+};
+
+// Freeze to prevent accidental modifications
+Object.freeze(window.GameConstants);

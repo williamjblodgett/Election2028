@@ -1,0 +1,33 @@
+name: Pages Health Check
+
+on:
+  push:
+    branches:
+      - Main
+  workflow_dispatch:
+
+jobs:
+  verify-pages-content:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required files
+        run: |
+          if [ ! -f "index.html" ]; then
+            echo "ERROR: index.html is missing from repository root"
+            exit 1
+          fi
+
+      - name: Verify key asset directories
+        run: |
+          if [ ! -d "js" ]; then
+            echo "ERROR: js directory is missing"
+            exit 1
+          fi
+          if [ ! -d "css" ]; then
+            echo "ERROR: css directory is missing"
+            exit 1
+          fi

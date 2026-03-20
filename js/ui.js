@@ -7,6 +7,7 @@ window.GameUI = {
     currentScreen: 'title',
     selectedDemocrat: null,
     selectedRepublican: null,
+    selectedVP: null,
     playerParty: null,
     selectedDifficulty: 'realistic',
     selectedMode: 'campaign',
@@ -218,6 +219,7 @@ window.GameUI = {
         this.setupStep = 1;
         this.selectedDemocrat = null;
         this.selectedRepublican = null;
+        this.selectedVP = null;
         this.playerParty = null;
         this.selectedDifficulty = 'realistic';
         this.selectedMode = 'campaign';
@@ -241,7 +243,7 @@ window.GameUI = {
         switch (this.setupStep) {
             case 1: // Game Mode
                 title.textContent = 'Choose Your Mode';
-                subtitle.textContent = 'Step 1 of 6';
+                subtitle.textContent = 'Step 1 of 7';
                 nextBtn.textContent = 'NEXT';
                 content.innerHTML = `
                     <div class="mode-cards">
@@ -265,7 +267,7 @@ window.GameUI = {
 
             case 2: // Party Selection
                 title.textContent = 'Choose Your Party';
-                subtitle.textContent = 'Step 2 of 6';
+                subtitle.textContent = 'Step 2 of 7';
                 content.innerHTML = `
                     <div class="mode-cards" style="max-width:500px;margin:0 auto;">
                         <div class="mode-card ${this.playerParty === 'democrat' ? 'selected' : ''}" onclick="GameUI.selectParty('democrat')" style="border-color:${this.playerParty === 'democrat' ? 'var(--dem-blue)' : 'var(--border-color)'}">
@@ -283,7 +285,7 @@ window.GameUI = {
 
             case 3: // Candidate Selection
                 title.textContent = `Choose Your ${this.playerParty === 'democrat' ? 'Democratic' : 'Republican'} Candidate`;
-                subtitle.textContent = 'Step 3 of 6';
+                subtitle.textContent = 'Step 3 of 7';
                 const candidates = this.playerParty === 'democrat' ? window.CandidateData.democrats : window.CandidateData.republicans;
                 const selected = this.playerParty === 'democrat' ? this.selectedDemocrat : this.selectedRepublican;
                 content.innerHTML = `<div class="candidate-grid">${candidates.map(c => this.renderCandidateCard(c, selected)).join('')}</div>`;
@@ -291,15 +293,46 @@ window.GameUI = {
 
             case 4: // Opponent Selection
                 title.textContent = `Choose Your ${this.playerParty === 'democrat' ? 'Republican' : 'Democratic'} Opponent`;
-                subtitle.textContent = 'Step 4 of 6';
+                subtitle.textContent = 'Step 4 of 7';
                 const oppCandidates = this.playerParty === 'democrat' ? window.CandidateData.republicans : window.CandidateData.democrats;
                 const oppSelected = this.playerParty === 'democrat' ? this.selectedRepublican : this.selectedDemocrat;
                 content.innerHTML = `<div class="candidate-grid">${oppCandidates.map(c => this.renderCandidateCard(c, oppSelected, true)).join('')}</div>`;
                 break;
 
-            case 5: // Difficulty
+            case 5: // VP Selection
+                title.textContent = 'Build Your Ticket';
+                subtitle.textContent = 'Step 5 of 7';
+                nextBtn.textContent = 'NEXT';
+                const nominee = this.getPlayerCandidateSelection();
+                const vpOptions = window.VPData.getOptionsForCandidate(nominee);
+                content.innerHTML = `
+                    <div class="ticket-builder">
+                        ${this.renderTicketPreview(nominee, this.selectedVP)}
+                        <div class="vp-section-header">
+                            <div>
+                                <h3>Curated Shortlist</h3>
+                                <p class="text-muted">Five vetted choices built for ${nominee.name.split(' ')[0]}'s campaign.</p>
+                            </div>
+                            <div class="ticket-builder-note">Your VP changes polling, fundraising pressure, and event risk from day one.</div>
+                        </div>
+                        <div class="candidate-grid vp-grid">
+                            ${vpOptions.curated.map((option) => this.renderVPCard(option, this.selectedVP)).join('')}
+                        </div>
+                        <div class="vp-section-header vp-section-header-secondary">
+                            <div>
+                                <h3>Wildcard Bench</h3>
+                                <p class="text-muted">The people you did not pick at the top of the ticket are still available here.</p>
+                            </div>
+                        </div>
+                        <div class="candidate-grid vp-grid">
+                            ${vpOptions.wildcard.map((option) => this.renderVPCard(option, this.selectedVP)).join('')}
+                        </div>
+                    </div>`;
+                break;
+
+            case 6: // Difficulty
                 title.textContent = 'Choose Difficulty';
-                subtitle.textContent = 'Step 5 of 6';
+                subtitle.textContent = 'Step 6 of 7';
                 nextBtn.textContent = 'NEXT';
                 content.innerHTML = `
                     <div class="difficulty-options">
@@ -322,9 +355,9 @@ window.GameUI = {
                     </div>`;
                 break;
 
-            case 6: // Campaign Perks (point allocation)
+            case 7: // Campaign Perks (point allocation)
                 title.textContent = 'Campaign Advantages';
-                subtitle.textContent = 'Step 6 of 6';
+                subtitle.textContent = 'Step 7 of 7';
                 nextBtn.textContent = 'START CAMPAIGN';
                 const perks = this.campaignPerks;
                 const usedPoints = Object.values(perks).reduce((a, b) => a + b, 0);
@@ -380,12 +413,83 @@ window.GameUI = {
         this.selectedMode = mode;
         this.renderSetupStep();
     },
+    getPlayerCandidateSelection() {
+        return this.playerParty === 'democrat' ? this.selectedDemocrat : this.selectedRepublican;
+    },
+    getOpponentCandidateSelection() {
+        return this.playerParty === 'democrat' ? this.selectedRepublican : this.selectedDemocrat;
+    },
     selectParty(party) {
         this.playerParty = party;
+        this.selectedVP = null;
         this.renderSetupStep();
     },
     selectDifficulty(diff) {
         this.selectedDifficulty = diff;
+        this.renderSetupStep();
+    },
+
+    renderTicketPreview(nominee, vp) {
+        return `
+            <div class="ticket-preview ${nominee.party === 'Democrat' ? 'ticket-preview-dem' : 'ticket-preview-rep'}">
+                <div>
+                    <div class="ticket-preview-label">Top Of Ticket</div>
+                    <div class="ticket-preview-name">${nominee.name}</div>
+                    <div class="ticket-preview-meta">${nominee.title} • ${nominee.homeState}</div>
+                </div>
+                <div class="ticket-preview-divider">+</div>
+                <div>
+                    <div class="ticket-preview-label">Running Mate</div>
+                    <div class="ticket-preview-name">${vp ? vp.name : 'Select a VP'}</div>
+                    <div class="ticket-preview-meta">${vp ? `${vp.title} • ${vp.homeState}` : 'Five curated options and a wildcard bench below.'}</div>
+                </div>
+            </div>`;
+    },
+
+    formatVPEffects(effects) {
+        const labels = {
+            approval: 'Approval',
+            enthusiasm: 'Enthusiasm',
+            baseTurnout: 'Turnout',
+            persuadableSupport: 'Persuadables',
+            mediaScore: 'Media',
+            scandalVulnerability: 'Scandal Risk',
+            debateSkill: 'Debate',
+            groundGame: 'Ground Game',
+            donorConfidence: 'Donors',
+            onlineInfluence: 'Digital',
+            surrogateStrength: 'Surrogates',
+        };
+        return Object.entries(effects || {}).map(([key, value]) => {
+            const sign = value > 0 ? '+' : '';
+            return `${sign}${value} ${labels[key] || key}`;
+        }).join(' • ');
+    },
+
+    renderVPCard(option, selectedVP) {
+        const isSelected = selectedVP && selectedVP.id === option.id;
+        const partyClass = this.playerParty === 'democrat' ? 'selected-dem' : 'selected-rep';
+        const tag = option.source === 'wildcard' ? (option.wildcardLabel || 'WILDCARD') : 'SHORTLIST';
+        const swingTargets = (option.regionalTargets || []).length ? option.regionalTargets.join(', ') : 'National validator';
+        return `
+            <div class="candidate-card vp-card ${isSelected ? `selected ${partyClass}` : ''}" onclick="GameUI.selectVPOption('${option.id}')">
+                <div class="wildcard-badge">${tag}</div>
+                <div class="candidate-portrait">${option.portraitEmoji || '🗳️'}</div>
+                <div class="candidate-name">${option.name}</div>
+                <div class="candidate-title">${option.title} | ${option.homeState}</div>
+                <div class="vp-card-copy">${option.description}</div>
+                <div class="vp-card-effects">${this.formatVPEffects(option.effects)}</div>
+                <div class="vp-card-targets">Map focus: ${swingTargets}</div>
+            </div>`;
+    },
+
+    selectVPOption(optionId) {
+        const nominee = this.getPlayerCandidateSelection();
+        if (!nominee) return;
+        const options = window.VPData.getOptionsForCandidate(nominee);
+        const selected = [...options.curated, ...options.wildcard].find((option) => option.id === optionId);
+        if (!selected) return;
+        this.selectedVP = selected;
         this.renderSetupStep();
     },
 
@@ -442,6 +546,7 @@ window.GameUI = {
         } else {
             if (candidate.party === 'Democrat') this.selectedDemocrat = candidate;
             else this.selectedRepublican = candidate;
+            this.selectedVP = null;
         }
         this.renderSetupStep();
     },
@@ -461,7 +566,12 @@ window.GameUI = {
             if (!sel) { this.showToast('Please choose an opponent', 'warning'); return; }
         }
 
-        if (this.setupStep >= 6) {
+        if (this.setupStep === 5 && !this.selectedVP) {
+            this.showToast('Please choose a running mate', 'warning');
+            return;
+        }
+
+        if (this.setupStep >= 7) {
             this.launchGame();
             return;
         }
@@ -477,10 +587,13 @@ window.GameUI = {
     },
 
     launchGame() {
-        const playerCand = this.playerParty === 'democrat' ? this.selectedDemocrat : this.selectedRepublican;
-        const oppCand = this.playerParty === 'democrat' ? this.selectedRepublican : this.selectedDemocrat;
+        const playerCand = this.getPlayerCandidateSelection();
+        const oppCand = this.getOpponentCandidateSelection();
+        const playerVP = this.selectedVP;
+        const opponentVP = window.VPData.chooseRunningMate(oppCand);
 
         window.GameEngine.initGame(playerCand, oppCand, this.selectedMode, this.selectedDifficulty);
+        window.GameEngine.assignRunningMates(playerVP, opponentVP);
 
         // Apply campaign perk bonuses
         const perks = this.campaignPerks;
@@ -513,7 +626,7 @@ window.GameUI = {
 
         this.showScreen('game');
         this.renderGameScreen();
-        this.showToast(`Campaign launched! You are ${playerCand.name}.`, 'success');
+        this.showToast(`Campaign launched! ${playerCand.name} / ${playerVP ? playerVP.name : 'TBD'} is on the ballot.`, 'success');
     },
 
     // ═══════════════════════════════════════════════
@@ -538,11 +651,17 @@ window.GameUI = {
 
         const pColor = this.getPlayerColorVar();
         const oColor = this.getOpponentColorVar();
+        const playerTicketLabel = gs.playerTicket && gs.playerTicket.vp ? `${gs.playerCandidate.name} / ${gs.playerTicket.vp.name}` : gs.playerCandidate.name;
+        const opponentTicketLabel = gs.opponentTicket && gs.opponentTicket.vp ? `${gs.opponentCandidate.name} / ${gs.opponentTicket.vp.name}` : gs.opponentCandidate.name;
 
         topBar.innerHTML = `
             <div class="top-bar-left">
                 <span class="week-display">${weekLabel}</span>
                 <span class="phase-badge ${gs.phase === 'primary' ? 'phase-primary' : 'phase-general'}">${gs.phase}</span>
+                <div class="ticket-strip">
+                    <span class="ticket-chip ${this.getPlayerColorClass()}">${playerTicketLabel}</span>
+                    <span class="ticket-chip ${this.getOpponentColorClass()}">${opponentTicketLabel}</span>
+                </div>
             </div>
             <div class="top-bar-center">
                 <div class="polling-pill">
@@ -791,9 +910,19 @@ window.GameUI = {
             const margin = poll.player - poll.opponent;
             const colorClass = this.getStateColorClass(margin, st.isBattleground);
             const fillColor = this.getMapFillColor(colorClass);
-            const strokeColor = st.isBattleground ? '#f1c40f' : 'rgba(255,255,255,0.2)';
-            const strokeWidth = st.isBattleground ? '2' : '0.5';
-            const title = `${st.name}: ${Math.round(poll.player)}% - ${Math.round(poll.opponent)}%`;
+            const playerVP = gs.playerTicket ? gs.playerTicket.vp : null;
+            const opponentVP = gs.opponentTicket ? gs.opponentTicket.vp : null;
+            const playerTouched = window.VPData && window.VPData.optionTouchesState(playerVP, abbr);
+            const opponentTouched = window.VPData && window.VPData.optionTouchesState(opponentVP, abbr);
+            const strokeColor = st.isBattleground
+                ? '#f1c40f'
+                : playerTouched
+                    ? '#3ddad7'
+                    : opponentTouched
+                        ? '#ffb366'
+                        : 'rgba(255,255,255,0.2)';
+            const strokeWidth = st.isBattleground ? '2' : (playerTouched || opponentTouched ? '1.5' : '0.5');
+            const title = `${st.name}: ${Math.round(poll.player)}% - ${Math.round(poll.opponent)}%${playerTouched ? ' | Your VP footprint' : ''}${opponentTouched ? ' | Opponent VP footprint' : ''}`;
 
             // Add interactive hover state support via CSS class
             if (data.circle) {
@@ -905,6 +1034,18 @@ window.GameUI = {
         const pName = gs.playerCandidate.name.split(' ').pop();
         const oName = gs.opponentCandidate.name.split(' ').pop();
         const trendIcon = poll.trend > 0.5 ? '<span class="poll-trend up">▲</span>' : poll.trend < -0.5 ? '<span class="poll-trend down">▼</span>' : '';
+        const playerVP = gs.playerTicket ? gs.playerTicket.vp : null;
+        const opponentVP = gs.opponentTicket ? gs.opponentTicket.vp : null;
+        const ticketFactors = [];
+
+        if (playerVP && window.VPData.optionTouchesState(playerVP, stateId)) {
+            const homeStateBoost = window.VPData.getStateIdForName(playerVP.homeState) === stateId ? 'home-state' : 'regional';
+            ticketFactors.push(`Your VP ${playerVP.name} adds a ${homeStateBoost} edge here.`);
+        }
+        if (opponentVP && window.VPData.optionTouchesState(opponentVP, stateId)) {
+            const homeStateBoost = window.VPData.getStateIdForName(opponentVP.homeState) === stateId ? 'home-state' : 'regional';
+            ticketFactors.push(`${opponentVP.name} gives the opposition a ${homeStateBoost} edge here.`);
+        }
 
         // Top issues for this state
         const issues = st.issueSalience;
@@ -953,6 +1094,11 @@ window.GameUI = {
                         <div class="info-label">Your Visits</div>
                         <div>${gs.visitedStates[stateId] || 0} visits</div>
                     </div>
+                    ${ticketFactors.length ? `
+                    <div class="state-info-item state-ticket-factor">
+                        <div class="info-label">Ticket Factors</div>
+                        <div>${ticketFactors.join(' ')}</div>
+                    </div>` : ''}
                 </div>
                 <div class="mt-1 btn-group">
                     <button class="btn btn-sm btn-primary" onclick="GameUI.quickVisit('${stateId}')">Visit Now ($80K)</button>
@@ -1173,6 +1319,7 @@ window.GameUI = {
                 <div class="panel-section-title">Opponent Intel</div>
                 <div style="font-size:0.8rem;color:var(--text-secondary);">
                     <div style="margin-bottom:4px;">${gs.opponentCandidate.name}</div>
+                    <div style="margin-bottom:8px;color:var(--text-muted);">VP: ${gs.opponentTicket && gs.opponentTicket.vp ? gs.opponentTicket.vp.name : 'TBD'}</div>
                     ${this.createStatBar('Approval', Math.round(gs.opponent.approval), this.getOpponentColorClass())}
                     ${this.createStatBar('Enthusiasm', Math.round(gs.opponent.enthusiasm), this.getOpponentColorClass())}
                     ${this.createStatBar('Cash', Math.min(100, Math.round(gs.opponent.cash / 100000)), 'yellow')}
@@ -1440,38 +1587,25 @@ window.GameUI = {
     // ═══════════════════════════════════════════════
     showVPPickModal() {
         const gs = window.GameEngine.state;
-        const isDem = gs.playerParty === 'democrat';
-
-        // Generate VP options based on party
-        const vpOptions = isDem ? [
-            { name: 'Gov. Wes Moore (MD)', home: 'Maryland', desc: 'Young, charismatic governor. Boosts minority turnout and enthusiasm.', effects: { enthusiasm: 8, baseTurnout: 5, onlineInfluence: 4 } },
-            { name: 'Sen. Mark Kelly (AZ)', home: 'Arizona', desc: 'Astronaut, veteran, swing-state senator. Maximizes crossover appeal.', effects: { crossoverAppeal: 8, approval: 4, persuadableSupport: 5 } },
-            { name: 'Gov. Gretchen Whitmer (MI)', home: 'Michigan', desc: 'Proven swing-state winner. Strengthens Midwest firewall.', effects: { groundGame: 6, baseTurnout: 4, surrogateStrength: 5 } },
-            { name: 'Sen. Raphael Warnock (GA)', home: 'Georgia', desc: 'Powerful orator from Georgia. Energizes the base and Southern strategy.', effects: { baseEnthusiasm: 7, enthusiasm: 5, surrogateStrength: 4 } },
-            { name: 'Gov. Andy Beshear (KY)', home: 'Kentucky', desc: 'Won in deep-red Kentucky. Ultimate electability argument.', effects: { crossoverAppeal: 10, persuadableSupport: 6, donorConfidence: 4 } },
-        ] : [
-            { name: 'Gov. Glenn Youngkin (VA)', home: 'Virginia', desc: 'Business-friendly governor. Locks down suburban and donor support.', effects: { donorConfidence: 7, crossoverAppeal: 5, persuadableSupport: 5 } },
-            { name: 'Sen. Tim Scott (SC)', home: 'South Carolina', desc: 'Optimistic messenger with broad appeal. Expands the coalition.', effects: { crossoverAppeal: 6, approval: 5, enthusiasm: 4 } },
-            { name: 'Rep. Elise Stefanik (NY)', home: 'New York', desc: 'Fighter who energizes the MAGA base. Strong media presence.', effects: { baseEnthusiasm: 8, mediaScore: 5, onlineInfluence: 4 } },
-            { name: 'Gov. Brian Kemp (GA)', home: 'Georgia', desc: 'Proven Georgia winner. Ground game and swing-state credibility.', effects: { groundGame: 6, baseTurnout: 5, crossoverAppeal: 4 } },
-            { name: 'Sen. Katie Britt (AL)', home: 'Alabama', desc: 'Youngest woman in the Senate. Fresh face with fundraising strength.', effects: { fundraising: 5, enthusiasm: 5, onlineInfluence: 5 } },
-        ];
+        const nominee = gs.playerCandidate;
+        const vpOptions = window.VPData.getOptionsForCandidate(nominee);
+        const combined = [...vpOptions.curated, ...vpOptions.wildcard];
 
         const html = `
             <p class="text-muted mb-2">This is one of the most important decisions of your campaign. Your VP pick will affect your coalition, messaging, and electoral map for the rest of the race.</p>
             <div style="display:grid;gap:10px;">
-                ${vpOptions.map((vp, i) => `
+                ${combined.map((vp, i) => `
                     <button class="btn action-btn" onclick="GameUI.pickVP(${i})" style="flex-direction:column;align-items:flex-start;padding:16px;">
                         <div style="font-weight:700;font-size:1rem;">${vp.name}</div>
-                        <div style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0;">${vp.desc}</div>
+                        <div style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0;">${vp.description}</div>
                         <div style="font-size:0.75rem;color:var(--accent-green);">
-                            ${Object.entries(vp.effects).map(([k, v]) => `+${v} ${k.replace(/([A-Z])/g, ' $1').trim()}`).join(' | ')}
+                            ${this.formatVPEffects(vp.effects)}
                         </div>
                     </button>
                 `).join('')}
             </div>`;
 
-        this._vpOptions = vpOptions;
+        this._vpOptions = combined;
         this.showModal('Choose Your Running Mate', html);
     },
 
@@ -1479,13 +1613,7 @@ window.GameUI = {
         const vp = this._vpOptions[index];
         if (!vp) return;
 
-        const result = window.GameEngine.processVPPick(vp.name);
-
-        // Apply VP-specific stat bonuses
-        const c = window.GameEngine.state.campaign;
-        for (const [key, val] of Object.entries(vp.effects)) {
-            if (c.hasOwnProperty(key)) c[key] += val;
-        }
+        const result = window.GameEngine.processVPPick(vp);
 
         this.showToast(result.message || `VP Pick: ${vp.name}!`, 'success');
         this.closeModal();

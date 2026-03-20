@@ -83,6 +83,20 @@ h3 { font-size: 1.25rem; }
     z-index: 1000;
     background: linear-gradient(90deg, var(--breaking-red), #cc0000, var(--breaking-red));
     color: white;
+        .ticket-preview {
+            grid-template-columns: 1fr;
+        }
+        .ticket-preview-divider {
+            margin: 0 auto;
+        }
+        .vp-section-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .ticket-builder-note {
+            max-width: none;
+            text-align: left;
+        }
     font-weight: 700;
     font-size: 0.85rem;
     letter-spacing: 0.5px;
@@ -349,6 +363,87 @@ h3 { font-size: 1.25rem; }
     font-size: 0.85rem;
     color: var(--text-muted);
 }
+.ticket-builder {
+    display: grid;
+    gap: 1.25rem;
+}
+.ticket-preview {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+}
+.ticket-preview-dem {
+    box-shadow: inset 0 0 0 1px rgba(33,102,212,0.2);
+}
+.ticket-preview-rep {
+    box-shadow: inset 0 0 0 1px rgba(212,33,33,0.2);
+}
+.ticket-preview-label {
+    font-size: 0.7rem;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.ticket-preview-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.ticket-preview-meta {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+.ticket-preview-divider {
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+.vp-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 1rem;
+}
+.vp-section-header h3 {
+    margin-bottom: 0.25rem;
+}
+.vp-section-header-secondary {
+    margin-top: 0.25rem;
+}
+.ticket-builder-note {
+    max-width: 320px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: right;
+}
+.vp-card {
+    min-height: 100%;
+}
+.vp-card-copy {
+    margin: 0.75rem 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+.vp-card-effects {
+    font-size: 0.8rem;
+    color: var(--accent-green);
+    font-weight: 600;
+}
+.vp-card-targets {
+    margin-top: 0.65rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
 
 /* ── Stat Bars ── */
 .stat-bar-container {
@@ -415,6 +510,7 @@ h3 { font-size: 1.25rem; }
     display: flex;
     align-items: center;
     gap: 20px;
+    flex-wrap: wrap;
 }
 .week-display {
     font-size: 1.1rem;
@@ -451,6 +547,29 @@ h3 { font-size: 1.25rem; }
     display: flex;
     align-items: center;
     gap: 12px;
+}
+.ticket-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.ticket-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+}
+.ticket-chip.dem {
+    color: var(--dem-blue-light);
+}
+.ticket-chip.rep {
+    color: var(--rep-red-light);
 }
 .cash-display {
     font-family: var(--font-mono);
@@ -660,6 +779,9 @@ h3 { font-size: 1.25rem; }
     margin-bottom: 1rem;
 }
 .state-detail-header h3 { font-size: 1.3rem; }
+.state-ticket-factor {
+    grid-column: 1 / -1;
+}
 .state-ev-badge {
     background: var(--accent-blue);
     color: white;

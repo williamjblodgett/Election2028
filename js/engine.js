@@ -75,6 +75,10 @@ window.GameEngine = {
             conventionDone: false,
             vpPicked: false,
             vpChoice: null,
+            playerTicket: null,
+            opponentTicket: null,
+            vpAnnouncementBias: 0,
+            opponentVPAnnouncementBias: 0,
             weekActions: [],
             visitedStates: {},
         };
@@ -90,6 +94,8 @@ window.GameEngine = {
         this.state.playerParty = playerCandidate.party === 'Democrat' ? 'democrat' : 'republican';
         this.state.gameMode = mode;
         this.state.difficulty = difficulty;
+        this.state.playerTicket = { nominee: playerCandidate, vp: null };
+        this.state.opponentTicket = { nominee: opponentCandidate, vp: null };
 
         // Apply candidate stats to campaign
         const pc = playerCandidate;
@@ -183,6 +189,76 @@ window.GameEngine = {
 
         this.state.campaign.nationalPolling = this.calculateNationalPolling();
         this.state.opponent.nationalPolling = 100 - this.state.campaign.nationalPolling - 8; // undecideds
+    },
+
+    applyTicketStatEffects(side, effects) {
+        if (!effects) return;
+
+        const target = side === 'player' ? this.state.campaign : this.state.opponent;
+        for (const [key, value] of Object.entries(effects)) {
+            if (target.hasOwnProperty(key)) {
+                target[key] += value;
+            }
+        }
+
+        if (side === 'player') {
+            if (effects.cashOnHand) {
+                this.state.finances.cashOnHand += effects.cashOnHand;
+                this.state.finances.totalRaised += effects.cashOnHand;
+                this.state.campaign.cash = this.state.finances.cashOnHand;
+            }
+            if (effects.weeklySmallDollar) this.state.finances.weeklySmallDollar += effects.weeklySmallDollar;
+            if (effects.weeklyHighDollar) this.state.finances.weeklyHighDollar += effects.weeklyHighDollar;
+        } else if (effects.cashOnHand) {
+            this.state.opponent.cash += effects.cashOnHand;
+        }
+    },
+
+    applyTicketMapEffects(side, option) {
+        if (!option) return;
+        const pollKey = side === 'player' ? 'player' : 'opponent';
+        const homeStateId = window.VPData ? window.VPData.getStateIdForName(option.homeState) : null;
+
+        if (homeStateId && this.state.statePolling[homeStateId]) {
+            this.state.statePolling[homeStateId][pollKey] += option.homeStateBonus || 0;
+            this.state.statePolling[homeStateId].trend += side === 'player' ? 0.8 : -0.8;
+        }
+
+        for (const stateId of option.regionalTargets || []) {
+            if (!this.state.statePolling[stateId]) continue;
+            this.state.statePolling[stateId][pollKey] += option.regionalBonus || 0;
+            this.state.statePolling[stateId].trend += side === 'player' ? 0.4 : -0.4;
+        }
+    },
+
+    normalizeTicketPolling() {
+        for (const poll of Object.values(this.state.statePolling)) {
+            poll.player = Math.max(20, Math.min(75, poll.player));
+            poll.opponent = Math.max(20, Math.min(75, poll.opponent));
+            poll.undecided = Math.max(2, 100 - poll.player - poll.opponent);
+        }
+        this.state.campaign.nationalPolling = this.calculateNationalPolling();
+        this.state.opponent.nationalPolling = Math.max(20, Math.round((100 - this.state.campaign.nationalPolling - 8) * 10) / 10);
+    },
+
+    assignRunningMates(playerVP, opponentVP) {
+        if (playerVP) {
+            this.state.playerTicket = { nominee: this.state.playerCandidate, vp: playerVP };
+            this.state.vpPicked = true;
+            this.state.vpChoice = playerVP.name;
+            this.state.vpAnnouncementBias = playerVP.announcementBias || 0;
+            this.applyTicketStatEffects('player', playerVP.effects);
+            this.applyTicketMapEffects('player', playerVP);
+        }
+
+        if (opponentVP) {
+            this.state.opponentTicket = { nominee: this.state.opponentCandidate, vp: opponentVP };
+            this.state.opponentVPAnnouncementBias = opponentVP.announcementBias || 0;
+            this.applyTicketStatEffects('opponent', opponentVP.effects);
+            this.applyTicketMapEffects('opponent', opponentVP);
+        }
+
+        this.normalizeTicketPolling();
     },
 
     // ═══════════════════════════════════════════════
@@ -857,16 +933,15 @@ window.GameEngine = {
 
     processVPPick(vpName) {
         if (this.state.vpPicked) return {};
-        this.state.vpPicked = true;
-        this.state.vpChoice = vpName;
+        const option = typeof vpName === 'string' ? { name: vpName, effects: {} } : vpName;
+        this.assignRunningMates(option, this.state.opponentTicket ? this.state.opponentTicket.vp : null);
 
-        // VP pick gives a modest boost
         this.state.campaign.enthusiasm += 5;
-        this.state.campaign.mediaScore += 10;
-        this.state.campaign.surrogateStrength += 10;
+        this.state.campaign.mediaScore += 8;
+        this.state.campaign.surrogateStrength += 8;
         this.state.campaign.momentum += 10;
 
-        return { message: `VP pick announced: ${vpName}! Media buzz surges.` };
+        return { message: `VP pick announced: ${option.name}! Media buzz surges.` };
     },
 
     // ═══════════════════════════════════════════════

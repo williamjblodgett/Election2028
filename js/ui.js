@@ -36,6 +36,14 @@ window.GameUI = {
         if (this._initialized) return;
         this._initialized = true;
 
+        if (window.USAccurateMapLoader) {
+            window.USAccurateMapLoader.preload().then(() => {
+                if (this.currentScreen === 'game' && this.activeTab === 'map') {
+                    this.renderCenterContent();
+                }
+            });
+        }
+
         this.checkMobile();
         this.checkSavedGame();
         this.renderTitleScreen();
@@ -941,7 +949,7 @@ window.GameUI = {
                 );
             }
 
-            const fontSize = data.circle ? 5 : (st.electoralVotes > 15 ? 12 : st.electoralVotes > 8 ? 10 : 8);
+            const fontSize = data.fontSize || (data.circle ? 5 : (st.electoralVotes > 15 ? 12 : st.electoralVotes > 8 ? 10 : 8));
             labels.push(
                 `<text x="${data.cx}" y="${data.cy}" text-anchor="middle" dominant-baseline="middle" ` +
                 `font-size="${fontSize}" font-weight="700" fill="#fff" ` +

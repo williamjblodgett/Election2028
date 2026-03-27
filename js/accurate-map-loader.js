@@ -111,6 +111,10 @@ window.USAccurateMapLoader = {
         return { x: 132, y: 20, width: 790, height: 500 };
     },
 
+    hasD3Projection() {
+        return !!(window.d3 && window.d3.geoAlbersUsa && window.d3.geoPath);
+    },
+
     createTransform(bounds, box) {
         const width = bounds.maxX - bounds.minX;
         const height = bounds.maxY - bounds.minY;
@@ -140,6 +144,58 @@ window.USAccurateMapLoader = {
             VT: { dx: -10, dy: 8, fontSize: 6 },
             NH: { dx: 10, dy: 4, fontSize: 6 },
         };
+    },
+
+    buildStatePathsWithD3(geojson) {
+        const overrides = this.getLabelOverrides();
+        const features = [];
+
+        for (const feature of geojson.features || []) {
+            const stateId = this.getStateIdByName(feature.properties && feature.properties.name);
+            if (!stateId || stateId === 'PR') continue;
+            features.push({ ...feature, __stateId: stateId });
+        }
+
+        const featureCollection = {
+            type: 'FeatureCollection',
+            features,
+        };
+
+        const projection = window.d3.geoAlbersUsa().fitExtent([[20, 20], [940, 580]], featureCollection);
+        const path = window.d3.geoPath(projection);
+        const byState = {};
+
+        for (const feature of features) {
+            const stateId = feature.__stateId;
+            const override = overrides[stateId] || {};
+            const d = path(feature);
+            const centroid = path.centroid(feature);
+
+            if (!d || !isFinite(centroid[0]) || !isFinite(centroid[1])) continue;
+
+            const cx = Number((centroid[0] + (override.dx || 0)).toFixed(2));
+            const cy = Number((centroid[1] + (override.dy || 0)).toFixed(2));
+
+            if (override.circle) {
+                byState[stateId] = {
+                    circle: true,
+                    cx,
+                    cy,
+                    r: override.r || 4,
+                    fontSize: override.fontSize || 5,
+                };
+                continue;
+            }
+
+            byState[stateId] = {
+                d,
+                cx,
+                cy,
+                fontSize: override.fontSize,
+            };
+        }
+
+        return byState;
     },
 
     projectGroups(groups, transform) {
@@ -180,6 +236,13 @@ window.USAccurateMapLoader = {
     },
 
     buildStatePaths(geojson) {
+        if (this.hasD3Projection()) {
+            const projected = this.buildStatePathsWithD3(geojson);
+            if (projected && Object.keys(projected).length >= 51) {
+                return projected;
+            }
+        }
+
         const byState = {};
         const lower48Bounds = [];
         const rawFeatures = [];

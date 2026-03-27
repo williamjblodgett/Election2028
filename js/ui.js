@@ -942,14 +942,54 @@ window.GameUI = {
     renderMap(container) {
         const gs = window.GameEngine.state;
         const map = window.GameEngine.calculateElectoralMap();
+        const battlegroundCount = window.StateData.filter((state) => state.isBattleground).length;
+        const leaningCount = Object.values(gs.statePolling).filter((poll) => Math.abs(poll.player - poll.opponent) <= 6).length;
 
         // Build SVG map using real state shapes
         const svgMap = window.USMapPaths ? this.buildSVGMap(gs) : this.buildFallbackMap(gs);
 
         container.innerHTML = `
-            <div class="us-map-container svg-map-container">
-                ${svgMap}
-                <div class="map-legend">
+            <div class="map-stage-shell">
+                <div class="map-stage-header">
+                    <div>
+                        <div class="map-stage-kicker">Electoral Map</div>
+                        <h3 class="map-stage-title">Race board</h3>
+                        <div class="map-stage-copy">Live polling by state with battleground pressure, VP footprints, and real EV math.</div>
+                    </div>
+                    <div class="map-stage-meta">
+                        <div class="map-stage-meta-card">
+                            <span>Battlegrounds</span>
+                            <strong>${battlegroundCount}</strong>
+                        </div>
+                        <div class="map-stage-meta-card">
+                            <span>Close States</span>
+                            <strong>${leaningCount}</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="map-scoreboard-shell">
+                    <div class="map-score-card ${this.getPlayerColorClass()}">
+                        <div class="map-score-label">${gs.playerCandidate.name.split(' ').pop()}</div>
+                        <div class="map-score-value">${map.playerEV}</div>
+                    </div>
+                    <div class="map-score-track-shell">
+                        <div class="map-score-track">
+                            <div class="map-score-fill ${this.getPlayerColorClass()}" style="width:${(map.playerEV / 538) * 100}%"></div>
+                            <div class="map-score-marker"></div>
+                            <div class="map-score-fill ${this.getOpponentColorClass()} map-score-fill-opponent" style="width:${(map.opponentEV / 538) * 100}%"></div>
+                        </div>
+                        <div class="map-score-target">270 to win</div>
+                    </div>
+                    <div class="map-score-card ${this.getOpponentColorClass()}">
+                        <div class="map-score-label">${gs.opponentCandidate.name.split(' ').pop()}</div>
+                        <div class="map-score-value">${map.opponentEV}</div>
+                    </div>
+                </div>
+                <div class="us-map-container svg-map-container map-stage-frame">
+                    <div class="map-stage-grid"></div>
+                    ${svgMap}
+                </div>
+                <div class="map-legend map-legend-inline">
                     <div class="legend-item"><div class="legend-color" style="background:#1a47a0"></div>Safe D</div>
                     <div class="legend-item"><div class="legend-color" style="background:#2d6fd4"></div>Lean D</div>
                     <div class="legend-item"><div class="legend-color" style="background:#5a9ae8"></div>Tilt D</div>
@@ -957,19 +997,6 @@ window.GameUI = {
                     <div class="legend-item"><div class="legend-color" style="background:#e85a5a"></div>Tilt R</div>
                     <div class="legend-item"><div class="legend-color" style="background:#d42d2d"></div>Lean R</div>
                     <div class="legend-item"><div class="legend-color" style="background:#a01a1a"></div>Safe R</div>
-                </div>
-                <div class="ec-counter">
-                    <div class="ec-count ${this.getPlayerColorClass()}">
-                        <div class="ec-num">${map.playerEV}</div>
-                        <div class="ec-label">${gs.playerCandidate.name.split(' ').pop()}</div>
-                    </div>
-                    <div class="ec-count" style="color:var(--text-muted);">
-                        <div class="ec-num" style="font-size:1rem;">270 to win</div>
-                    </div>
-                    <div class="ec-count ${this.getOpponentColorClass()}">
-                        <div class="ec-num">${map.opponentEV}</div>
-                        <div class="ec-label">${gs.opponentCandidate.name.split(' ').pop()}</div>
-                    </div>
                 </div>
             </div>
             ${this.isMobile ? '<div style="text-align:center;margin-top:8px;"><button class="btn btn-sm btn-ghost" onclick="GameUI.toggleMapView()">📋 List View</button></div>' : ''}

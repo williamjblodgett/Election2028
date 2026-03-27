@@ -243,17 +243,24 @@ window.GameUI = {
         const content = document.getElementById('setup-content');
         const title = document.getElementById('setup-title');
         const subtitle = document.getElementById('setup-subtitle');
+        const progress = document.getElementById('setup-progress');
         const backBtn = document.getElementById('setup-back-btn');
         const nextBtn = document.getElementById('setup-next-btn');
+        const totalSteps = this.getSetupFlowSteps().length;
+        let stageContent = '';
 
         backBtn.style.visibility = this.setupStep > 1 ? 'visible' : 'hidden';
+        nextBtn.textContent = 'NEXT';
+
+        if (progress) {
+            progress.innerHTML = this.renderSetupProgress();
+        }
 
         switch (this.setupStep) {
             case 1: // Game Mode
                 title.textContent = 'Choose Your Mode';
-                subtitle.textContent = 'Step 1 of 7';
-                nextBtn.textContent = 'NEXT';
-                content.innerHTML = `
+                subtitle.textContent = 'Define the shape of the race before the first ad goes up.';
+                stageContent = `
                     <div class="mode-cards">
                         <div class="mode-card ${this.selectedMode === 'campaign' ? 'selected' : ''}" onclick="GameUI.selectMode('campaign')">
                             <div class="mode-icon">🎯</div>
@@ -275,8 +282,8 @@ window.GameUI = {
 
             case 2: // Party Selection
                 title.textContent = 'Choose Your Party';
-                subtitle.textContent = 'Step 2 of 7';
-                content.innerHTML = `
+                subtitle.textContent = 'Lock in the coalition you want to build.';
+                stageContent = `
                     <div class="mode-cards" style="max-width:500px;margin:0 auto;">
                         <div class="mode-card ${this.playerParty === 'democrat' ? 'selected' : ''}" onclick="GameUI.selectParty('democrat')" style="border-color:${this.playerParty === 'democrat' ? 'var(--dem-blue)' : 'var(--border-color)'}">
                             <div class="mode-icon">🔵</div>
@@ -293,27 +300,26 @@ window.GameUI = {
 
             case 3: // Candidate Selection
                 title.textContent = `Choose Your ${this.playerParty === 'democrat' ? 'Democratic' : 'Republican'} Candidate`;
-                subtitle.textContent = 'Step 3 of 7';
+                subtitle.textContent = 'Compare strengths, liabilities, and coalition fit.';
                 const candidates = this.playerParty === 'democrat' ? window.CandidateData.democrats : window.CandidateData.republicans;
                 const selected = this.playerParty === 'democrat' ? this.selectedDemocrat : this.selectedRepublican;
-                content.innerHTML = `<div class="candidate-grid">${candidates.map(c => this.renderCandidateCard(c, selected)).join('')}</div>`;
+                stageContent = `<div class="candidate-grid">${candidates.map(c => this.renderCandidateCard(c, selected)).join('')}</div>`;
                 break;
 
             case 4: // Opponent Selection
                 title.textContent = `Choose Your ${this.playerParty === 'democrat' ? 'Republican' : 'Democratic'} Opponent`;
-                subtitle.textContent = 'Step 4 of 7';
+                subtitle.textContent = 'Set the matchup and shape the general-election battlefield.';
                 const oppCandidates = this.playerParty === 'democrat' ? window.CandidateData.republicans : window.CandidateData.democrats;
                 const oppSelected = this.playerParty === 'democrat' ? this.selectedRepublican : this.selectedDemocrat;
-                content.innerHTML = `<div class="candidate-grid">${oppCandidates.map(c => this.renderCandidateCard(c, oppSelected, true)).join('')}</div>`;
+                stageContent = `<div class="candidate-grid">${oppCandidates.map(c => this.renderCandidateCard(c, oppSelected, true)).join('')}</div>`;
                 break;
 
             case 5: // VP Selection
                 title.textContent = 'Build Your Ticket';
-                subtitle.textContent = 'Step 5 of 7';
-                nextBtn.textContent = 'NEXT';
+                subtitle.textContent = 'Choose the running mate who bends the map in your favor.';
                 const nominee = this.getPlayerCandidateSelection();
                 const vpOptions = window.VPData.getOptionsForCandidate(nominee);
-                content.innerHTML = `
+                stageContent = `
                     <div class="ticket-builder">
                         ${this.renderTicketPreview(nominee, this.selectedVP)}
                         <div class="vp-section-header">
@@ -340,9 +346,8 @@ window.GameUI = {
 
             case 6: // Difficulty
                 title.textContent = 'Choose Difficulty';
-                subtitle.textContent = 'Step 6 of 7';
-                nextBtn.textContent = 'NEXT';
-                content.innerHTML = `
+                subtitle.textContent = 'Decide how punishing the campaign environment will be.';
+                stageContent = `
                     <div class="difficulty-options">
                         <div class="difficulty-card ${this.selectedDifficulty === 'arcade' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('arcade')">
                             <h4>🎮 Arcade</h4>
@@ -365,7 +370,7 @@ window.GameUI = {
 
             case 7: // Campaign Perks (point allocation)
                 title.textContent = 'Campaign Advantages';
-                subtitle.textContent = 'Step 7 of 7';
+                subtitle.textContent = 'Allocate early advantages before the first week begins.';
                 nextBtn.textContent = 'START CAMPAIGN';
                 const perks = this.campaignPerks;
                 const usedPoints = Object.values(perks).reduce((a, b) => a + b, 0);
@@ -380,7 +385,7 @@ window.GameUI = {
                     { key: 'teflonCandidate', icon: '🛡️', name: 'Teflon Candidate', flavor: 'Opposition research came up empty', desc: '-10 scandal vulnerability per point', val: perks.teflonCandidate },
                 ];
 
-                content.innerHTML = `
+                stageContent = `
                     <div class="perk-allocation">
                         <div class="perk-points-header">
                             <div class="perk-points-remaining">
@@ -415,6 +420,64 @@ window.GameUI = {
                     </div>`;
                 break;
         }
+
+        content.innerHTML = `
+            <div class="setup-stage-card">
+                <div class="setup-stage-header">
+                    <div class="setup-step-badge">Step ${this.setupStep} of ${totalSteps}</div>
+                    <div class="setup-step-copy">${this.getSetupStepSupportCopy()}</div>
+                </div>
+                ${stageContent}
+            </div>`;
+    },
+
+    getSetupFlowSteps() {
+        return [
+            { id: 1, label: 'Mode', icon: '🎯' },
+            { id: 2, label: 'Party', icon: '🏳️' },
+            { id: 3, label: 'Nominee', icon: '🧑' },
+            { id: 4, label: 'Opponent', icon: '🛡️' },
+            { id: 5, label: 'VP', icon: '⭐' },
+            { id: 6, label: 'Difficulty', icon: '⚙️' },
+            { id: 7, label: 'Perks', icon: '🚀' },
+        ];
+    },
+
+    renderSetupProgress() {
+        const steps = this.getSetupFlowSteps();
+        const completion = ((this.setupStep - 1) / (steps.length - 1)) * 100;
+
+        return `
+            <div class="setup-progress-shell">
+                <div class="setup-progress-line">
+                    <div class="setup-progress-line-fill" style="width:${completion}%"></div>
+                </div>
+                <div class="setup-progress-steps">
+                    ${steps.map((step, index) => {
+                        const isComplete = step.id < this.setupStep;
+                        const isCurrent = step.id === this.setupStep;
+                        return `
+                            <div class="setup-progress-step ${isCurrent ? 'current' : ''} ${isComplete ? 'complete' : ''}">
+                                <div class="setup-progress-node">${step.icon}</div>
+                                <div class="setup-progress-label">${step.label}</div>
+                            </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+    },
+
+    getSetupStepSupportCopy() {
+        const copy = {
+            1: 'Campaign mode changes who you control and how chaotic the race becomes.',
+            2: 'Party choice determines your bench, coalition targets, and map baseline.',
+            3: 'Candidate stats feed directly into enthusiasm, debates, media handling, and fundraising.',
+            4: 'Opponent choice sets the strategic challenge for the entire general-election run.',
+            5: 'Running mates affect both campaign attributes and state-level advantages.',
+            6: 'Difficulty adjusts fundraising pressure, volatility, and forgiveness.',
+            7: 'Early advantages trade flexibility for a sharper opening position.',
+        };
+
+        return copy[this.setupStep] || '';
     },
 
     selectMode(mode) {
@@ -661,28 +724,34 @@ window.GameUI = {
         const oColor = this.getOpponentColorVar();
         const playerTicketLabel = gs.playerTicket && gs.playerTicket.vp ? `${gs.playerCandidate.name} / ${gs.playerTicket.vp.name}` : gs.playerCandidate.name;
         const opponentTicketLabel = gs.opponentTicket && gs.opponentTicket.vp ? `${gs.opponentCandidate.name} / ${gs.opponentTicket.vp.name}` : gs.opponentCandidate.name;
-
         topBar.innerHTML = `
             <div class="top-bar-left">
-                <span class="week-display">${weekLabel}</span>
+                <div class="topbar-brand-block">
+                    <div class="topbar-brand">E<span>28</span></div>
+                    <div class="topbar-week">${weekLabel}</div>
+                </div>
                 <span class="phase-badge ${gs.phase === 'primary' ? 'phase-primary' : 'phase-general'}">${gs.phase}</span>
-                <div class="ticket-strip">
+                <div class="ticket-strip ticket-strip-stack">
                     <span class="ticket-chip ${this.getPlayerColorClass()}">${playerTicketLabel}</span>
                     <span class="ticket-chip ${this.getOpponentColorClass()}">${opponentTicketLabel}</span>
                 </div>
             </div>
             <div class="top-bar-center">
-                <div class="polling-pill">
-                    <span style="color:${pColor}">YOU</span>
-                    <span class="poll-num" style="color:${pColor}">${Math.round(gs.campaign.nationalPolling)}%</span>
+                <div class="polling-pill polling-pill-large">
+                    <span class="topbar-kicker">National</span>
+                    <span style="color:${pColor}">You ${Math.round(gs.campaign.nationalPolling)}%</span>
                     <span class="text-muted">vs</span>
-                    <span class="poll-num" style="color:${oColor}">${Math.round(gs.opponent.nationalPolling)}%</span>
-                    <span style="color:${oColor}">OPP</span>
+                    <span style="color:${oColor}">Opp ${Math.round(gs.opponent.nationalPolling)}%</span>
                 </div>
                 <div class="polling-pill">
+                    <span class="topbar-kicker">EV</span>
                     <span style="color:${pColor}">${map.playerEV}</span>
-                    <span class="text-muted">EV</span>
+                    <span class="text-muted">to</span>
                     <span style="color:${oColor}">${map.opponentEV}</span>
+                </div>
+                <div class="polling-pill">
+                    <span class="topbar-kicker">Risk</span>
+                    <span>${Math.round(gs.campaign.scandalVulnerability)}/100</span>
                 </div>
             </div>
             <div class="top-bar-right">
@@ -702,64 +771,64 @@ window.GameUI = {
                 <div class="panel-section-title">Campaign</div>
                 <button class="btn action-btn" onclick="GameUI.showVisitModal()">
                     <span class="action-icon">✈️</span>
-                    <span class="action-label">Visit State</span>
+                    <span class="action-copy"><span class="action-label">Visit State</span><span class="action-desc">Move the race in the closest battlegrounds.</span></span>
                     <span class="action-cost">$80K</span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.doActivity('rally')">
                     <span class="action-icon">📢</span>
-                    <span class="action-label">Hold Rally</span>
+                    <span class="action-copy"><span class="action-label">Hold Rally</span><span class="action-desc">Raise enthusiasm and dominate the local news cycle.</span></span>
                     <span class="action-cost">$60K</span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.doActivity('townhall')">
                     <span class="action-icon">🏛️</span>
-                    <span class="action-label">Town Hall</span>
+                    <span class="action-copy"><span class="action-label">Town Hall</span><span class="action-desc">Win persuadable voters with a lower-cost stop.</span></span>
                     <span class="action-cost">$30K</span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.doActivity('podcast')">
                     <span class="action-icon">🎙️</span>
-                    <span class="action-label">Podcast Tour</span>
+                    <span class="action-copy"><span class="action-label">Podcast Tour</span><span class="action-desc">Cheap reach for online influence and authenticity.</span></span>
                     <span class="action-cost">$5K</span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.doActivity('interview')">
                     <span class="action-icon">📺</span>
-                    <span class="action-label">TV Interview</span>
+                    <span class="action-copy"><span class="action-label">TV Interview</span><span class="action-desc">Manage the narrative without leaving the trail.</span></span>
                 </button>
             </div>
             <div class="panel-section">
                 <div class="panel-section-title">Strategy</div>
                 <button class="btn action-btn" onclick="GameUI.showAdBuyModal()">
                     <span class="action-icon">📡</span>
-                    <span class="action-label">Run Ads</span>
+                    <span class="action-copy"><span class="action-label">Run Ads</span><span class="action-desc">Choose the state, channel, budget, and message tone.</span></span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.doActivity('oppoResearch')">
                     <span class="action-icon">🔍</span>
-                    <span class="action-label">Oppo Research</span>
+                    <span class="action-copy"><span class="action-label">Oppo Research</span><span class="action-desc">Hunt for vulnerabilities before the other side lands a hit.</span></span>
                     <span class="action-cost">$150K</span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.showCoalitionModal()">
                     <span class="action-icon">🤝</span>
-                    <span class="action-label">Build Coalition</span>
+                    <span class="action-copy"><span class="action-label">Build Coalition</span><span class="action-desc">Target a voter bloc and deepen your turnout machine.</span></span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.doActivity('debatePrep')">
                     <span class="action-icon">📋</span>
-                    <span class="action-label">Debate Prep</span>
+                    <span class="action-copy"><span class="action-label">Debate Prep</span><span class="action-desc">Trade a week of work for cleaner answers under pressure.</span></span>
                 </button>
             </div>
             <div class="panel-section">
                 <div class="panel-section-title">Money</div>
                 <button class="btn action-btn fundraising-blitz-btn" onclick="GameUI.startFundraisingBlitz()">
                     <span class="action-icon">💰</span>
-                    <span class="action-label">Fundraising Blitz</span>
+                    <span class="action-copy"><span class="action-label">Fundraising Blitz</span><span class="action-desc">Spend the week dialing for dollars and refill the war chest.</span></span>
                     <span class="action-cost" style="color:var(--accent-green);">$1.5-3M</span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.doActivity('fieldOffice')">
                     <span class="action-icon">🏢</span>
-                    <span class="action-label">Open Field Office</span>
+                    <span class="action-copy"><span class="action-label">Open Field Office</span><span class="action-desc">Build durable organizing strength in a target market.</span></span>
                     <span class="action-cost">$200K</span>
                 </button>
                 <button class="btn action-btn" onclick="GameUI.doActivity('surrogateDeployment')">
                     <span class="action-icon">🗣️</span>
-                    <span class="action-label">Deploy Surrogates</span>
+                    <span class="action-copy"><span class="action-label">Deploy Surrogates</span><span class="action-desc">Put validators on local television and at local stops.</span></span>
                     <span class="action-cost">$40K</span>
                 </button>
             </div>
@@ -797,28 +866,34 @@ window.GameUI = {
         center.innerHTML = `
             <div class="summary-cards">
                 <div class="summary-card">
+                    <div class="summary-card-header"><span class="summary-card-kicker">Approval</span><span class="summary-card-icon">👥</span></div>
                     <div class="sc-value ${c.approval > 50 ? 'text-green' : c.approval < 40 ? 'text-red' : ''}">${Math.round(c.approval)}%</div>
-                    <div class="sc-label">Approval</div>
+                    <div class="sc-label">National mood toward your campaign</div>
                 </div>
                 <div class="summary-card">
+                    <div class="summary-card-header"><span class="summary-card-kicker">Base Energy</span><span class="summary-card-icon">🔥</span></div>
                     <div class="sc-value">${Math.round(c.enthusiasm)}</div>
-                    <div class="sc-label">Enthusiasm</div>
+                    <div class="sc-label">How ready your voters are to show up</div>
                 </div>
                 <div class="summary-card">
+                    <div class="summary-card-header"><span class="summary-card-kicker">Media</span><span class="summary-card-icon">📰</span></div>
                     <div class="sc-value">${Math.round(c.mediaScore)}</div>
-                    <div class="sc-label">Media Score</div>
+                    <div class="sc-label">Press treatment and message control</div>
                 </div>
                 <div class="summary-card">
+                    <div class="summary-card-header"><span class="summary-card-kicker">Field</span><span class="summary-card-icon">🗺️</span></div>
                     <div class="sc-value">${Math.round(c.groundGame)}</div>
-                    <div class="sc-label">Ground Game</div>
+                    <div class="sc-label">On-the-ground organization and turnout</div>
                 </div>
                 <div class="summary-card">
+                    <div class="summary-card-header"><span class="summary-card-kicker">Digital</span><span class="summary-card-icon">📱</span></div>
                     <div class="sc-value">${Math.round(c.onlineInfluence)}</div>
-                    <div class="sc-label">Online</div>
+                    <div class="sc-label">Reach and viral potential across platforms</div>
                 </div>
                 <div class="summary-card">
+                    <div class="summary-card-header"><span class="summary-card-kicker">Finance</span><span class="summary-card-icon">💵</span></div>
                     <div class="sc-value">${Math.round(c.donorConfidence)}</div>
-                    <div class="sc-label">Donors</div>
+                    <div class="sc-label">How comfortable donors feel backing you</div>
                 </div>
             </div>
 
@@ -1272,7 +1347,7 @@ window.GameUI = {
                 return Math.abs((pa ? pa.player - pa.opponent : 0)) - Math.abs((pb ? pb.player - pb.opponent : 0));
             });
 
-        let pollCardsHTML = battlegrounds.map(st => {
+        let pollCardsHTML = battlegrounds.slice(0, 8).map(st => {
             const poll = gs.statePolling[st.id];
             if (!poll) return '';
             const total = poll.player + poll.opponent;
@@ -1282,7 +1357,7 @@ window.GameUI = {
             return `
                 <div class="poll-card" onclick="GameUI.handleStateClick('${st.id}');GameUI.switchTab('map');">
                     <div class="poll-card-header">
-                        <span class="poll-card-state">${st.name} ${trendIcon}</span>
+                        <span class="poll-card-state">${st.id} <span class="poll-card-state-name">${st.name}</span> ${trendIcon}</span>
                         <span class="poll-card-ev">${st.electoralVotes} EV</span>
                     </div>
                     <div class="poll-mini-bar">
@@ -1299,7 +1374,7 @@ window.GameUI = {
         // Recent news
         const recentNews = gs.newsHistory.slice(-5).reverse();
         const newsHTML = recentNews.length > 0
-            ? recentNews.map(h => `<div class="scandal-item">${h}</div>`).join('')
+            ? recentNews.map(h => `<div class="intel-feed-item">${h}</div>`).join('')
             : '<div class="text-muted" style="font-size:0.8rem;">No news yet</div>';
 
         // Scandal tracker
@@ -1307,31 +1382,32 @@ window.GameUI = {
         const scandalClass = scandalLevel > 70 ? 'severity-critical' : scandalLevel > 50 ? 'severity-high' : scandalLevel > 30 ? 'severity-medium' : 'severity-low';
 
         panel.innerHTML = `
-            <div class="panel-section">
-                <div class="panel-section-title">Battleground Polling</div>
+            <div class="panel-section intel-section">
+                <div class="panel-section-title">Battleground Watch</div>
+                <div class="intel-section-copy">Closest states first. Tap any card to focus the map.</div>
                 ${pollCardsHTML}
             </div>
-            <div class="panel-section">
-                <div class="panel-section-title">News Feed</div>
+            <div class="panel-section intel-section">
+                <div class="panel-section-title">Latest Intel</div>
                 ${newsHTML}
             </div>
-            <div class="panel-section">
-                <div class="panel-section-title">Scandal Tracker</div>
-                <div class="scandal-item">
+            <div class="panel-section intel-section">
+                <div class="panel-section-title">Risk Monitor</div>
+                <div class="intel-risk-card">
                     <span class="scandal-severity ${scandalClass}"></span>
-                    Vulnerability: ${Math.round(scandalLevel)}/100
-                    <div class="scandal-week">${scandalLevel > 60 ? 'WARNING: High exposure to media attacks' : 'Manageable — stay disciplined'}</div>
+                    <div>
+                        <div class="intel-risk-value">Vulnerability ${Math.round(scandalLevel)}/100</div>
+                        <div class="intel-risk-copy">${scandalLevel > 60 ? 'High exposure to opposition and media attacks.' : 'Exposure is manageable if messaging stays disciplined.'}</div>
+                    </div>
                 </div>
             </div>
-            <div class="panel-section">
+            <div class="panel-section intel-section">
                 <div class="panel-section-title">Opponent Intel</div>
-                <div style="font-size:0.8rem;color:var(--text-secondary);">
-                    <div style="margin-bottom:4px;">${gs.opponentCandidate.name}</div>
-                    <div style="margin-bottom:8px;color:var(--text-muted);">VP: ${gs.opponentTicket && gs.opponentTicket.vp ? gs.opponentTicket.vp.name : 'TBD'}</div>
-                    ${this.createStatBar('Approval', Math.round(gs.opponent.approval), this.getOpponentColorClass())}
-                    ${this.createStatBar('Enthusiasm', Math.round(gs.opponent.enthusiasm), this.getOpponentColorClass())}
-                    ${this.createStatBar('Cash', Math.min(100, Math.round(gs.opponent.cash / 100000)), 'yellow')}
-                </div>
+                <div class="intel-opponent-name">${gs.opponentCandidate.name}</div>
+                <div class="intel-opponent-vp">VP: ${gs.opponentTicket && gs.opponentTicket.vp ? gs.opponentTicket.vp.name : 'TBD'}</div>
+                ${this.createStatBar('Approval', Math.round(gs.opponent.approval), this.getOpponentColorClass())}
+                ${this.createStatBar('Enthusiasm', Math.round(gs.opponent.enthusiasm), this.getOpponentColorClass())}
+                ${this.createStatBar('Cash', Math.min(100, Math.round(gs.opponent.cash / 100000)), 'yellow')}
             </div>`;
     },
 
@@ -1700,28 +1776,55 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const qNum = this.currentDebateQuestion + 1;
         const totalQ = this.debateQuestions.length;
+        const playerPortrait = gs.playerCandidate.portraitEmoji || '🎤';
+        const opponentPortrait = gs.opponentCandidate.portraitEmoji || '🎤';
+        const playerColor = this.getPlayerColorClass();
+        const opponentColor = this.getOpponentColorClass();
 
         stage.innerHTML = `
-            <h2>PRESIDENTIAL DEBATE</h2>
-            <p class="text-muted">${gs.playerCandidate.name} vs ${gs.opponentCandidate.name}</p>
-            <div class="debate-question-box">
-                <div class="debate-question-label">QUESTION ${qNum} OF ${totalQ} — ${q.topic.toUpperCase()}</div>
-                <div class="debate-question-text">"${q.question}"</div>
-            </div>
-            <div class="debate-responses">
+            <div class="debate-shell">
+                <div class="debate-header-bar">
+                    <div>
+                        <div class="debate-overline">Presidential Debate</div>
+                        <h2>${gs.playerCandidate.name} vs ${gs.opponentCandidate.name}</h2>
+                    </div>
+                    <div class="debate-counter">Question ${qNum} of ${totalQ}</div>
+                </div>
+                <div class="debate-duel">
+                    <div class="debate-candidate ${playerColor}">
+                        <div class="debate-candidate-portrait">${playerPortrait}</div>
+                        <div>
+                            <div class="debate-candidate-name">${gs.playerCandidate.name}</div>
+                            <div class="debate-candidate-sub">You</div>
+                        </div>
+                    </div>
+                    <div class="debate-scoreboard-modern">
+                        <div class="debate-score-pill"><span>Viral</span><strong>${this.debateScores.viral}</strong></div>
+                        <div class="debate-score-pill"><span>Press</span><strong>${this.debateScores.press}</strong></div>
+                        <div class="debate-score-pill"><span>Base</span><strong>${this.debateScores.base}</strong></div>
+                        <div class="debate-score-pill"><span>Suburban</span><strong>${this.debateScores.suburban}</strong></div>
+                        <div class="debate-score-pill"><span>Donors</span><strong>${this.debateScores.donors}</strong></div>
+                    </div>
+                    <div class="debate-candidate ${opponentColor}">
+                        <div>
+                            <div class="debate-candidate-name">${gs.opponentCandidate.name}</div>
+                            <div class="debate-candidate-sub">Opponent</div>
+                        </div>
+                        <div class="debate-candidate-portrait">${opponentPortrait}</div>
+                    </div>
+                </div>
+                <div class="debate-question-box">
+                    <div class="debate-question-label">${q.topic.toUpperCase()}</div>
+                    <div class="debate-question-text">"${q.question}"</div>
+                </div>
+                <div class="debate-responses">
                 ${q.responses.map((r, i) => `
-                    <button class="debate-response" onclick="GameUI.handleDebateResponse(${i})">
-                        ${r.text}
-                        <span class="choice-risk risk-${r.riskLevel}" style="display:inline-block;margin-top:4px;">${r.riskLevel}</span>
+                    <button class="debate-response debate-response-card" onclick="GameUI.handleDebateResponse(${i})">
+                        <div class="debate-response-copy">${r.text}</div>
+                        <span class="choice-risk risk-${r.riskLevel}" style="display:inline-block;margin-top:8px;">${r.riskLevel}</span>
                     </button>
                 `).join('')}
-            </div>
-            <div class="debate-scoreboard">
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.viral}</div><div class="score-label">Viral</div></div>
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.press}</div><div class="score-label">Press</div></div>
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.base}</div><div class="score-label">Base</div></div>
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.suburban}</div><div class="score-label">Suburban</div></div>
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.donors}</div><div class="score-label">Donors</div></div>
+                </div>
             </div>`;
     },
 
@@ -1751,24 +1854,29 @@ window.GameUI = {
         const gs = window.GameEngine.state;
 
         stage.innerHTML = `
-            <h2>DEBATE RESULTS</h2>
-            <p class="text-muted" style="margin-bottom:2rem;">${result.assessment}</p>
-            <div class="debate-scoreboard" style="margin-bottom:2rem;">
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-blue)">${this.debateScores.viral}</div><div class="score-label">Viral Moments</div></div>
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-green)">${this.debateScores.press}</div><div class="score-label">Press Score</div></div>
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-purple)">${this.debateScores.base}</div><div class="score-label">Base Energy</div></div>
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-orange)">${this.debateScores.suburban}</div><div class="score-label">Suburban Appeal</div></div>
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-yellow)">${this.debateScores.donors}</div><div class="score-label">Donor Reaction</div></div>
-            </div>
-            <div class="week-summary" style="max-width:500px;margin:0 auto;text-align:left;">
+            <div class="debate-shell debate-results-shell">
+                <div class="debate-results-heading">
+                    <div class="debate-overline">Debate Complete</div>
+                    <h2>Post-Debate Snapshot</h2>
+                    <p class="text-muted">${result.assessment}</p>
+                </div>
+                <div class="debate-scoreboard" style="margin-bottom:2rem;">
+                    <div class="debate-score-item"><div class="score-val" style="color:var(--accent-blue)">${this.debateScores.viral}</div><div class="score-label">Viral Moments</div></div>
+                    <div class="debate-score-item"><div class="score-val" style="color:var(--accent-green)">${this.debateScores.press}</div><div class="score-label">Press Score</div></div>
+                    <div class="debate-score-item"><div class="score-val" style="color:var(--accent-purple)">${this.debateScores.base}</div><div class="score-label">Base Energy</div></div>
+                    <div class="debate-score-item"><div class="score-val" style="color:var(--accent-orange)">${this.debateScores.suburban}</div><div class="score-label">Suburban Appeal</div></div>
+                    <div class="debate-score-item"><div class="score-val" style="color:var(--accent-yellow)">${this.debateScores.donors}</div><div class="score-label">Donor Reaction</div></div>
+                </div>
+                <div class="week-summary debate-analysis-card" style="max-width:620px;margin:0 auto;text-align:left;">
                 <h3>Post-Debate Analysis</h3>
                 <div class="week-summary-stats">
                     <div class="ws-stat"><span>Total Score</span><span class="ws-change ${result.totalScore > 15 ? 'positive' : 'negative'}">${result.totalScore}</span></div>
                     <div class="ws-stat"><span>Assessment</span><span>${result.assessment}</span></div>
                     <div class="ws-stat"><span>Debates Done</span><span>${gs.debatesCompleted}</span></div>
                 </div>
-            </div>
-            <button class="btn btn-primary btn-lg mt-2" onclick="GameUI.returnFromDebate()">RETURN TO CAMPAIGN</button>`;
+                </div>
+                <button class="btn btn-primary btn-lg mt-2" onclick="GameUI.returnFromDebate()">RETURN TO CAMPAIGN</button>
+            </div>`;
     },
 
     returnFromDebate() {
@@ -1789,24 +1897,47 @@ window.GameUI = {
         const container = document.getElementById('election-night-content');
         const results = nightData.results;
         const callOrder = nightData.callOrder;
+        const mapMarkup = this.buildSVGMap(window.GameEngine.state);
+        const playerName = results.playerName.split(' ').slice(-1)[0];
+        const opponentName = results.opponentName.split(' ').slice(-1)[0];
 
         container.innerHTML = `
-            <h1>ELECTION NIGHT 2028</h1>
-            <p class="en-subtitle">${results.playerName} vs ${results.opponentName}</p>
-            <div class="ec-counter" style="position:relative;justify-content:center;margin:2rem auto;background:rgba(0,0,0,0.4);display:inline-flex;padding:16px 40px;border-radius:var(--radius-lg);">
-                <div class="ec-count ${this.getPlayerColorClass()}">
-                    <div class="ec-num" id="en-player-ev">0</div>
-                    <div class="ec-label">${results.playerName}</div>
+            <div class="election-night-shell">
+                <div class="election-night-header">
+                    <div>
+                        <div class="en-network">Election Night 2028</div>
+                        <p class="en-subtitle">${results.playerName} vs ${results.opponentName}</p>
+                    </div>
+                    <div class="en-live-badge">LIVE</div>
                 </div>
-                <div class="ec-count" style="padding:0 30px;">
-                    <div class="ec-num" style="font-size:1rem;color:var(--text-muted);">270 to win</div>
+                <div class="en-scorebar">
+                    <div class="en-score ${this.getPlayerColorClass()}">
+                        <div class="en-score-name">${playerName}</div>
+                        <div class="en-score-value" id="en-player-ev">0</div>
+                    </div>
+                    <div class="en-target">270 to win</div>
+                    <div class="en-score ${this.getOpponentColorClass()}">
+                        <div class="en-score-name">${opponentName}</div>
+                        <div class="en-score-value" id="en-opp-ev">0</div>
+                    </div>
                 </div>
-                <div class="ec-count ${this.getOpponentColorClass()}">
-                    <div class="ec-num" id="en-opp-ev">0</div>
-                    <div class="ec-label">${results.opponentName}</div>
+                <div class="en-progress-track">
+                    <div class="en-progress-fill ${this.getPlayerColorClass()}" id="en-player-bar" style="width:0%"></div>
+                    <div class="en-progress-marker"></div>
+                    <div class="en-progress-fill ${this.getOpponentColorClass()}" id="en-opp-bar" style="width:0%"></div>
+                </div>
+                <div class="election-night-body">
+                    <div class="en-map-stage">
+                        <div class="us-map-container svg-map-container en-map-frame">
+                            ${mapMarkup}
+                        </div>
+                    </div>
+                    <div class="en-feed-panel">
+                        <div class="en-feed-header">State Calls</div>
+                        <div id="en-state-calls" class="en-state-calls"></div>
+                    </div>
                 </div>
             </div>
-            <div id="en-state-calls" style="margin:2rem auto;max-width:800px;"></div>
             <div id="en-winner-banner"></div>`;
 
         // Animate state calls
@@ -1820,14 +1951,22 @@ window.GameUI = {
                 if (isPlayer) playerEVSoFar += call.ev;
                 else oppEVSoFar += call.ev;
 
-                const callEl = document.createElement('span');
+                const callEl = document.createElement('div');
                 const callClass = isPlayer ? this.getPlayerColorClass() : this.getOpponentColorClass();
                 callEl.className = `state-call ${callClass}-call`;
-                callEl.innerHTML = `${call.stateName} <strong>${call.ev}</strong>`;
+                callEl.innerHTML = `<span class="state-call-name">${call.stateName}</span><strong>${call.ev} EV</strong>`;
                 callsContainer.appendChild(callEl);
 
                 document.getElementById('en-player-ev').textContent = playerEVSoFar;
                 document.getElementById('en-opp-ev').textContent = oppEVSoFar;
+                document.getElementById('en-player-bar').style.width = `${(playerEVSoFar / 538) * 100}%`;
+                document.getElementById('en-opp-bar').style.width = `${(oppEVSoFar / 538) * 100}%`;
+
+                const mapNode = container.querySelector(`[data-state="${call.stateId}"]`);
+                if (mapNode) {
+                    mapNode.classList.add('en-called-state');
+                    mapNode.style.filter = 'brightness(1.25)';
+                }
 
                 // Check if we have a winner
                 if (i === callOrder.length - 1) {

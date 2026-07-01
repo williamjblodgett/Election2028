@@ -806,6 +806,91 @@ window.EventSystem = {
     },
 
     // ═══════════════════════════════════════════════
+    // ENDORSEMENTS — unions, newspapers, politicians
+    // requires: campaign stat minimums to be courted by the player
+    // effects: one-time campaign stat boosts | stateEffects: polling points
+    // ═══════════════════════════════════════════════
+    ENDORSEMENTS: [
+        // Unions
+        { id: 'national_labor', name: 'National Labor Alliance', type: 'union', icon: '🏭',
+          blurb: 'The country\'s largest labor federation, with deep roots in the industrial Midwest.',
+          requires: { groundGame: 35 }, effects: { baseTurnout: 3, groundGame: 2 },
+          stateEffects: { PA: 1.2, MI: 1.2, OH: 1.0, WI: 1.0 } },
+        { id: 'service_workers', name: 'United Service Workers', type: 'union', icon: '🧹',
+          blurb: 'Hospitality and service workers with a legendary turnout machine in the Southwest.',
+          requires: { enthusiasm: 45 }, effects: { baseTurnout: 2, groundGame: 2 },
+          stateEffects: { NV: 1.8, AZ: 1.0 } },
+        { id: 'steel_auto', name: 'Steel & Auto Workers Union', type: 'union', icon: '🔧',
+          blurb: 'Manufacturing workers concentrated in the Rust Belt.',
+          requires: { groundGame: 40 }, effects: { baseTurnout: 2, enthusiasm: 2 },
+          stateEffects: { MI: 1.5, OH: 1.2, IN: 0.8, PA: 0.8 } },
+        { id: 'teachers_united', name: 'Teachers United', type: 'union', icon: '📚',
+          blurb: 'Educators in every county in America, and they all vote.',
+          requires: { approval: 45 }, effects: { baseTurnout: 2, persuadableSupport: 2 },
+          stateEffects: { VA: 1.0, MN: 1.0, NH: 0.8 } },
+        { id: 'police_association', name: 'National Police Benevolent Association', type: 'union', icon: '🚔',
+          blurb: 'Law enforcement officers and their families — a signal to swing voters on public safety.',
+          requires: { persuadableSupport: 30 }, effects: { persuadableSupport: 3, approval: 1 },
+          stateEffects: { PA: 0.8, GA: 0.8, NC: 0.8 } },
+        { id: 'firefighters', name: 'International Firefighters Union', type: 'union', icon: '🚒',
+          blurb: 'First responders with credibility across party lines.',
+          requires: { approval: 42 }, effects: { approval: 2, surrogateStrength: 3 },
+          stateEffects: { WI: 0.8, MI: 0.8, NV: 0.6 } },
+
+        // Newspapers & media
+        { id: 'capital_tribune', name: 'The Capital Tribune', type: 'newspaper', icon: '📰',
+          blurb: 'The paper of record. Its editorial board endorsement still moves elite opinion.',
+          requires: { mediaScore: 55 }, effects: { mediaScore: 4, donorConfidence: 3, persuadableSupport: 2 },
+          stateEffects: { VA: 0.8, PA: 0.6 } },
+        { id: 'heartland_courier', name: 'The Heartland Courier', type: 'newspaper', icon: '🗞️',
+          blurb: 'The Midwest\'s most-read Sunday paper.',
+          requires: { mediaScore: 48 }, effects: { mediaScore: 3, persuadableSupport: 2 },
+          stateEffects: { WI: 1.0, IA: 1.0, MN: 0.8 } },
+        { id: 'suncoast_times', name: 'The Sun Coast Times', type: 'newspaper', icon: '🌴',
+          blurb: 'Dominant across the Sun Belt\'s booming suburbs.',
+          requires: { mediaScore: 50 }, effects: { mediaScore: 3, persuadableSupport: 2 },
+          stateEffects: { AZ: 1.0, GA: 0.8, NC: 0.8 } },
+        { id: 'new_england_register', name: 'The New England Register', type: 'newspaper', icon: '🍂',
+          blurb: 'Read by every undecided voter north of Boston.',
+          requires: { approval: 46 }, effects: { mediaScore: 2, persuadableSupport: 2 },
+          stateEffects: { NH: 1.5, ME: 1.2 } },
+
+        // Politicians & public figures
+        { id: 'gov_hale', name: 'Gov. Marcus Hale (ret.)', type: 'politician', icon: '🎖️',
+          blurb: 'The still-popular former governor of Georgia, beloved by moderates.',
+          requires: { approval: 48 }, effects: { approval: 2, surrogateStrength: 4 },
+          stateEffects: { GA: 2.0, NC: 0.8 } },
+        { id: 'sen_wexler', name: 'Sen. Diane Wexler', type: 'politician', icon: '🏛️',
+          blurb: 'Arizona\'s maverick senior senator, famous for crossing party lines.',
+          requires: { persuadableSupport: 35 }, effects: { persuadableSupport: 3, mediaScore: 2 },
+          stateEffects: { AZ: 2.0, NV: 0.8 } },
+        { id: 'mayor_brennan', name: 'Mayor Tom Brennan', type: 'politician', icon: '🌆',
+          blurb: 'Milwaukee\'s blue-collar mayor with a cult following statewide.',
+          requires: { enthusiasm: 48 }, effects: { enthusiasm: 2, groundGame: 2 },
+          stateEffects: { WI: 1.8 } },
+        { id: 'veterans_coalition', name: 'American Veterans Coalition', type: 'politician', icon: '🎗️',
+          blurb: 'The largest veterans organization in the country.',
+          requires: { approval: 45 }, effects: { approval: 2, persuadableSupport: 2 },
+          stateEffects: { NC: 1.0, GA: 0.8, VA: 0.8 } },
+        { id: 'small_business_fed', name: 'Small Business Federation', type: 'politician', icon: '🏪',
+          blurb: 'Main Street\'s loudest voice in Washington.',
+          requires: { donorConfidence: 55 }, effects: { donorConfidence: 4, persuadableSupport: 2 },
+          stateEffects: { NH: 0.8, WI: 0.6, IA: 0.6 } },
+        { id: 'farmers_bureau', name: 'National Farmers Bureau', type: 'politician', icon: '🌾',
+          blurb: 'Rural America\'s political powerhouse.',
+          requires: { baseTurnout: 45 }, effects: { baseTurnout: 2, approval: 1 },
+          stateEffects: { IA: 1.5, WI: 0.8, OH: 0.6 } },
+        { id: 'tech_leaders', name: 'Innovation Council', type: 'politician', icon: '💻',
+          blurb: 'A coalition of tech founders and investors with very deep pockets.',
+          requires: { onlineInfluence: 50 }, effects: { donorConfidence: 5, onlineInfluence: 3 },
+          stateEffects: { AZ: 0.6, NV: 0.6, VA: 0.6 } },
+        { id: 'faith_council', name: 'Interfaith Leadership Council', type: 'politician', icon: '⛪',
+          blurb: 'Clergy from every major tradition, with congregations in every swing county.',
+          requires: { approval: 44 }, effects: { baseTurnout: 2, enthusiasm: 2 },
+          stateEffects: { GA: 1.0, NC: 1.0, PA: 0.6 } },
+    ],
+
+    // ═══════════════════════════════════════════════
     // DEBATE SYSTEM
     // ═══════════════════════════════════════════════
     DebateSystem: {

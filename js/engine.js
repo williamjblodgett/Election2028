@@ -77,6 +77,12 @@ window.GameEngine = {
             vpChoice: null,
             weekActions: [],
             visitedStates: {},
+            endorsements: [],
+            opponentEndorsements: [],
+            pollHistory: {},
+            earlyVote: {},
+            debateHistory: [],
+            opponentVP: null,
         };
     },
 
@@ -261,6 +267,18 @@ window.GameEngine = {
         const oppActions = this.processOpponentTurn();
         summary.opponentActions = oppActions;
 
+        // 9b. Endorsement race (general election)
+        const endorsementResult = this.processEndorsements();
+        if (endorsementResult.event) {
+            events.push(endorsementResult.event);
+            summary.events = events;
+        }
+        summary.newsHeadlines.push(...endorsementResult.headlines);
+
+        // 9c. AI opponent picks a running mate
+        const oppVPNews = this.processOpponentVP();
+        if (oppVPNews) summary.newsHeadlines.push(oppVPNews);
+
         // 10. Calculate fundraising
         const fundsRaised = this.calculateFundraising();
         summary.financialSummary = {
@@ -278,11 +296,34 @@ window.GameEngine = {
         this.state.campaign.nationalPolling = this.calculateNationalPolling();
         this.state.opponent.nationalPolling = 100 - this.state.campaign.nationalPolling - 8;
 
+        // 12b. Early voting banks votes in the final stretch
+        this.processEarlyVoting();
+
+        // 12c. Record battleground polling history for averages/sparklines
+        this.recordPollHistory();
+
         // 13. Generate news headlines
         for (const evt of events) {
             if (evt.isBreakingNews) {
                 summary.newsHeadlines.push(window.EventSystem.BreakingNewsTicker.generateHeadline(evt));
             }
+        }
+
+        // 13b. Weekly polling headline from the closest battleground
+        const closest = window.StateData
+            .filter(s => s.isBattleground && this.state.statePolling[s.id])
+            .sort((a, b) => {
+                const pa = this.state.statePolling[a.id], pb = this.state.statePolling[b.id];
+                return Math.abs(pa.player - pa.opponent) - Math.abs(pb.player - pb.opponent);
+            })[0];
+        if (closest) {
+            const poll = this.state.statePolling[closest.id];
+            summary.newsHeadlines.push(window.EventSystem.BreakingNewsTicker.generatePollingHeadline(
+                this.state.playerCandidate.name.split(' ').pop(),
+                this.state.opponentCandidate.name.split(' ').pop(),
+                closest.name,
+                Math.round((poll.player - poll.opponent) * 10) / 10
+            ));
         }
 
         // 14. Store history
@@ -298,7 +339,7 @@ window.GameEngine = {
         }
 
         // 17. Check for debate weeks
-        const debateWeeks = [12, 28, 34, 38];
+        const debateWeeks = window.GameConstants.DEBATE_WEEKS;
         const isDebateWeek = debateWeeks.includes(this.state.week);
 
         // 18. Check game end
@@ -457,6 +498,30 @@ window.GameEngine = {
                 this.state.finances.cashOnHand -= 200000;
                 effects.groundGame = 5;
                 break;
+            case 'gotv': {
+                // Get-out-the-vote push: bank votes in the closest battlegrounds
+                const cfg = window.GameConstants.EARLY_VOTE;
+                const targets = window.StateData
+                    .filter(s => s.isBattleground)
+                    .map(s => ({ s, poll: this.state.statePolling[s.id] }))
+                    .filter(x => x.poll)
+                    .sort((a, b) => Math.abs(a.poll.player - a.poll.opponent) - Math.abs(b.poll.player - b.poll.opponent))
+                    .slice(0, cfg.GOTV_TARGET_STATES);
+
+                const gain = 0.8 + (c.groundGame / 100) * 1.2; // banked points per state
+                for (const { s } of targets) {
+                    if (!this.state.earlyVote[s.id]) {
+                        this.state.earlyVote[s.id] = { playerBanked: 0, opponentBanked: 0, pctBanked: 0 };
+                    }
+                    const ev = this.state.earlyVote[s.id];
+                    const add = Math.min(gain, cfg.MAX_BANKED_PCT - ev.pctBanked);
+                    if (add > 0) { ev.playerBanked += add; ev.pctBanked += add; }
+                }
+                c.baseTurnout += 2;
+                this.state.finances.cashOnHand -= cfg.GOTV_COST;
+                effects.gotvStates = targets.map(x => x.s.name).join(', ');
+                break;
+            }
         }
         this.state.campaign.cash = this.state.finances.cashOnHand;
         return effects;
@@ -530,6 +595,12 @@ window.GameEngine = {
 
         const choice = event.choices[choiceIdx];
         const c = this.state.campaign;
+
+        // Endorsement events: courting it claims the endorser
+        if (event.isEndorsement && choiceIdx === 0) {
+            const headline = this.claimEndorsement(event.endorsementId, 'player');
+            if (headline) this.state.newsHistory.push(headline);
+        }
 
         for (const [key, val] of Object.entries(choice.effects)) {
             if (key === 'cash') {
@@ -676,7 +747,9 @@ window.GameEngine = {
         for (const [stId, poll] of Object.entries(this.state.statePolling)) {
             const st = window.StateData.find(s => s.id === stId);
             const volatility = st ? st.swingVolatility / 100 : 0.3;
-            const noise = (Math.random() - 0.5) * 2 * volatility;
+            // Banked early votes are locked in — late swings only move live voters
+            const liveShare = this.getLiveVoteShare(stId);
+            const noise = (Math.random() - 0.5) * 2 * volatility * liveShare;
 
             poll.player += noise;
             poll.opponent -= noise * 0.5;
@@ -690,7 +763,7 @@ window.GameEngine = {
                 if (st2) {
                     const isPlayerDem = this.state.playerParty === 'democrat';
                     const baseline = isPlayerDem ? (50 - st2.partisanLean * 0.3) : (50 + st2.partisanLean * 0.3);
-                    poll.player += (baseline - poll.player) * 0.05;
+                    poll.player += (baseline - poll.player) * 0.05 * liveShare;
                 }
             }
 
@@ -791,6 +864,158 @@ window.GameEngine = {
     },
 
     // ═══════════════════════════════════════════════
+    // ENDORSEMENTS
+    // ═══════════════════════════════════════════════
+    processEndorsements() {
+        const result = { event: null, headlines: [] };
+        if (this.state.phase !== 'general') return result;
+
+        const all = window.EventSystem.ENDORSEMENTS || [];
+        const taken = new Set([...this.state.endorsements, ...this.state.opponentEndorsements]);
+        let available = all.filter(e => !taken.has(e.id));
+        if (!available.length) return result;
+
+        // AI opponent locks up an uncontested endorser every ~3 weeks
+        if (this.state.week % 3 === 0 && Math.random() < 0.6) {
+            const pick = available[Math.floor(Math.random() * available.length)];
+            const headline = this.claimEndorsement(pick.id, 'opponent');
+            if (headline) result.headlines.push(headline);
+            available = available.filter(e => e.id !== pick.id);
+        }
+
+        // ~25% of weeks, an endorser the player qualifies for comes into play
+        if (!available.length || Math.random() > 0.25) return result;
+        const c = this.state.campaign;
+        const qualified = available.filter(e => {
+            const req = e.requires || {};
+            return Object.entries(req).every(([stat, min]) => (c[stat] || 0) >= min);
+        });
+        if (!qualified.length) return result;
+
+        const target = qualified[Math.floor(Math.random() * qualified.length)];
+        const stateNames = Object.keys(target.stateEffects || {})
+            .map(id => (window.StateData.find(s => s.id === id) || {}).name)
+            .filter(Boolean);
+        result.event = {
+            id: 'endorsement_' + target.id,
+            isEndorsement: true,
+            endorsementId: target.id,
+            title: `${target.icon} Endorsement in Play: ${target.name}`,
+            description: `${target.name} is weighing an endorsement this cycle. ${target.blurb || ''} Their backing would move numbers${stateNames.length ? ' in ' + stateNames.join(', ') : ' nationally'}.`,
+            category: 'ENDORSEMENT',
+            isBreakingNews: true,
+            choices: [
+                { text: `Court the endorsement — make the calls and the promises`, effects: {}, riskLevel: 'safe', outcomeText: `${target.name} endorses your campaign!` },
+                { text: `Keep your distance — no strings attached`, effects: { enthusiasm: 1 }, riskLevel: 'safe', outcomeText: `You pass. ${target.name} stays on the sidelines — for now.` },
+            ],
+        };
+        return result;
+    },
+
+    claimEndorsement(endorsementId, side) {
+        const def = (window.EventSystem.ENDORSEMENTS || []).find(e => e.id === endorsementId);
+        if (!def) return null;
+
+        if (side === 'player') {
+            if (this.state.endorsements.includes(endorsementId)) return null;
+            this.state.endorsements.push(endorsementId);
+            const c = this.state.campaign;
+            for (const [k, v] of Object.entries(def.effects || {})) {
+                if (c.hasOwnProperty(k)) c[k] += v;
+            }
+            for (const [stId, boost] of Object.entries(def.stateEffects || {})) {
+                const poll = this.state.statePolling[stId];
+                if (poll) { poll.player += boost; poll.trend += 0.3; }
+            }
+            return `ENDORSEMENT: ${def.name.toUpperCase()} BACKS ${this.state.playerCandidate.name.split(' ').pop().toUpperCase()}`;
+        }
+
+        if (this.state.opponentEndorsements.includes(endorsementId)) return null;
+        this.state.opponentEndorsements.push(endorsementId);
+        const o = this.state.opponent;
+        for (const [k, v] of Object.entries(def.effects || {})) {
+            if (o.hasOwnProperty(k)) o[k] += v * 0.8;
+        }
+        for (const [stId, boost] of Object.entries(def.stateEffects || {})) {
+            const poll = this.state.statePolling[stId];
+            if (poll) poll.opponent += boost;
+        }
+        return `ENDORSEMENT: ${def.name.toUpperCase()} BACKS ${this.state.opponentCandidate.name.split(' ').pop().toUpperCase()}`;
+    },
+
+    // ═══════════════════════════════════════════════
+    // OPPONENT RUNNING MATE
+    // ═══════════════════════════════════════════════
+    processOpponentVP() {
+        if (this.state.phase !== 'general' || this.state.opponentVP || this.state.week < 25) return null;
+        const oppParty = this.state.playerParty === 'democrat' ? 'republican' : 'democrat';
+        const options = (window.CandidateData.vpOptions || {})[oppParty] || [];
+        if (!options.length) return null;
+
+        const pick = options[Math.floor(Math.random() * options.length)];
+        this.state.opponentVP = { name: pick.name, homeStateId: pick.homeId || null };
+
+        const poll = this.state.statePolling[pick.homeId];
+        if (poll) { poll.opponent += 4; poll.trend -= 1; }
+        this.state.opponent.enthusiasm += 5;
+        this.state.opponent.surrogateStrength += 10;
+        this.state.opponent.momentum += 8;
+
+        return `${this.state.opponentCandidate.name.split(' ').pop().toUpperCase()} NAMES ${pick.name.toUpperCase()} AS RUNNING MATE`;
+    },
+
+    // ═══════════════════════════════════════════════
+    // EARLY VOTING
+    // ═══════════════════════════════════════════════
+    processEarlyVoting() {
+        const cfg = window.GameConstants.EARLY_VOTE;
+        if (this.state.phase !== 'general' || this.state.week < cfg.START_WEEK) return;
+
+        const diff = (this.state.campaign.groundGame - this.state.opponent.groundGame) / 100;
+        for (const [stId, poll] of Object.entries(this.state.statePolling)) {
+            if (!this.state.earlyVote[stId]) {
+                this.state.earlyVote[stId] = { playerBanked: 0, opponentBanked: 0, pctBanked: 0 };
+            }
+            const ev = this.state.earlyVote[stId];
+            if (ev.pctBanked >= cfg.MAX_BANKED_PCT) continue;
+
+            const banked = Math.min(cfg.WEEKLY_BANK_PCT, cfg.MAX_BANKED_PCT - ev.pctBanked);
+            const total = poll.player + poll.opponent;
+            const playerShare = total > 0 ? poll.player / total : 0.5;
+            // Ground game determines whose supporters actually vote early
+            ev.playerBanked += banked * Math.min(0.9, Math.max(0.1, playerShare + diff * 0.05));
+            ev.opponentBanked += banked * Math.min(0.9, Math.max(0.1, (1 - playerShare) - diff * 0.05));
+            ev.pctBanked += banked;
+        }
+    },
+
+    // Fraction of a state's vote still in play (1 = nothing banked yet)
+    getLiveVoteShare(stateId) {
+        const ev = this.state.earlyVote && this.state.earlyVote[stateId];
+        return ev ? Math.max(0, 1 - ev.pctBanked / 100) : 1;
+    },
+
+    // ═══════════════════════════════════════════════
+    // POLL HISTORY (for averages & sparklines)
+    // ═══════════════════════════════════════════════
+    recordPollHistory() {
+        const cap = window.GameConstants.POLL_HISTORY_WEEKS;
+        for (const st of window.StateData) {
+            if (!st.isBattleground) continue;
+            const poll = this.state.statePolling[st.id];
+            if (!poll) continue;
+            if (!this.state.pollHistory[st.id]) this.state.pollHistory[st.id] = [];
+            const h = this.state.pollHistory[st.id];
+            h.push({
+                week: this.state.week,
+                player: Math.round(poll.player * 10) / 10,
+                opponent: Math.round(poll.opponent * 10) / 10,
+            });
+            if (h.length > cap) h.shift();
+        }
+    },
+
+    // ═══════════════════════════════════════════════
     // MOMENTUM & NARRATIVE
     // ═══════════════════════════════════════════════
     calculateMomentum() {
@@ -855,10 +1080,10 @@ window.GameEngine = {
         return { bounce, message: `Convention bounce: +${bounce} approval!` };
     },
 
-    processVPPick(vpName) {
+    processVPPick(vpName, vpHomeStateId) {
         if (this.state.vpPicked) return {};
         this.state.vpPicked = true;
-        this.state.vpChoice = vpName;
+        this.state.vpChoice = { name: vpName, homeStateId: vpHomeStateId || null };
 
         // VP pick gives a modest boost
         this.state.campaign.enthusiasm += 5;
@@ -866,14 +1091,33 @@ window.GameEngine = {
         this.state.campaign.surrogateStrength += 10;
         this.state.campaign.momentum += 10;
 
-        return { message: `VP pick announced: ${vpName}! Media buzz surges.` };
+        // Running mate delivers a home-state bump and regional coattails
+        let homeNote = '';
+        if (vpHomeStateId) {
+            const poll = this.state.statePolling[vpHomeStateId];
+            const home = window.StateData.find(s => s.id === vpHomeStateId);
+            if (poll) { poll.player += 4; poll.trend += 1; }
+            if (home) {
+                homeNote = ` ${home.name} moves ${this.state.playerParty === 'democrat' ? 'blue' : 'red'}ward.`;
+                for (const st of window.StateData) {
+                    if (st.region === home.region && st.isBattleground && st.id !== vpHomeStateId) {
+                        const p = this.state.statePolling[st.id];
+                        if (p) p.player += 1;
+                    }
+                }
+            }
+        }
+
+        return { message: `VP pick announced: ${vpName}! Media buzz surges.${homeNote}` };
     },
 
     // ═══════════════════════════════════════════════
     // DEBATE PROCESSING
     // ═══════════════════════════════════════════════
-    processDebateResults(debateScores) {
+    processDebateResults(debateScores, opponentScores, winner) {
         const c = this.state.campaign;
+        const o = this.state.opponent;
+        opponentScores = opponentScores || {};
 
         // Apply debate effects to campaign stats
         c.mediaScore += (debateScores.press || 0) * 0.5;
@@ -882,13 +1126,24 @@ window.GameEngine = {
         c.persuadableSupport += (debateScores.suburban || 0) * 0.3;
         c.onlineInfluence += (debateScores.viral || 0) * 0.5;
 
+        // Opponent's performance moves their numbers too
+        o.mediaScore += (opponentScores.press || 0) * 0.5;
+        o.donorConfidence += (opponentScores.donors || 0) * 0.3;
+        o.enthusiasm += (opponentScores.base || 0) * 0.4;
+        o.persuadableSupport += (opponentScores.suburban || 0) * 0.3;
+        o.onlineInfluence += (opponentScores.viral || 0) * 0.5;
+
         // Overall debate performance affects all state polling
         const totalScore = Object.values(debateScores).reduce((a, b) => a + b, 0);
+        const oppTotal = Object.values(opponentScores).reduce((a, b) => a + b, 0);
         const normalizedScore = totalScore / 30; // rough normalization
+        const oppNormalized = oppTotal / 30;
 
         for (const [stId, poll] of Object.entries(this.state.statePolling)) {
-            poll.player += normalizedScore * 0.5;
-            poll.trend += normalizedScore * 0.3;
+            const liveShare = this.getLiveVoteShare(stId);
+            poll.player += normalizedScore * 0.5 * liveShare;
+            poll.opponent += oppNormalized * 0.5 * liveShare;
+            poll.trend += (normalizedScore - oppNormalized) * 0.3;
         }
 
         // Fundraising bump
@@ -899,14 +1154,35 @@ window.GameEngine = {
         }
 
         c.momentum += normalizedScore * 5;
+
+        // Winning the night carries momentum beyond the raw scores
+        if (winner === 'player') { c.momentum += 8; o.momentum -= 5; }
+        else if (winner === 'opponent') { o.momentum += 8; c.momentum -= 5; }
+
+        this.state.debateHistory.push({
+            week: this.state.week,
+            winner: winner || null,
+            playerTotal: Math.round(totalScore),
+            opponentTotal: Math.round(oppTotal),
+        });
         this.state.debatesCompleted++;
+
+        // Assessment: head-to-head when we know the opponent's numbers,
+        // otherwise fall back to raw-score thresholds
+        const gap = totalScore - oppTotal;
+        const assessment = winner
+            ? (winner === 'player' ? (gap > 40 ? "Commanding performance" : "Solid showing") :
+               winner === 'tie' ? "Fought to a draw" :
+               gap > -40 ? "Outmaneuvered tonight" : "Rough night")
+            : (totalScore > 30 ? "Commanding performance" :
+               totalScore > 15 ? "Solid showing" :
+               totalScore > 0 ? "Uneven performance" : "Rough night");
 
         return {
             totalScore,
             normalizedScore,
-            assessment: totalScore > 30 ? "Commanding performance" :
-                       totalScore > 15 ? "Solid showing" :
-                       totalScore > 0 ? "Uneven performance" : "Rough night"
+            winner: winner || null,
+            assessment,
         };
     },
 
@@ -918,6 +1194,24 @@ window.GameEngine = {
         this.applyFinalTurnout();
 
         const map = this.calculateElectoralMap();
+
+        // Popular vote from the actual final state numbers (EV-weighted)
+        let pVotes = 0, oVotes = 0, weight = 0;
+        for (const [stId, poll] of Object.entries(this.state.statePolling)) {
+            const st = window.StateData.find(s => s.id === stId);
+            if (!st) continue;
+            pVotes += poll.player * st.electoralVotes;
+            oVotes += poll.opponent * st.electoralVotes;
+            weight += st.electoralVotes;
+        }
+        // Normalize to a two-party-plus-other share (final turnout math can
+        // push the raw sums past 100)
+        const rawP = weight ? pVotes / weight : 50;
+        const rawO = weight ? oVotes / weight : 50;
+        const scale = rawP + rawO > 98 ? 98 / (rawP + rawO) : 1;
+        const pPct = rawP * scale;
+        const oPct = rawO * scale;
+
         const results = {
             playerEV: map.playerEV,
             opponentEV: map.opponentEV,
@@ -927,8 +1221,8 @@ window.GameEngine = {
             opponentName: this.state.opponentCandidate.name,
             playerParty: this.state.playerParty,
             nationalPopularVote: {
-                player: this.state.campaign.nationalPolling,
-                opponent: this.state.opponent.nationalPolling,
+                player: Math.round(pPct * 10) / 10,
+                opponent: Math.round(oPct * 10) / 10,
             }
         };
 
@@ -958,25 +1252,53 @@ window.GameEngine = {
             const playerShare = c.persuadableSupport / (c.persuadableSupport + o.persuadableSupport || 1);
             poll.player += undecidedBreak * playerShare;
             poll.opponent += undecidedBreak * (1 - playerShare);
+
+            // Blend in banked early votes: they lock in whoever led when cast
+            const ev = this.state.earlyVote[stId];
+            if (ev && ev.pctBanked > 0) {
+                const liveShare = Math.max(0, 1 - ev.pctBanked / 100);
+                poll.player = ev.playerBanked + poll.player * liveShare;
+                poll.opponent = ev.opponentBanked + poll.opponent * liveShare;
+            }
         }
     },
 
     generateElectionNight() {
         const results = this.calculateElectionResult();
-        // Sort states by call order (safe states first, then battlegrounds)
-        const callOrder = Object.entries(results.stateResults)
-            .sort((a, b) => b[1].margin - a[1].margin);
 
-        return {
-            results,
-            callOrder: callOrder.map(([stId, result]) => ({
+        // Poll close waves: minutes after 7:00 PM ET
+        const waveMinutes = {
+            '7:00 PM': 0, '7:30 PM': 30, '8:00 PM': 60, '9:00 PM': 120,
+            '10:00 PM': 180, '11:00 PM': 240, '1:00 AM': 360,
+        };
+        const closeInfo = {};
+        for (const [label, ids] of Object.entries(window.GameConstants.POLL_CLOSE_TIMES)) {
+            for (const id of ids) closeInfo[id] = { label, minutes: waveMinutes[label] || 0 };
+        }
+
+        const calls = Object.entries(results.stateResults).map(([stId, result]) => {
+            const close = closeInfo[stId] || { label: '8:00 PM', minutes: 60 };
+            // How long after polls close before the race is projected
+            let delay, tooClose = false;
+            if (result.margin > 15) delay = 2 + Math.random() * 8;
+            else if (result.margin > 8) delay = 30 + Math.random() * 60;
+            else if (result.margin > 2) delay = 120 + Math.random() * 120;
+            else { delay = 300 + Math.random() * 120; tooClose = true; }
+
+            return {
                 stateId: stId,
                 stateName: (window.StateData.find(s => s.id === stId) || {}).name || stId,
                 winner: result.winner,
                 margin: Math.round(result.margin * 10) / 10,
                 ev: result.ev,
-            }))
-        };
+                closeLabel: close.label,
+                closeMinutes: close.minutes,
+                callMinutes: Math.round(close.minutes + delay),
+                tooCloseToCall: tooClose,
+            };
+        }).sort((a, b) => a.callMinutes - b.callMinutes);
+
+        return { results, calls };
     },
 
     // ═══════════════════════════════════════════════
@@ -1031,6 +1353,11 @@ window.GameEngine = {
 
     deserialize(data) {
         this.state = JSON.parse(data);
+        // Backfill fields added after older saves were created
+        const fresh = this.createFreshState();
+        for (const key of ['endorsements', 'opponentEndorsements', 'pollHistory', 'earlyVote', 'debateHistory', 'opponentVP']) {
+            if (this.state[key] === undefined) this.state[key] = fresh[key];
+        }
         return this.state;
     }
 };

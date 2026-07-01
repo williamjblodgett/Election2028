@@ -635,6 +635,12 @@ window.GameUI = {
                     <span class="action-label">Deploy Surrogates</span>
                     <span class="action-cost">$40K</span>
                 </button>
+                ${window.GameEngine.state.week >= window.GameConstants.EARLY_VOTE.START_WEEK ? `
+                <button class="btn action-btn" onclick="GameUI.doActivity('gotv')" style="border-color:var(--accent-yellow);">
+                    <span class="action-icon">🗳️</span>
+                    <span class="action-label">GOTV Push <span style="font-size:0.65rem;color:var(--accent-yellow);">EARLY VOTE</span></span>
+                    <span class="action-cost">$250K</span>
+                </button>` : ''}
             </div>
             <div class="panel-section">
                 <div class="panel-section-title">Posture</div>
@@ -774,12 +780,10 @@ window.GameUI = {
             <div id="state-detail-area"></div>`;
     },
 
-    buildSVGMap(gs) {
-        // Check if we need to rebuild or just update colors
-        // Use a cache to avoid rebuilding the entire SVG on every render
-        const cacheKey = Date.now(); // Simple cache invalidation
-        
+    buildSVGMap(gs, opts) {
+        opts = opts || {};
         const mapData = window.USMapPaths;
+        const viewBox = mapData.viewBox || '0 0 960 600';
         const paths = [];
         const labels = [];
 
@@ -790,29 +794,24 @@ window.GameUI = {
 
             const margin = poll.player - poll.opponent;
             const colorClass = this.getStateColorClass(margin, st.isBattleground);
-            const fillColor = this.getMapFillColor(colorClass);
-            const strokeColor = st.isBattleground ? '#f1c40f' : 'rgba(255,255,255,0.2)';
-            const strokeWidth = st.isBattleground ? '2' : '0.5';
+            const override = opts.fillOverride ? opts.fillOverride(abbr) : null;
+            const fillColor = override || this.getMapFillColor(colorClass);
+            const strokeColor = st.isBattleground && !opts.fillOverride ? '#f1c40f' : 'rgba(255,255,255,0.25)';
+            const strokeWidth = st.isBattleground && !opts.fillOverride ? '1.5' : '0.5';
             const title = `${st.name}: ${Math.round(poll.player)}% - ${Math.round(poll.opponent)}%`;
 
-            // Add interactive hover state support via CSS class
-            if (data.circle) {
-                paths.push(
-                    `<circle data-state="${abbr}" class="state-path state-${abbr}" cx="${data.cx}" cy="${data.cy}" r="${data.r}" ` +
-                    `fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" ` +
-                    `onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;transition:fill 0.2s ease;" >` +
-                    `<title>${title}</title></circle>`
-                );
-            } else {
-                paths.push(
-                    `<path data-state="${abbr}" class="state-path state-${abbr}" d="${data.d}" ` +
-                    `fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" ` +
-                    `onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;transition:fill 0.2s ease;" >` +
-                    `<title>${title}</title></path>`
-                );
-            }
+            paths.push(
+                `<path data-state="${abbr}" class="state-path state-${abbr}" d="${data.d}" ` +
+                `fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" ` +
+                `onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;transition:fill 0.2s ease;" >` +
+                `<title>${title}</title></path>`
+            );
 
-            const fontSize = data.circle ? 5 : (st.electoralVotes > 15 ? 12 : st.electoralVotes > 8 ? 10 : 8);
+            // Small NE states get side-stack chips instead of inline labels
+            if (data.external) continue;
+
+            const smallStates = ['VT', 'NH', 'WV', 'WY'];
+            const fontSize = smallStates.includes(abbr) ? 10 : (st.electoralVotes > 15 ? 15 : st.electoralVotes > 8 ? 13 : 11);
             labels.push(
                 `<text x="${data.cx}" y="${data.cy}" text-anchor="middle" dominant-baseline="middle" ` +
                 `font-size="${fontSize}" font-weight="700" fill="#fff" ` +
@@ -820,12 +819,40 @@ window.GameUI = {
             );
         }
 
-        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" class="us-map-svg">` +
+        // Side stack: small northeastern states as clickable chips (TV election map style)
+        const stack = [];
+        (mapData.sideStack || []).forEach((abbr, i) => {
+            const data = mapData.states[abbr];
+            const poll = gs.statePolling[abbr];
+            const st = window.StateData.find(s => s.id === abbr);
+            if (!data || !poll || !st) return;
+
+            const margin = poll.player - poll.opponent;
+            const colorClass = this.getStateColorClass(margin, st.isBattleground);
+            const override = opts.fillOverride ? opts.fillOverride(abbr) : null;
+            const fillColor = override || this.getMapFillColor(colorClass);
+            const strokeColor = st.isBattleground && !opts.fillOverride ? '#f1c40f' : 'rgba(255,255,255,0.25)';
+            const title = `${st.name}: ${Math.round(poll.player)}% - ${Math.round(poll.opponent)}%`;
+            const x = 960, y = 118 + i * 40;
+
+            stack.push(
+                `<g class="map-side-chip" data-state="${abbr}" onclick="GameUI.handleStateClick('${abbr}')" style="cursor:pointer;">` +
+                `<line x1="${data.cx}" y1="${data.cy}" x2="${x}" y2="${y + 14}" stroke="rgba(255,255,255,0.15)" stroke-width="0.75" pointer-events="none"/>` +
+                `<rect x="${x}" y="${y}" width="30" height="28" rx="4" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.5" style="transition:fill 0.2s ease;"><title>${title}</title></rect>` +
+                `<text x="${x + 15}" y="${y + 15}" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="700" fill="#fff" pointer-events="none">${abbr}</text>` +
+                `<text x="${x + 36}" y="${y + 15}" text-anchor="start" dominant-baseline="middle" font-size="10" fill="rgba(255,255,255,0.6)" pointer-events="none">${st.electoralVotes}</text>` +
+                `</g>`
+            );
+        });
+
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" class="us-map-svg">` +
             `<style>` +
             `.state-path:hover { filter: brightness(1.3); }` +
+            `.map-side-chip:hover rect { filter: brightness(1.3); }` +
             `</style>` +
             `<g>${paths.join('')}</g>` +
             `<g>${labels.join('')}</g>` +
+            `<g class="map-side-stack">${stack.join('')}</g>` +
             `</svg>`;
     },
 
@@ -900,6 +927,7 @@ window.GameUI = {
         if (!st || !poll) return;
 
         const area = document.getElementById('state-detail-area');
+        if (!area) return; // map rendered outside the war room (e.g. election night)
         const playerPct = Math.round(poll.player * 10) / 10;
         const oppPct = Math.round(poll.opponent * 10) / 10;
         const pName = gs.playerCandidate.name.split(' ').pop();
@@ -953,6 +981,11 @@ window.GameUI = {
                         <div class="info-label">Your Visits</div>
                         <div>${gs.visitedStates[stateId] || 0} visits</div>
                     </div>
+                    ${gs.earlyVote && gs.earlyVote[stateId] && gs.earlyVote[stateId].pctBanked > 0 ? `
+                    <div class="state-info-item">
+                        <div class="info-label">Early Vote</div>
+                        <div>🗳️ ${Math.round(gs.earlyVote[stateId].pctBanked)}% banked (locked in)</div>
+                    </div>` : ''}
                 </div>
                 <div class="mt-1 btn-group">
                     <button class="btn btn-sm btn-primary" onclick="GameUI.quickVisit('${stateId}')">Visit Now ($80K)</button>
@@ -1118,15 +1151,59 @@ window.GameUI = {
                 return Math.abs((pa ? pa.player - pa.opponent : 0)) - Math.abs((pb ? pb.player - pb.opponent : 0));
             });
 
-        let pollCardsHTML = battlegrounds.map(st => {
+        const pollsters = window.GameConstants.POLLSTERS;
+        const isPlayerRep = gs.playerParty === 'republican';
+
+        let pollCardsHTML = battlegrounds.map((st, stIdx) => {
             const poll = gs.statePolling[st.id];
             if (!poll) return '';
             const total = poll.player + poll.opponent;
             const pPct = (poll.player / total * 100).toFixed(0);
             const oPct = (poll.opponent / total * 100).toFixed(0);
             const trendIcon = poll.trend > 0.5 ? '<span class="poll-trend up">▲</span>' : poll.trend < -0.5 ? '<span class="poll-trend down">▼</span>' : '';
+
+            // 3-week rolling polling average with margin of error
+            const history = (gs.pollHistory && gs.pollHistory[st.id]) || [];
+            const recent = history.slice(-3);
+            const avgMargin = recent.length
+                ? recent.reduce((a, h) => a + (h.player - h.opponent), 0) / recent.length
+                : poll.player - poll.opponent;
+            const moe = 2.5 + (st.swingVolatility || 30) / 60;
+            const tooClose = Math.abs(avgMargin) < moe;
+
+            // Sparkline of the polling margin over recorded weeks
+            let sparkHTML = '';
+            if (history.length >= 2) {
+                const margins = history.map(h => h.player - h.opponent);
+                const maxAbs = Math.max(3, ...margins.map(Math.abs));
+                const pts = margins.map((m, i) => {
+                    const x = (i / (margins.length - 1)) * 100;
+                    const y = 10 - (m / maxAbs) * 8;
+                    return `${x.toFixed(1)},${y.toFixed(1)}`;
+                }).join(' ');
+                sparkHTML = `
+                    <svg class="poll-sparkline" viewBox="0 0 100 20" preserveAspectRatio="none">
+                        <line x1="0" y1="10" x2="100" y2="10" stroke="rgba(255,255,255,0.15)" stroke-width="0.5" stroke-dasharray="2,2"/>
+                        <polyline points="${pts}" fill="none" stroke="${avgMargin >= 0 ? this.getPlayerColorVar() : this.getOpponentColorVar()}" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+                    </svg>`;
+            }
+
+            // Rotating "latest poll" from a fictional pollster with a house effect
+            const pollster = pollsters[(gs.week + stIdx) % pollsters.length];
+            const houseShift = isPlayerRep ? pollster.house : -pollster.house;
+            const jitter = ((gs.week * 7 + stIdx * 13) % 5 - 2) * 0.4;
+            const shown = Math.round((poll.player - poll.opponent + houseShift + jitter) * 10) / 10;
+            const pLast = gs.playerCandidate.name.split(' ').pop();
+            const oLast = gs.opponentCandidate.name.split(' ').pop();
+            const pollsterLine = `${pollster.name.toUpperCase()}: ${shown >= 0 ? pLast : oLast} +${Math.abs(shown).toFixed(1)} (±${pollster.moe.toFixed(1)})`;
+
+            // Early vote banked share
+            const ev = gs.earlyVote && gs.earlyVote[st.id];
+            const evChip = ev && ev.pctBanked > 0
+                ? `<span class="early-vote-chip">🗳️ ${Math.round(ev.pctBanked)}% BANKED</span>` : '';
+
             return `
-                <div class="poll-card" onclick="GameUI.handleStateClick('${st.id}');GameUI.switchTab('map');">
+                <div class="poll-card ${tooClose ? 'too-close' : ''}" onclick="GameUI.handleStateClick('${st.id}');GameUI.switchTab('map');">
                     <div class="poll-card-header">
                         <span class="poll-card-state">${st.name} ${trendIcon}</span>
                         <span class="poll-card-ev">${st.electoralVotes} EV</span>
@@ -1137,8 +1214,11 @@ window.GameUI = {
                     </div>
                     <div class="poll-card-numbers">
                         <span class="text-${this.getPlayerColorClass()}">${Math.round(poll.player * 10) / 10}%</span>
+                        <span class="poll-avg-label">${tooClose ? 'TOO CLOSE TO CALL' : `AVG ${avgMargin >= 0 ? '+' : ''}${avgMargin.toFixed(1)} ±${moe.toFixed(1)}`}</span>
                         <span class="text-${this.getOpponentColorClass()}">${Math.round(poll.opponent * 10) / 10}%</span>
                     </div>
+                    ${sparkHTML}
+                    <div class="poll-pollster-line">${pollsterLine} ${evChip}</div>
                 </div>`;
         }).join('');
 
@@ -1169,14 +1249,42 @@ window.GameUI = {
                     <div class="scandal-week">${scandalLevel > 60 ? 'WARNING: High exposure to media attacks' : 'Manageable — stay disciplined'}</div>
                 </div>
             </div>
+            ${this.buildEndorsementSection(gs)}
             <div class="panel-section">
                 <div class="panel-section-title">Opponent Intel</div>
                 <div style="font-size:0.8rem;color:var(--text-secondary);">
                     <div style="margin-bottom:4px;">${gs.opponentCandidate.name}</div>
+                    ${gs.opponentVP ? `<div style="margin-bottom:4px;font-size:0.75rem;">Running mate: <strong>${gs.opponentVP.name}</strong></div>` : ''}
                     ${this.createStatBar('Approval', Math.round(gs.opponent.approval), this.getOpponentColorClass())}
                     ${this.createStatBar('Enthusiasm', Math.round(gs.opponent.enthusiasm), this.getOpponentColorClass())}
                     ${this.createStatBar('Cash', Math.min(100, Math.round(gs.opponent.cash / 100000)), 'yellow')}
                 </div>
+            </div>`;
+    },
+
+    buildEndorsementSection(gs) {
+        const all = window.EventSystem.ENDORSEMENTS || [];
+        const byId = id => all.find(e => e.id === id);
+        const mine = (gs.endorsements || []).map(byId).filter(Boolean);
+        const theirs = (gs.opponentEndorsements || []).map(byId).filter(Boolean);
+        const vpName = gs.vpChoice ? (gs.vpChoice.name || gs.vpChoice) : null;
+
+        if (!mine.length && !theirs.length && !vpName && gs.phase !== 'general') return '';
+
+        const pLast = gs.playerCandidate.name.split(' ').pop();
+        const oLast = gs.opponentCandidate.name.split(' ').pop();
+        const list = (items) => items.length
+            ? items.map(e => `<div class="endorsement-item">${e.icon} ${e.name}</div>`).join('')
+            : '<div class="text-muted" style="font-size:0.75rem;">None yet</div>';
+
+        return `
+            <div class="panel-section">
+                <div class="panel-section-title">Endorsements${vpName ? ` & Ticket` : ''}</div>
+                ${vpName ? `<div class="endorsement-item" style="margin-bottom:6px;">🤝 Running mate: <strong>${vpName}</strong></div>` : ''}
+                <div style="font-size:0.72rem;letter-spacing:1px;color:var(--text-muted);margin-bottom:2px;">${pLast.toUpperCase()} (${mine.length})</div>
+                ${list(mine)}
+                <div style="font-size:0.72rem;letter-spacing:1px;color:var(--text-muted);margin:6px 0 2px;">${oLast.toUpperCase()} (${theirs.length})</div>
+                ${list(theirs)}
             </div>`;
     },
 
@@ -1276,15 +1384,16 @@ window.GameUI = {
 
     doActivity(activity) {
         const gs = window.GameEngine.state;
-        const costMap = { rally: 60000, townhall: 30000, podcast: 5000, oppoResearch: 150000, fieldOffice: 200000, surrogateDeployment: 40000 };
+        const costMap = { rally: 60000, townhall: 30000, podcast: 5000, oppoResearch: 150000, fieldOffice: 200000, surrogateDeployment: 40000, gotv: window.GameConstants.EARLY_VOTE.GOTV_COST };
         const cost = costMap[activity] || 0;
         if (cost > 0 && gs.finances.cashOnHand < cost) {
             this.showToast(`Not enough cash! Need $${this.formatMoney(cost)}`, 'error');
             return;
         }
         const result = window.GameEngine.applyActivityEffects(activity);
-        const labels = { rally: 'Rally', townhall: 'Town Hall', podcast: 'Podcast', interview: 'Interview', fundraisingBlitz: 'Fundraising Blitz', debatePrep: 'Debate Prep', surrogateDeployment: 'Surrogate Deployment', oppoResearch: 'Oppo Research', fieldOffice: 'Field Office' };
-        const msg = result.cashRaised ? `${labels[activity]}! Raised $${this.formatMoney(result.cashRaised)}` : `${labels[activity]} complete!`;
+        const labels = { rally: 'Rally', townhall: 'Town Hall', podcast: 'Podcast', interview: 'Interview', fundraisingBlitz: 'Fundraising Blitz', debatePrep: 'Debate Prep', surrogateDeployment: 'Surrogate Deployment', oppoResearch: 'Oppo Research', fieldOffice: 'Field Office', gotv: 'GOTV Push' };
+        const msg = result.cashRaised ? `${labels[activity]}! Raised $${this.formatMoney(result.cashRaised)}` :
+            result.gotvStates ? `GOTV Push! Banking early votes in ${result.gotvStates}` : `${labels[activity]} complete!`;
         this.showToast(msg, 'success');
         this.updateTopBar();
         this.renderCenterContent();
@@ -1440,32 +1549,17 @@ window.GameUI = {
     // ═══════════════════════════════════════════════
     showVPPickModal() {
         const gs = window.GameEngine.state;
-        const isDem = gs.playerParty === 'democrat';
-
-        // Generate VP options based on party
-        const vpOptions = isDem ? [
-            { name: 'Gov. Wes Moore (MD)', home: 'Maryland', desc: 'Young, charismatic governor. Boosts minority turnout and enthusiasm.', effects: { enthusiasm: 8, baseTurnout: 5, onlineInfluence: 4 } },
-            { name: 'Sen. Mark Kelly (AZ)', home: 'Arizona', desc: 'Astronaut, veteran, swing-state senator. Maximizes crossover appeal.', effects: { crossoverAppeal: 8, approval: 4, persuadableSupport: 5 } },
-            { name: 'Gov. Gretchen Whitmer (MI)', home: 'Michigan', desc: 'Proven swing-state winner. Strengthens Midwest firewall.', effects: { groundGame: 6, baseTurnout: 4, surrogateStrength: 5 } },
-            { name: 'Sen. Raphael Warnock (GA)', home: 'Georgia', desc: 'Powerful orator from Georgia. Energizes the base and Southern strategy.', effects: { baseEnthusiasm: 7, enthusiasm: 5, surrogateStrength: 4 } },
-            { name: 'Gov. Andy Beshear (KY)', home: 'Kentucky', desc: 'Won in deep-red Kentucky. Ultimate electability argument.', effects: { crossoverAppeal: 10, persuadableSupport: 6, donorConfidence: 4 } },
-        ] : [
-            { name: 'Gov. Glenn Youngkin (VA)', home: 'Virginia', desc: 'Business-friendly governor. Locks down suburban and donor support.', effects: { donorConfidence: 7, crossoverAppeal: 5, persuadableSupport: 5 } },
-            { name: 'Sen. Tim Scott (SC)', home: 'South Carolina', desc: 'Optimistic messenger with broad appeal. Expands the coalition.', effects: { crossoverAppeal: 6, approval: 5, enthusiasm: 4 } },
-            { name: 'Rep. Elise Stefanik (NY)', home: 'New York', desc: 'Fighter who energizes the MAGA base. Strong media presence.', effects: { baseEnthusiasm: 8, mediaScore: 5, onlineInfluence: 4 } },
-            { name: 'Gov. Brian Kemp (GA)', home: 'Georgia', desc: 'Proven Georgia winner. Ground game and swing-state credibility.', effects: { groundGame: 6, baseTurnout: 5, crossoverAppeal: 4 } },
-            { name: 'Sen. Katie Britt (AL)', home: 'Alabama', desc: 'Youngest woman in the Senate. Fresh face with fundraising strength.', effects: { fundraising: 5, enthusiasm: 5, onlineInfluence: 5 } },
-        ];
+        const vpOptions = window.CandidateData.vpOptions[gs.playerParty] || [];
 
         const html = `
-            <p class="text-muted mb-2">This is one of the most important decisions of your campaign. Your VP pick will affect your coalition, messaging, and electoral map for the rest of the race.</p>
+            <p class="text-muted mb-2">This is one of the most important decisions of your campaign. Your VP pick will affect your coalition, messaging, and electoral map for the rest of the race — and delivers a polling boost in their home state.</p>
             <div style="display:grid;gap:10px;">
                 ${vpOptions.map((vp, i) => `
                     <button class="btn action-btn" onclick="GameUI.pickVP(${i})" style="flex-direction:column;align-items:flex-start;padding:16px;">
                         <div style="font-weight:700;font-size:1rem;">${vp.name}</div>
                         <div style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0;">${vp.desc}</div>
                         <div style="font-size:0.75rem;color:var(--accent-green);">
-                            ${Object.entries(vp.effects).map(([k, v]) => `+${v} ${k.replace(/([A-Z])/g, ' $1').trim()}`).join(' | ')}
+                            ${Object.entries(vp.effects).map(([k, v]) => `+${v} ${k.replace(/([A-Z])/g, ' $1').trim()}`).join(' | ')} | +4% in ${vp.home}
                         </div>
                     </button>
                 `).join('')}
@@ -1479,7 +1573,7 @@ window.GameUI = {
         const vp = this._vpOptions[index];
         if (!vp) return;
 
-        const result = window.GameEngine.processVPPick(vp.name);
+        const result = window.GameEngine.processVPPick(vp.name, vp.homeId);
 
         // Apply VP-specific stat bonuses
         const c = window.GameEngine.state.campaign;
@@ -1547,31 +1641,139 @@ window.GameUI = {
     },
 
     // ═══════════════════════════════════════════════
-    // DEBATE SCREEN
+    // DEBATE SCREEN — news broadcast presentation
     // ═══════════════════════════════════════════════
     startDebate() {
-        this.debateQuestions = window.EventSystem.DebateSystem.generateDebateQuestions(5);
-        this.currentDebateQuestion = 0;
-        this.debateResponses = [];
-        this.debateScores = { viral: 0, donors: 0, press: 0, authenticity: 0, policy: 0, base: 0, suburban: 0 };
+        const gs = window.GameEngine.state;
+        const DC = window.DebateContent;
+        const oc = gs.opponentCandidate;
+
+        // Opponent answer strategy: party + ideological lean (mirrors DebateSystem.generateResponses)
+        const oppParty = oc.party === 'Democrat' ? 'democrat' : 'republican';
+        const oppProgressive = (oc.ideologicalElasticity || 50) > 60;
+        const opponentStrategy = oppParty === 'democrat'
+            ? (oppProgressive ? 'democrat_progressive' : 'democrat_moderate')
+            : (oppProgressive ? 'republican_conservative' : 'republican_moderate');
+
+        const zeroScores = () => ({ viral: 0, donors: 0, press: 0, authenticity: 0, policy: 0, base: 0, suburban: 0 });
+        this.debateCtx = {
+            questions: window.EventSystem.DebateSystem.generateDebateQuestions(window.GameConstants.DEBATE_QUESTIONS_PER_ROUND),
+            idx: 0,
+            answered: false,
+            playerScores: zeroScores(),
+            opponentScores: zeroScores(),
+            questionWins: { player: 0, opponent: 0, tie: 0 },
+            moderator: DC.moderators[Math.floor(Math.random() * DC.moderators.length)],
+            opponentStrategy,
+            debateNumber: gs.debatesCompleted + 1,
+            advanceTimer: null,
+        };
+        // Keep legacy field in sync for anything reading it
+        this.debateScores = this.debateCtx.playerScores;
+
         this.showScreen('debate');
-        this.renderDebateQuestion();
+        this.renderDebateStage();
+        this.appendTranscript('moderator', DC.moderatorIntros[Math.floor(Math.random() * DC.moderatorIntros.length)]);
+        setTimeout(() => this.renderDebateExchange(), 700);
     },
 
-    renderDebateQuestion() {
+    renderDebateStage() {
         const stage = document.getElementById('debate-stage');
-        const q = this.debateQuestions[this.currentDebateQuestion];
         const gs = window.GameEngine.state;
-        const qNum = this.currentDebateQuestion + 1;
-        const totalQ = this.debateQuestions.length;
+        const ctx = this.debateCtx;
+        const pc = gs.playerCandidate;
+        const oc = gs.opponentCandidate;
+        const pLast = pc.name.split(' ').pop();
+        const oLast = oc.name.split(' ').pop();
 
         stage.innerHTML = `
-            <h2>PRESIDENTIAL DEBATE</h2>
-            <p class="text-muted">${gs.playerCandidate.name} vs ${gs.opponentCandidate.name}</p>
-            <div class="debate-question-box">
-                <div class="debate-question-label">QUESTION ${qNum} OF ${totalQ} — ${q.topic.toUpperCase()}</div>
-                <div class="debate-question-text">"${q.question}"</div>
-            </div>
+            <div class="debate-broadcast">
+                <div class="broadcast-header">
+                    <div class="network-bug">${ctx.moderator.network} <span class="bug-divider">|</span> DECISION 2028</div>
+                    <div class="broadcast-title">PRESIDENTIAL DEBATE ${ctx.debateNumber} OF ${window.GameConstants.DEBATE_WEEKS.length}</div>
+                    <div class="live-indicator"><span class="live-dot"></span>LIVE</div>
+                </div>
+                <div class="debate-stage-set">
+                    <div class="stage-backdrop-stripes"></div>
+                    <div class="debate-podium player" id="podium-player">
+                        <div class="podium-avatar" style="border-color:${pc.color};box-shadow:0 0 18px ${pc.color}55;">${pc.portraitEmoji}</div>
+                        <div class="podium-desk"></div>
+                        <div class="podium-name-plate">${pLast.toUpperCase()} <span class="plate-you">(YOU)</span></div>
+                    </div>
+                    <div class="debate-moderator">
+                        <div class="moderator-avatar">🎙️</div>
+                        <div class="moderator-desk"></div>
+                        <div class="moderator-name">${ctx.moderator.name}<br><span class="moderator-role">MODERATOR</span></div>
+                    </div>
+                    <div class="debate-podium opponent" id="podium-opponent">
+                        <div class="podium-avatar" style="border-color:${oc.color};box-shadow:0 0 18px ${oc.color}55;">${oc.portraitEmoji}</div>
+                        <div class="podium-desk"></div>
+                        <div class="podium-name-plate">${oLast.toUpperCase()}</div>
+                    </div>
+                </div>
+                <div class="debate-chyron" id="debate-chyron"></div>
+                <div class="debate-meter-row" id="debate-meter-row">
+                    <span class="meter-tally" id="debate-tally">DEBATE SCORE — ${pLast.toUpperCase()} 0 · 0 ${oLast.toUpperCase()}</span>
+                </div>
+                <div class="debate-transcript" id="debate-transcript"></div>
+                <div class="debate-choice-area" id="debate-choice-area"></div>
+            </div>`;
+    },
+
+    appendTranscript(speaker, text, reaction) {
+        const log = document.getElementById('debate-transcript');
+        if (!log) return;
+        const gs = window.GameEngine.state;
+        const ctx = this.debateCtx;
+
+        let chipHTML, lineClass;
+        if (speaker === 'moderator') {
+            lineClass = 'moderator';
+            chipHTML = `<span class="speaker-chip moderator-chip">🎙️ ${ctx.moderator.name.toUpperCase()}</span>`;
+        } else if (speaker === 'player') {
+            const c = gs.playerCandidate;
+            lineClass = 'player';
+            chipHTML = `<span class="speaker-chip" style="color:${c.color};">${c.portraitEmoji} ${c.name.split(' ').pop().toUpperCase()} (YOU)</span>`;
+        } else {
+            const c = gs.opponentCandidate;
+            lineClass = 'opponent';
+            chipHTML = `<span class="speaker-chip" style="color:${c.color};">${c.portraitEmoji} ${c.name.split(' ').pop().toUpperCase()}</span>`;
+        }
+
+        const line = document.createElement('div');
+        line.className = `transcript-line ${lineClass}`;
+        line.innerHTML = `${chipHTML}<div class="transcript-text">${text}</div>` +
+            (reaction ? `<div class="transcript-reaction">${reaction}</div>` : '');
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+
+        // Speaking pulse on the active podium
+        document.querySelectorAll('.podium-avatar.speaking').forEach(el => el.classList.remove('speaking'));
+        const podium = speaker === 'player' ? 'podium-player' : speaker === 'opponent' ? 'podium-opponent' : null;
+        if (podium) {
+            const avatar = document.querySelector(`#${podium} .podium-avatar`);
+            if (avatar) avatar.classList.add('speaking');
+        }
+    },
+
+    renderDebateExchange() {
+        const ctx = this.debateCtx;
+        const q = ctx.questions[ctx.idx];
+        ctx.answered = false;
+
+        // Chyron lower-third slides in with the topic
+        const chyron = document.getElementById('debate-chyron');
+        chyron.innerHTML = `
+            <div class="chyron-inner">
+                <span class="chyron-tab">QUESTION ${ctx.idx + 1} OF ${ctx.questions.length}</span>
+                <span class="chyron-topic">${q.topic.toUpperCase()}</span>
+            </div>`;
+
+        this.appendTranscript('moderator', `"${q.question}"`);
+
+        const choiceArea = document.getElementById('debate-choice-area');
+        choiceArea.innerHTML = `
+            <div class="choice-prompt">YOUR RESPONSE:</div>
             <div class="debate-responses">
                 ${q.responses.map((r, i) => `
                     <button class="debate-response" onclick="GameUI.handleDebateResponse(${i})">
@@ -1579,60 +1781,180 @@ window.GameUI = {
                         <span class="choice-risk risk-${r.riskLevel}" style="display:inline-block;margin-top:4px;">${r.riskLevel}</span>
                     </button>
                 `).join('')}
-            </div>
-            <div class="debate-scoreboard">
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.viral}</div><div class="score-label">Viral</div></div>
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.press}</div><div class="score-label">Press</div></div>
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.base}</div><div class="score-label">Base</div></div>
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.suburban}</div><div class="score-label">Suburban</div></div>
-                <div class="debate-score-item"><div class="score-val">${this.debateScores.donors}</div><div class="score-label">Donors</div></div>
             </div>`;
     },
 
     handleDebateResponse(responseIdx) {
-        const q = this.debateQuestions[this.currentDebateQuestion];
-        const response = q.responses[responseIdx];
-        this.debateResponses.push(response);
+        const ctx = this.debateCtx;
+        if (!ctx || ctx.answered) return;
+        ctx.answered = true;
 
-        // Accumulate scores
+        const gs = window.GameEngine.state;
+        const q = ctx.questions[ctx.idx];
+        const response = q.responses[responseIdx];
+
+        // Player's answer enters the transcript and the scorebook
+        let playerQScore = 0;
         for (const [key, val] of Object.entries(response.effects)) {
-            if (this.debateScores.hasOwnProperty(key)) {
-                this.debateScores[key] += val;
+            if (ctx.playerScores.hasOwnProperty(key)) {
+                ctx.playerScores[key] += val;
+                playerQScore += val;
             }
         }
+        this.appendTranscript('player', response.text);
 
-        this.currentDebateQuestion++;
-        if (this.currentDebateQuestion >= this.debateQuestions.length) {
+        const choiceArea = document.getElementById('debate-choice-area');
+        choiceArea.querySelectorAll('.debate-response').forEach(b => { b.disabled = true; b.classList.add('dimmed'); });
+
+        // Opponent responds after a beat
+        setTimeout(() => {
+            const DC = window.DebateContent;
+            const pool = DC.opponentResponses[q.topic] || DC.genericResponses;
+            const line = pool[ctx.opponentStrategy] || DC.genericResponses[ctx.opponentStrategy];
+
+            // Normalize to the player's scale (content lines score all 7 dimensions,
+            // player answers only ~6) and let debate skill scale the whole answer
+            const skillFactor = 0.7 * (1 + (gs.opponent.debateSkill - 50) / 150);
+            let oppQScore = 0;
+            for (const [key, val] of Object.entries(line.scores)) {
+                if (ctx.opponentScores.hasOwnProperty(key)) {
+                    const adjusted = Math.round(val * skillFactor * 10) / 10;
+                    ctx.opponentScores[key] += adjusted;
+                    oppQScore += adjusted;
+                }
+            }
+            this.appendTranscript('opponent', line.text);
+
+            setTimeout(() => this.showQuestionVerdict(playerQScore, oppQScore), 900);
+        }, 1200);
+    },
+
+    showQuestionVerdict(playerQScore, oppQScore) {
+        const ctx = this.debateCtx;
+        const gs = window.GameEngine.state;
+        const DC = window.DebateContent;
+        const pc = gs.playerCandidate;
+        const oc = gs.opponentCandidate;
+        const pLast = pc.name.split(' ').pop();
+        const oLast = oc.name.split(' ').pop();
+
+        let verdict, reactionPool;
+        if (playerQScore > oppQScore + 3) { verdict = 'player'; reactionPool = DC.audienceReactions.strong; }
+        else if (oppQScore > playerQScore + 3) { verdict = 'opponent'; reactionPool = DC.audienceReactions.weak; }
+        else { verdict = 'tie'; reactionPool = DC.audienceReactions.neutral; }
+        ctx.questionWins[verdict]++;
+
+        const reaction = reactionPool[Math.floor(Math.random() * reactionPool.length)];
+        const total = Math.max(1, Math.max(0, playerQScore) + Math.max(0, oppQScore));
+        const pPct = Math.round((Math.max(0, playerQScore) / total) * 100);
+
+        const meterRow = document.getElementById('debate-meter-row');
+        meterRow.innerHTML = `
+            <div class="audience-meter">
+                <span class="meter-name" style="color:${pc.color};">${pLast.toUpperCase()}</span>
+                <div class="meter-track">
+                    <div class="meter-fill player" style="width:${pPct}%;background:${pc.color};"></div>
+                    <div class="meter-fill opponent" style="width:${100 - pPct}%;background:${oc.color};"></div>
+                </div>
+                <span class="meter-name" style="color:${oc.color};">${oLast.toUpperCase()}</span>
+            </div>
+            <div class="meter-reaction">${reaction}</div>
+            <span class="meter-tally" id="debate-tally">DEBATE SCORE — ${pLast.toUpperCase()} ${ctx.questionWins.player} · ${ctx.questionWins.opponent} ${oLast.toUpperCase()}${ctx.questionWins.tie ? ` (${ctx.questionWins.tie} EVEN)` : ''}</span>`;
+
+        // Continue button + auto-advance
+        const choiceArea = document.getElementById('debate-choice-area');
+        choiceArea.innerHTML = `<button class="btn btn-primary" id="debate-continue-btn" onclick="GameUI.nextDebateQuestion()">${ctx.idx + 1 >= ctx.questions.length ? 'CLOSING — GO TO COVERAGE' : 'NEXT QUESTION'} →</button>`;
+        ctx.advanceTimer = setTimeout(() => this.nextDebateQuestion(), 3500);
+    },
+
+    nextDebateQuestion() {
+        const ctx = this.debateCtx;
+        if (!ctx) return;
+        if (ctx.advanceTimer) { clearTimeout(ctx.advanceTimer); ctx.advanceTimer = null; }
+
+        ctx.idx++;
+        if (ctx.idx >= ctx.questions.length) {
             this.showDebateResults();
         } else {
-            this.renderDebateQuestion();
+            this.renderDebateExchange();
         }
     },
 
     showDebateResults() {
-        const result = window.GameEngine.processDebateResults(this.debateScores);
-        const stage = document.getElementById('debate-stage');
+        const ctx = this.debateCtx;
         const gs = window.GameEngine.state;
+        const DC = window.DebateContent;
+        const pc = gs.playerCandidate;
+        const oc = gs.opponentCandidate;
+        const pLast = pc.name.split(' ').pop();
+        const oLast = oc.name.split(' ').pop();
 
+        // Head-to-head verdict from the (frozen) DebateSystem
+        const winner = window.DebateSystem.calculateWinner(ctx.playerScores, ctx.opponentScores);
+        const result = window.GameEngine.processDebateResults(ctx.playerScores, ctx.opponentScores, winner);
+
+        const winnerName = winner === 'player' ? pLast : winner === 'opponent' ? oLast : null;
+        const loserName = winner === 'player' ? oLast : winner === 'opponent' ? pLast : null;
+
+        // Snap poll: score gap plus polling noise
+        const pTotal = Object.values(ctx.playerScores).reduce((a, b) => a + b, 0);
+        const oTotal = Object.values(ctx.opponentScores).reduce((a, b) => a + b, 0);
+        const gap = pTotal - oTotal;
+        const snapPlayer = Math.max(32, Math.min(68, Math.round(50 + gap * 0.35 + (Math.random() - 0.5) * 4)));
+        const snapOutlet = DC.snapPollOutlets[Math.floor(Math.random() * DC.snapPollOutlets.length)];
+
+        const quotePool = winner === 'player' ? DC.punditQuotes.playerWin :
+                          winner === 'opponent' ? DC.punditQuotes.opponentWin : DC.punditQuotes.tie;
+        const quotes = [...quotePool].sort(() => Math.random() - 0.5).slice(0, 2)
+            .map(qt => qt.replace(/{WINNER}/g, winnerName || pLast).replace(/{LOSER}/g, loserName || oLast));
+
+        const dims = ['policy', 'authenticity', 'viral', 'press', 'base', 'suburban', 'donors'];
+        const dimLabels = { policy: 'Policy', authenticity: 'Authenticity', viral: 'Viral', press: 'Press', base: 'Base', suburban: 'Suburban', donors: 'Donors' };
+        const scoreboardHTML = dims.map(d => {
+            const p = Math.round(ctx.playerScores[d]);
+            const o = Math.round(ctx.opponentScores[d]);
+            const leader = p > o ? 'player' : o > p ? 'opponent' : 'tie';
+            return `<div class="debate-score-item">
+                <div class="score-val"><span style="color:${leader === 'player' ? pc.color : 'var(--text-secondary)'}">${p}</span> <span class="score-vs">/</span> <span style="color:${leader === 'opponent' ? oc.color : 'var(--text-secondary)'}">${o}</span></div>
+                <div class="score-label">${dimLabels[d]}</div>
+            </div>`;
+        }).join('');
+
+        const bannerClass = winner === 'player' ? this.getPlayerColorClass() : winner === 'opponent' ? this.getOpponentColorClass() : 'tie';
+        const bannerText = winner === 'tie' ? 'NO CLEAR WINNER — PUNDITS SPLIT' :
+            `${(winnerName || '').toUpperCase()} WINS THE DEBATE`;
+
+        const stage = document.getElementById('debate-stage');
         stage.innerHTML = `
-            <h2>DEBATE RESULTS</h2>
-            <p class="text-muted" style="margin-bottom:2rem;">${result.assessment}</p>
-            <div class="debate-scoreboard" style="margin-bottom:2rem;">
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-blue)">${this.debateScores.viral}</div><div class="score-label">Viral Moments</div></div>
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-green)">${this.debateScores.press}</div><div class="score-label">Press Score</div></div>
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-purple)">${this.debateScores.base}</div><div class="score-label">Base Energy</div></div>
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-orange)">${this.debateScores.suburban}</div><div class="score-label">Suburban Appeal</div></div>
-                <div class="debate-score-item"><div class="score-val" style="color:var(--accent-yellow)">${this.debateScores.donors}</div><div class="score-label">Donor Reaction</div></div>
-            </div>
-            <div class="week-summary" style="max-width:500px;margin:0 auto;text-align:left;">
-                <h3>Post-Debate Analysis</h3>
-                <div class="week-summary-stats">
-                    <div class="ws-stat"><span>Total Score</span><span class="ws-change ${result.totalScore > 15 ? 'positive' : 'negative'}">${result.totalScore}</span></div>
-                    <div class="ws-stat"><span>Assessment</span><span>${result.assessment}</span></div>
-                    <div class="ws-stat"><span>Debates Done</span><span>${gs.debatesCompleted}</span></div>
+            <div class="debate-broadcast debate-coverage">
+                <div class="broadcast-header">
+                    <div class="network-bug">${ctx.moderator.network} <span class="bug-divider">|</span> POST-DEBATE COVERAGE</div>
+                    <div class="broadcast-title">DEBATE ${ctx.debateNumber} ANALYSIS</div>
+                    <div class="live-indicator"><span class="live-dot"></span>LIVE</div>
                 </div>
-            </div>
-            <button class="btn btn-primary btn-lg mt-2" onclick="GameUI.returnFromDebate()">RETURN TO CAMPAIGN</button>`;
+                <div class="coverage-verdict-banner ${bannerClass}-call">${bannerText}</div>
+                <div class="snap-poll">
+                    <div class="snap-poll-title">${snapOutlet.toUpperCase()} — "WHO WON TONIGHT'S DEBATE?"</div>
+                    <div class="snap-poll-bar">
+                        <div class="snap-poll-side" style="width:${snapPlayer}%;background:${pc.color};">${pLast} ${snapPlayer}%</div>
+                        <div class="snap-poll-side" style="width:${100 - snapPlayer}%;background:${oc.color};">${oLast} ${100 - snapPlayer}%</div>
+                    </div>
+                </div>
+                <div class="pundit-quotes">
+                    ${quotes.map(qt => `<div class="pundit-quote">${qt}</div>`).join('')}
+                </div>
+                <div class="debate-scoreboard coverage-scoreboard">${scoreboardHTML}</div>
+                <div class="coverage-tally">
+                    QUESTIONS — ${pLast.toUpperCase()}: ${ctx.questionWins.player} &nbsp;·&nbsp; ${oLast.toUpperCase()}: ${ctx.questionWins.opponent} &nbsp;·&nbsp; EVEN: ${ctx.questionWins.tie}
+                    <div class="coverage-assessment">Campaign verdict: <strong>${result.assessment}</strong></div>
+                </div>
+                <button class="btn btn-primary btn-lg mt-2" onclick="GameUI.returnFromDebate()">RETURN TO CAMPAIGN</button>
+            </div>`;
+
+        this.updateTicker([
+            winner === 'tie' ? `DEBATE ${ctx.debateNumber}: PUNDITS SPLIT ON WINNER` :
+                `DEBATE ${ctx.debateNumber}: ${(winnerName || '').toUpperCase()} DECLARED WINNER IN SNAP POLLS`,
+        ]);
     },
 
     returnFromDebate() {
@@ -1651,76 +1973,245 @@ window.GameUI = {
 
     animateElectionNight(nightData) {
         const container = document.getElementById('election-night-content');
+        const gs = window.GameEngine.state;
         const results = nightData.results;
-        const callOrder = nightData.callOrder;
+        const calls = nightData.calls;
+        const pLast = results.playerName.split(' ').pop();
+        const oLast = results.opponentName.split(' ').pop();
 
+        // Build the night's feed schedule: poll-close waves, too-close notices, projections
+        const schedule = [];
+        const waveMinutes = { '7:00 PM': 0, '7:30 PM': 30, '8:00 PM': 60, '9:00 PM': 120, '10:00 PM': 180, '11:00 PM': 240, '1:00 AM': 360 };
+        for (const [label, ids] of Object.entries(window.GameConstants.POLL_CLOSE_TIMES)) {
+            schedule.push({ t: waveMinutes[label], type: 'wave', label, count: ids.length });
+        }
+        for (const call of calls) {
+            if (call.tooCloseToCall) schedule.push({ t: call.closeMinutes + 5, type: 'tooclose', call });
+            schedule.push({ t: call.callMinutes, type: 'call', call });
+        }
+        schedule.sort((a, b) => a.t - b.t);
+
+        this.enCtx = {
+            schedule, idx: 0, sim: 0,
+            playerEV: 0, oppEV: 0,
+            results, projected: false, timer: null,
+            totalVotes: 152000000 + Math.floor(Math.random() * 8000000),
+            calledCount: 0, totalCalls: calls.length,
+        };
+
+        const uncalledFill = () => '#3a4560';
         container.innerHTML = `
-            <h1>ELECTION NIGHT 2028</h1>
-            <p class="en-subtitle">${results.playerName} vs ${results.opponentName}</p>
-            <div class="ec-counter" style="position:relative;justify-content:center;margin:2rem auto;background:rgba(0,0,0,0.4);display:inline-flex;padding:16px 40px;border-radius:var(--radius-lg);">
-                <div class="ec-count ${this.getPlayerColorClass()}">
-                    <div class="ec-num" id="en-player-ev">0</div>
-                    <div class="ec-label">${results.playerName}</div>
+            <div class="en-broadcast">
+                <div class="broadcast-header en-broadcast-header">
+                    <div class="network-bug">GNN <span class="bug-divider">|</span> ELECTION NIGHT IN AMERICA</div>
+                    <div class="en-clock" id="en-clock">7:00 PM ET</div>
+                    <div class="live-indicator"><span class="live-dot"></span>LIVE</div>
                 </div>
-                <div class="ec-count" style="padding:0 30px;">
-                    <div class="ec-num" style="font-size:1rem;color:var(--text-muted);">270 to win</div>
+                <div class="en-ev-bar-wrap">
+                    <div class="en-ev-names">
+                        <span class="text-${this.getPlayerColorClass()}"><strong id="en-player-ev">0</strong> ${pLast.toUpperCase()}</span>
+                        <span class="en-ev-needed">270 TO WIN</span>
+                        <span class="text-${this.getOpponentColorClass()}">${oLast.toUpperCase()} <strong id="en-opp-ev">0</strong></span>
+                    </div>
+                    <div class="en-ev-bar">
+                        <div class="en-ev-fill player" id="en-ev-fill-player" style="background:${this.getPlayerColorVar()};"></div>
+                        <div class="en-ev-fill opponent" id="en-ev-fill-opponent" style="background:${this.getOpponentColorVar()};"></div>
+                        <div class="en-ev-marker"></div>
+                    </div>
                 </div>
-                <div class="ec-count ${this.getOpponentColorClass()}">
-                    <div class="ec-num" id="en-opp-ev">0</div>
-                    <div class="ec-label">${results.opponentName}</div>
+                <div class="key-race-alert" id="key-race-alert"></div>
+                <div class="en-main">
+                    <div class="en-map-wrap">${this.buildSVGMap(gs, { fillOverride: uncalledFill })}</div>
+                    <div class="en-feed-col">
+                        <div class="en-feed-title">RACE CALLS</div>
+                        <div class="en-feed" id="en-feed"></div>
+                    </div>
                 </div>
-            </div>
-            <div id="en-state-calls" style="margin:2rem auto;max-width:800px;"></div>
-            <div id="en-winner-banner"></div>`;
+                <div class="en-popvote" id="en-popvote">POPULAR VOTE — COUNTING FIRST RESULTS…</div>
+                <div style="text-align:center;margin-top:10px;">
+                    <button class="btn btn-sm" id="en-skip-btn" onclick="GameUI.skipElectionNight()">SKIP AHEAD ⏩</button>
+                </div>
+                <div id="en-winner-banner"></div>
+            </div>`;
 
-        // Animate state calls
-        let playerEVSoFar = 0;
-        let oppEVSoFar = 0;
-        const callsContainer = document.getElementById('en-state-calls');
+        // 1 sim-hour ≈ 6 seconds
+        this.enCtx.timer = setInterval(() => this.tickElectionNight(2), 200);
+    },
 
-        callOrder.forEach((call, i) => {
-            setTimeout(() => {
-                const isPlayer = call.winner === 'player';
-                if (isPlayer) playerEVSoFar += call.ev;
-                else oppEVSoFar += call.ev;
+    tickElectionNight(minutes) {
+        const ctx = this.enCtx;
+        if (!ctx) return;
+        const lastT = ctx.schedule.length ? ctx.schedule[ctx.schedule.length - 1].t : 0;
+        ctx.sim = Math.min(ctx.sim + minutes, lastT + 5);
 
-                const callEl = document.createElement('span');
-                const callClass = isPlayer ? this.getPlayerColorClass() : this.getOpponentColorClass();
-                callEl.className = `state-call ${callClass}-call`;
-                callEl.innerHTML = `${call.stateName} <strong>${call.ev}</strong>`;
-                callsContainer.appendChild(callEl);
+        // Clock
+        const clockEl = document.getElementById('en-clock');
+        if (clockEl) {
+            const total = 19 * 60 + ctx.sim; // 7:00 PM start
+            const h24 = Math.floor(total / 60) % 24;
+            const m = total % 60;
+            const h12 = ((h24 + 11) % 12) + 1;
+            clockEl.textContent = `${h12}:${String(m).padStart(2, '0')} ${h24 >= 12 ? 'PM' : 'AM'} ET`;
+        }
 
-                document.getElementById('en-player-ev').textContent = playerEVSoFar;
-                document.getElementById('en-opp-ev').textContent = oppEVSoFar;
+        // Process due feed items
+        while (ctx.idx < ctx.schedule.length && ctx.schedule[ctx.idx].t <= ctx.sim) {
+            this.processElectionNightItem(ctx.schedule[ctx.idx]);
+            ctx.idx++;
+        }
 
-                // Check if we have a winner
-                if (i === callOrder.length - 1) {
-                    setTimeout(() => {
-                        this.showWinner(results);
-                    }, 1500);
-                }
-            }, i * 200 + 500);
-        });
+        // Popular vote counter interpolates with counted share
+        const counted = Math.min(1, 0.05 + (ctx.calledCount / ctx.totalCalls) * 0.95);
+        const pv = ctx.results.nationalPopularVote;
+        const totalCast = Math.floor(ctx.totalVotes * counted);
+        const pShare = pv.player / (pv.player + pv.opponent);
+        const popEl = document.getElementById('en-popvote');
+        if (popEl) {
+            popEl.textContent = `POPULAR VOTE (${Math.round(counted * 100)}% REPORTING) — ` +
+                `${ctx.results.playerName.split(' ').pop().toUpperCase()}: ${Math.floor(totalCast * pShare).toLocaleString()} · ` +
+                `${ctx.results.opponentName.split(' ').pop().toUpperCase()}: ${Math.floor(totalCast * (1 - pShare)).toLocaleString()}`;
+        }
+
+        if (ctx.idx >= ctx.schedule.length) {
+            clearInterval(ctx.timer);
+            ctx.timer = null;
+            const skipBtn = document.getElementById('en-skip-btn');
+            if (skipBtn) skipBtn.style.display = 'none';
+            setTimeout(() => this.showWinner(ctx.results), 800);
+        }
+    },
+
+    processElectionNightItem(item) {
+        const ctx = this.enCtx;
+        const feed = document.getElementById('en-feed');
+        if (!feed) return;
+        const pLast = ctx.results.playerName.split(' ').pop();
+        const oLast = ctx.results.opponentName.split(' ').pop();
+
+        if (item.type === 'wave') {
+            const el = document.createElement('div');
+            el.className = 'en-feed-wave';
+            el.textContent = `${item.label} — POLLS CLOSE IN ${item.count} ${item.count === 1 ? 'STATE' : 'STATES'}`;
+            feed.prepend(el);
+            return;
+        }
+
+        if (item.type === 'tooclose') {
+            const el = document.createElement('div');
+            el.className = 'state-call tooclose-call';
+            el.innerHTML = `⚖️ ${item.call.stateName.toUpperCase()} — TOO CLOSE TO CALL`;
+            feed.prepend(el);
+            return;
+        }
+
+        // Projection
+        const call = item.call;
+        const isPlayer = call.winner === 'player';
+        if (isPlayer) ctx.playerEV += call.ev; else ctx.oppEV += call.ev;
+        ctx.calledCount++;
+
+        const winnerLast = isPlayer ? pLast : oLast;
+        const callClass = isPlayer ? this.getPlayerColorClass() : this.getOpponentColorClass();
+        const el = document.createElement('div');
+        el.className = `state-call ${callClass}-call`;
+        el.innerHTML = `GNN PROJECTS: <strong>${call.stateName.toUpperCase()}</strong> — ${winnerLast.toUpperCase()} <span class="call-ev">${call.ev} EV</span>`;
+        feed.prepend(el);
+
+        // Color the state on the map (path + side chip)
+        const fill = isPlayer ? this.getPartyMapColor(this.getPlayerColorClass()) : this.getPartyMapColor(this.getOpponentColorClass());
+        const path = document.querySelector(`.en-map-wrap .state-path[data-state="${call.stateId}"]`);
+        if (path) path.setAttribute('fill', fill);
+        const chip = document.querySelector(`.en-map-wrap .map-side-chip[data-state="${call.stateId}"] rect`);
+        if (chip) chip.setAttribute('fill', fill);
+
+        // EV counters + race bar
+        const pEl = document.getElementById('en-player-ev');
+        const oEl = document.getElementById('en-opp-ev');
+        if (pEl) pEl.textContent = ctx.playerEV;
+        if (oEl) oEl.textContent = ctx.oppEV;
+        const pFill = document.getElementById('en-ev-fill-player');
+        const oFill = document.getElementById('en-ev-fill-opponent');
+        if (pFill) pFill.style.width = `${(ctx.playerEV / 538) * 100}%`;
+        if (oFill) oFill.style.width = `${(ctx.oppEV / 538) * 100}%`;
+
+        // Key race alert for battlegrounds
+        const st = window.StateData.find(s => s.id === call.stateId);
+        if (st && st.isBattleground) {
+            const alertEl = document.getElementById('key-race-alert');
+            if (alertEl) {
+                alertEl.innerHTML = `
+                    <div class="chyron-inner">
+                        <span class="chyron-tab">KEY RACE ALERT</span>
+                        <span class="chyron-topic">GNN PROJECTS ${call.stateName.toUpperCase()}: ${winnerLast.toUpperCase()} +${call.margin}</span>
+                    </div>`;
+                clearTimeout(this._keyRaceTimer);
+                this._keyRaceTimer = setTimeout(() => { if (alertEl) alertEl.innerHTML = ''; }, 3500);
+            }
+        }
+
+        // Winner projection the moment someone crosses 270
+        if (!ctx.projected && (ctx.playerEV >= 270 || ctx.oppEV >= 270)) {
+            ctx.projected = true;
+            const banner = document.getElementById('en-winner-banner');
+            if (banner) {
+                const winName = ctx.playerEV >= 270 ? pLast : oLast;
+                const total = 19 * 60 + ctx.sim;
+                const h24 = Math.floor(total / 60) % 24;
+                const h12 = ((h24 + 11) % 12) + 1;
+                const callTime = `${h12}:${String(total % 60).padStart(2, '0')} ${h24 >= 12 ? 'PM' : 'AM'} ET`;
+                banner.innerHTML = `<div class="en-projection-flash">🚨 GNN PROJECTION (${callTime}): <strong>${winName.toUpperCase()} ELECTED PRESIDENT</strong> — COUNTING CONTINUES…</div>`;
+            }
+        }
+    },
+
+    skipElectionNight() {
+        const ctx = this.enCtx;
+        if (!ctx) return;
+        // Fast-forward the whole night
+        this.tickElectionNight(24 * 60);
+    },
+
+    getPartyMapColor(partyClass) {
+        return partyClass === 'dem' ? '#2166d4' : '#d42121';
     },
 
     showWinner(results) {
         const banner = document.getElementById('en-winner-banner');
+        const gs = window.GameEngine.state;
         const isPlayerWin = results.winner === 'player';
         const winnerName = isPlayerWin ? results.playerName : results.opponentName;
         const winnerEV = isPlayerWin ? results.playerEV : results.opponentEV;
         const winnerParty = isPlayerWin ? this.getPlayerColorClass() : this.getOpponentColorClass();
         const winClass = winnerParty + '-winner';
 
+        // Campaign retrospective
+        const debatesWon = (gs.debateHistory || []).filter(d => d.winner === 'player').length;
+        const debatesTotal = (gs.debateHistory || []).length;
+        const endorsementCount = (gs.endorsements || []).length;
+        const oppEndorsementCount = (gs.opponentEndorsements || []).length;
+        const vpName = gs.vpChoice ? (gs.vpChoice.name || gs.vpChoice) : '—';
+
         banner.innerHTML = `
             <div class="winner-banner ${winClass}">
                 <h2>${isPlayerWin ? '🎉 VICTORY!' : '😞 DEFEAT'}</h2>
                 <p style="font-size:1.3rem;margin-bottom:0.5rem;">${winnerName} wins the presidency with ${winnerEV} electoral votes!</p>
                 <p class="text-muted">Popular vote: ${results.playerName} ${Math.round(results.nationalPopularVote.player)}% — ${results.opponentName} ${Math.round(results.nationalPopularVote.opponent)}%</p>
+                <div class="en-retro">
+                    <div class="en-retro-title">CAMPAIGN RETROSPECTIVE</div>
+                    <div class="en-retro-grid">
+                        <div class="en-retro-item"><div class="retro-val">${results.playerEV}</div><div class="retro-label">Electoral Votes</div></div>
+                        <div class="en-retro-item"><div class="retro-val">${debatesWon}/${debatesTotal}</div><div class="retro-label">Debates Won</div></div>
+                        <div class="en-retro-item"><div class="retro-val">${endorsementCount} vs ${oppEndorsementCount}</div><div class="retro-label">Endorsements</div></div>
+                        <div class="en-retro-item"><div class="retro-val">$${this.formatMoney(gs.finances.totalRaised)}</div><div class="retro-label">Total Raised</div></div>
+                        <div class="en-retro-item"><div class="retro-val">${vpName}</div><div class="retro-label">Running Mate</div></div>
+                    </div>
+                </div>
                 <div class="mt-2 btn-group" style="justify-content:center;">
                     <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">PLAY AGAIN</button>
                     <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
                 </div>
             </div>`;
+        banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         // Update ticker
         this.updateTicker([

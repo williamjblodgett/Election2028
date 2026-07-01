@@ -122,6 +122,43 @@ window.GameConstants = {
     ELECTORAL_TO_WIN: 270,
 
     // ═══════════════════════════════════════════════
+    // EARLY VOTING & GOTV (final stretch of the general)
+    // ═══════════════════════════════════════════════
+    EARLY_VOTE: {
+        START_WEEK: 33,            // early voting opens
+        WEEKLY_BANK_PCT: 6,        // % of the electorate banked per week
+        MAX_BANKED_PCT: 45,        // ceiling on total early vote share
+        GOTV_COST: 250000,
+        GOTV_TARGET_STATES: 5,     // closest battlegrounds boosted per push
+    },
+
+    // ═══════════════════════════════════════════════
+    // POLLING AVERAGES & FICTIONAL POLLSTERS
+    // house: positive = overstates Republicans, negative = overstates Democrats
+    // ═══════════════════════════════════════════════
+    POLLSTERS: [
+        { name: 'Meridian Research', house: 1.2, moe: 3.0 },
+        { name: 'Beacon Analytics', house: -1.5, moe: 3.4 },
+        { name: 'Heartland Polling', house: 2.1, moe: 4.1 },
+        { name: 'Coastline Surveys', house: -0.8, moe: 2.8 },
+        { name: 'National Opinion Desk', house: 0.3, moe: 2.5 },
+    ],
+    POLL_HISTORY_WEEKS: 8,
+
+    // ═══════════════════════════════════════════════
+    // ELECTION NIGHT — poll closing waves (Eastern Time)
+    // ═══════════════════════════════════════════════
+    POLL_CLOSE_TIMES: {
+        '7:00 PM': ['GA', 'IN', 'KY', 'SC', 'VT', 'VA'],
+        '7:30 PM': ['NC', 'OH', 'WV'],
+        '8:00 PM': ['AL', 'CT', 'DE', 'DC', 'FL', 'IL', 'ME', 'MD', 'MA', 'MS', 'MO', 'NH', 'NJ', 'OK', 'PA', 'RI', 'TN'],
+        '9:00 PM': ['AZ', 'AR', 'CO', 'KS', 'LA', 'MI', 'MN', 'NE', 'NM', 'NY', 'ND', 'SD', 'TX', 'WI', 'WY'],
+        '10:00 PM': ['IA', 'MT', 'NV', 'UT'],
+        '11:00 PM': ['CA', 'ID', 'OR', 'WA'],
+        '1:00 AM': ['AK', 'HI'],
+    },
+
+    // ═══════════════════════════════════════════════
     // UI / UX
     // ═══════════════════════════════════════════════
     MOBILE_BREAKPOINT: 768,

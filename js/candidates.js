@@ -605,3 +605,25 @@ window.CandidateData = {
     }
   ]
 };
+
+// ═══════════════════════════════════════════════
+// RUNNING MATE OPTIONS
+// Shared by the VP pick modal (player) and the AI opponent's week-25 pick.
+// homeId drives the home-state polling boost in GameEngine.processVPPick.
+// ═══════════════════════════════════════════════
+window.CandidateData.vpOptions = {
+  democrat: [
+    { name: 'Gov. Wes Moore (MD)', homeId: 'MD', home: 'Maryland', desc: 'Young, charismatic governor. Boosts minority turnout and enthusiasm.', effects: { enthusiasm: 8, baseTurnout: 5, onlineInfluence: 4 } },
+    { name: 'Sen. Mark Kelly (AZ)', homeId: 'AZ', home: 'Arizona', desc: 'Astronaut, veteran, swing-state senator. Maximizes crossover appeal.', effects: { crossoverAppeal: 8, approval: 4, persuadableSupport: 5 } },
+    { name: 'Gov. Gretchen Whitmer (MI)', homeId: 'MI', home: 'Michigan', desc: 'Proven swing-state winner. Strengthens Midwest firewall.', effects: { groundGame: 6, baseTurnout: 4, surrogateStrength: 5 } },
+    { name: 'Sen. Raphael Warnock (GA)', homeId: 'GA', home: 'Georgia', desc: 'Powerful orator from Georgia. Energizes the base and Southern strategy.', effects: { baseEnthusiasm: 7, enthusiasm: 5, surrogateStrength: 4 } },
+    { name: 'Gov. Andy Beshear (KY)', homeId: 'KY', home: 'Kentucky', desc: 'Won in deep-red Kentucky. Ultimate electability argument.', effects: { crossoverAppeal: 10, persuadableSupport: 6, donorConfidence: 4 } },
+  ],
+  republican: [
+    { name: 'Gov. Glenn Youngkin (VA)', homeId: 'VA', home: 'Virginia', desc: 'Business-friendly governor. Locks down suburban and donor support.', effects: { donorConfidence: 7, crossoverAppeal: 5, persuadableSupport: 5 } },
+    { name: 'Sen. Tim Scott (SC)', homeId: 'SC', home: 'South Carolina', desc: 'Optimistic messenger with broad appeal. Expands the coalition.', effects: { crossoverAppeal: 6, approval: 5, enthusiasm: 4 } },
+    { name: 'Rep. Elise Stefanik (NY)', homeId: 'NY', home: 'New York', desc: 'Fighter who energizes the MAGA base. Strong media presence.', effects: { baseEnthusiasm: 8, mediaScore: 5, onlineInfluence: 4 } },
+    { name: 'Gov. Brian Kemp (GA)', homeId: 'GA', home: 'Georgia', desc: 'Proven Georgia winner. Ground game and swing-state credibility.', effects: { groundGame: 6, baseTurnout: 5, crossoverAppeal: 4 } },
+    { name: 'Sen. Katie Britt (AL)', homeId: 'AL', home: 'Alabama', desc: 'Youngest woman in the Senate. Fresh face with fundraising strength.', effects: { fundraising: 5, enthusiasm: 5, onlineInfluence: 5 } },
+  ],
+};

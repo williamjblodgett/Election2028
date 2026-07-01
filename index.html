@@ -13,6 +13,9 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.svg">
     <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <style>
         /* Critical inline styles for instant dark bg */
@@ -39,16 +42,54 @@
 
     <!-- ═══ TITLE SCREEN ═══ -->
     <div id="screen-title" class="screen">
-        <div class="title-logo">
-            <h1>ELECTION 2028</h1>
-            <div class="subtitle">POLITICAL STRATEGY GAME</div>
-        </div>
-        <p class="title-tagline">"Win the White House. Control the narrative. Survive the chaos."</p>
-        <div class="menu-buttons">
-            <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">NEW CAMPAIGN</button>
-            <button class="btn btn-lg hidden" id="continue-btn" onclick="GameUI.loadGame()">CONTINUE</button>
-            <button class="btn btn-lg" onclick="GameUI.showHowToPlay()">HOW TO PLAY</button>
-            <button class="btn btn-ghost" onclick="GameUI.showCredits()">CREDITS</button>
+        <div class="title-shell">
+            <div class="title-copy">
+                <div class="title-eyebrow">Decision Desk Simulation</div>
+                <div class="title-logo">
+                    <h1>ELECTION 2028</h1>
+                    <div class="subtitle">POLITICAL STRATEGY GAME</div>
+                </div>
+                <p class="title-tagline">"Win the White House. Control the narrative. Survive the chaos."</p>
+                <div class="title-stats">
+                    <div class="title-stat">
+                        <span class="title-stat-label">Campaign Clock</span>
+                        <strong>40 weeks</strong>
+                    </div>
+                    <div class="title-stat">
+                        <span class="title-stat-label">Victory Path</span>
+                        <strong>270 electoral votes</strong>
+                    </div>
+                    <div class="title-stat">
+                        <span class="title-stat-label">Game Modes</span>
+                        <strong>Campaign, Versus, Simulation</strong>
+                    </div>
+                </div>
+                <div class="menu-buttons">
+                    <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">NEW CAMPAIGN</button>
+                    <button class="btn btn-lg hidden" id="continue-btn" onclick="GameUI.loadGame()">CONTINUE</button>
+                    <button class="btn btn-lg" onclick="GameUI.showHowToPlay()">HOW TO PLAY</button>
+                    <button class="btn btn-ghost" onclick="GameUI.showCredits()">CREDITS</button>
+                </div>
+            </div>
+            <aside class="title-briefing">
+                <div class="briefing-kicker">Campaign Briefing</div>
+                <h2>Build the ticket. Manage the map. Win the call.</h2>
+                <p class="briefing-copy">Run a full presidential campaign with real candidates, battleground polling, vice-presidential strategy, debates, and election-night state calls.</p>
+                <div class="briefing-list">
+                    <div class="briefing-item">
+                        <span>War Room</span>
+                        <strong>Direct control over travel, media, coalitions, and cash</strong>
+                    </div>
+                    <div class="briefing-item">
+                        <span>Decision Load</span>
+                        <strong>Weekly events, risk management, and debate choices</strong>
+                    </div>
+                    <div class="briefing-item">
+                        <span>Map Model</span>
+                        <strong>State-by-state polling with ticket effects and battleground intel</strong>
+                    </div>
+                </div>
+            </aside>
         </div>
     </div>
 
@@ -56,8 +97,9 @@
     <div id="screen-select" class="screen hidden">
         <div class="select-header">
             <h2 id="setup-title">Choose Your Path</h2>
-            <p class="text-muted" id="setup-subtitle">Step 1 of 5</p>
+            <p class="text-muted" id="setup-subtitle">Step 1 of 7</p>
         </div>
+        <div id="setup-progress"></div>
         <div id="setup-content">
             <!-- Dynamic content rendered by GameUI -->
         </div>
@@ -144,6 +186,7 @@
 <script src="js/constants.js"></script>
 <script src="js/candidates.js"></script>
 <script src="js/states.js"></script>
+<script src="js/vp-data.js"></script>
 <script src="js/events.js"></script>
 <script src="js/debate-system.js"></script>
 <script src="js/debate-content.js"></script>

@@ -759,6 +759,11 @@ window.EventSystem = {
                 if (evt.category === 'MEDIA_FIRESTORM') {
                     prob *= 1 + (gameState.campaign.scandalVulnerability / 200);
                 }
+                if (evt.category === 'VP_ANNOUNCEMENT') {
+                    const bias = gameState.vpAnnouncementBias || 0;
+                    if (evt.id === 'vp_pick_praised') prob *= 1 + (bias * 0.35);
+                    if (evt.id === 'vp_pick_controversy') prob *= 1 - (bias * 0.35);
+                }
                 // Low donor confidence = more party drama
                 if (evt.category === 'PARTY_DRAMA') {
                     prob *= 1 + ((100 - gameState.campaign.donorConfidence) / 300);

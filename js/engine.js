@@ -75,6 +75,10 @@ window.GameEngine = {
             conventionDone: false,
             vpPicked: false,
             vpChoice: null,
+            playerTicket: null,
+            opponentTicket: null,
+            vpAnnouncementBias: 0,
+            opponentVPAnnouncementBias: 0,
             weekActions: [],
             visitedStates: {},
             endorsements: [],
@@ -96,6 +100,8 @@ window.GameEngine = {
         this.state.playerParty = playerCandidate.party === 'Democrat' ? 'democrat' : 'republican';
         this.state.gameMode = mode;
         this.state.difficulty = difficulty;
+        this.state.playerTicket = { nominee: playerCandidate, vp: null };
+        this.state.opponentTicket = { nominee: opponentCandidate, vp: null };
 
         // Apply candidate stats to campaign
         const pc = playerCandidate;
@@ -189,6 +195,85 @@ window.GameEngine = {
 
         this.state.campaign.nationalPolling = this.calculateNationalPolling();
         this.state.opponent.nationalPolling = 100 - this.state.campaign.nationalPolling - 8; // undecideds
+    },
+
+    applyTicketStatEffects(side, effects) {
+        if (!effects) return;
+
+        const target = side === 'player' ? this.state.campaign : this.state.opponent;
+        for (const [key, value] of Object.entries(effects)) {
+            if (target.hasOwnProperty(key)) {
+                target[key] += value;
+            }
+        }
+
+        if (side === 'player') {
+            if (effects.cashOnHand) {
+                this.state.finances.cashOnHand += effects.cashOnHand;
+                this.state.finances.totalRaised += effects.cashOnHand;
+                this.state.campaign.cash = this.state.finances.cashOnHand;
+            }
+            if (effects.weeklySmallDollar) this.state.finances.weeklySmallDollar += effects.weeklySmallDollar;
+            if (effects.weeklyHighDollar) this.state.finances.weeklyHighDollar += effects.weeklyHighDollar;
+        } else if (effects.cashOnHand) {
+            this.state.opponent.cash += effects.cashOnHand;
+        }
+    },
+
+    applyTicketMapEffects(side, option) {
+        if (!option) return;
+        const pollKey = side === 'player' ? 'player' : 'opponent';
+        const homeStateId = window.VPData ? window.VPData.getStateIdForName(option.homeState) : null;
+
+        if (homeStateId && this.state.statePolling[homeStateId]) {
+            this.state.statePolling[homeStateId][pollKey] += option.homeStateBonus || 0;
+            this.state.statePolling[homeStateId].trend += side === 'player' ? 0.8 : -0.8;
+        }
+
+        for (const stateId of option.regionalTargets || []) {
+            if (!this.state.statePolling[stateId]) continue;
+            this.state.statePolling[stateId][pollKey] += option.regionalBonus || 0;
+            this.state.statePolling[stateId].trend += side === 'player' ? 0.4 : -0.4;
+        }
+    },
+
+    normalizeTicketPolling() {
+        for (const poll of Object.values(this.state.statePolling)) {
+            poll.player = Math.max(20, Math.min(75, poll.player));
+            poll.opponent = Math.max(20, Math.min(75, poll.opponent));
+            poll.undecided = Math.max(2, 100 - poll.player - poll.opponent);
+        }
+        this.state.campaign.nationalPolling = this.calculateNationalPolling();
+        this.state.opponent.nationalPolling = Math.max(20, Math.round((100 - this.state.campaign.nationalPolling - 8) * 10) / 10);
+    },
+
+    assignRunningMates(playerVP, opponentVP) {
+        if (playerVP) {
+            this.state.playerTicket = { nominee: this.state.playerCandidate, vp: playerVP };
+            this.state.vpPicked = true;
+            this.state.vpChoice = {
+                name: playerVP.name,
+                homeStateId: playerVP.homeId ||
+                    (window.VPData ? window.VPData.getStateIdForName(playerVP.homeState) : null),
+            };
+            this.state.vpAnnouncementBias = playerVP.announcementBias || 0;
+            this.applyTicketStatEffects('player', playerVP.effects);
+            this.applyTicketMapEffects('player', playerVP);
+        }
+
+        if (opponentVP) {
+            this.state.opponentTicket = { nominee: this.state.opponentCandidate, vp: opponentVP };
+            this.state.opponentVP = {
+                name: opponentVP.name,
+                homeStateId: opponentVP.homeId ||
+                    (window.VPData ? window.VPData.getStateIdForName(opponentVP.homeState) : null),
+            };
+            this.state.opponentVPAnnouncementBias = opponentVP.announcementBias || 0;
+            this.applyTicketStatEffects('opponent', opponentVP.effects);
+            this.applyTicketMapEffects('opponent', opponentVP);
+        }
+
+        this.normalizeTicketPolling();
     },
 
     // ═══════════════════════════════════════════════
@@ -948,6 +1033,24 @@ window.GameEngine = {
     // ═══════════════════════════════════════════════
     processOpponentVP() {
         if (this.state.phase !== 'general' || this.state.opponentVP || this.state.week < 25) return null;
+        // Ticket already built pregame (VPData ticket builder)
+        if (this.state.opponentTicket && this.state.opponentTicket.vp) return null;
+
+        // Prefer the VPData bench (scored pick), fall back to the simple option list
+        if (window.VPData && typeof window.VPData.chooseRunningMate === 'function') {
+            const vp = window.VPData.chooseRunningMate(this.state.opponentCandidate);
+            if (vp) {
+                const homeStateId = window.VPData.getStateIdForName(vp.homeState);
+                this.state.opponentVP = { name: vp.name, homeStateId: homeStateId || null };
+                this.state.opponentTicket = { nominee: this.state.opponentCandidate, vp };
+                this.state.opponentVPAnnouncementBias = vp.announcementBias || 0;
+                this.applyTicketStatEffects('opponent', vp.effects);
+                this.applyTicketMapEffects('opponent', vp);
+                this.state.opponent.momentum += 8;
+                return `${this.state.opponentCandidate.name.split(' ').pop().toUpperCase()} NAMES ${vp.name.toUpperCase()} AS RUNNING MATE`;
+            }
+        }
+
         const oppParty = this.state.playerParty === 'democrat' ? 'republican' : 'democrat';
         const options = (window.CandidateData.vpOptions || {})[oppParty] || [];
         if (!options.length) return null;
@@ -1080,27 +1183,34 @@ window.GameEngine = {
         return { bounce, message: `Convention bounce: +${bounce} approval!` };
     },
 
-    processVPPick(vpName, vpHomeStateId) {
+    processVPPick(vpPick, vpHomeStateId) {
         if (this.state.vpPicked) return {};
-        this.state.vpPicked = true;
-        this.state.vpChoice = { name: vpName, homeStateId: vpHomeStateId || null };
 
-        // VP pick gives a modest boost
+        // Accepts a VPData ticket option (pregame builder), a plain
+        // {name, homeId, effects} option, or a legacy (name, homeStateId) pair
+        const option = typeof vpPick === 'string' ? { name: vpPick, effects: {} } : vpPick;
+        const homeStateId = vpHomeStateId || option.homeId ||
+            (window.VPData && option.homeState ? window.VPData.getStateIdForName(option.homeState) : null);
+
+        this.assignRunningMates(option, this.state.opponentTicket ? this.state.opponentTicket.vp : null);
+        this.state.vpChoice = { name: option.name, homeStateId: homeStateId || null };
+
         this.state.campaign.enthusiasm += 5;
-        this.state.campaign.mediaScore += 10;
-        this.state.campaign.surrogateStrength += 10;
+        this.state.campaign.mediaScore += 8;
+        this.state.campaign.surrogateStrength += 8;
         this.state.campaign.momentum += 10;
 
-        // Running mate delivers a home-state bump and regional coattails
+        // Home-state bump and regional coattails for options that don't carry
+        // their own map effects (VPData options apply theirs in assignRunningMates)
         let homeNote = '';
-        if (vpHomeStateId) {
-            const poll = this.state.statePolling[vpHomeStateId];
-            const home = window.StateData.find(s => s.id === vpHomeStateId);
+        if (homeStateId && !option.homeStateBonus) {
+            const poll = this.state.statePolling[homeStateId];
+            const home = window.StateData.find(s => s.id === homeStateId);
             if (poll) { poll.player += 4; poll.trend += 1; }
             if (home) {
                 homeNote = ` ${home.name} moves ${this.state.playerParty === 'democrat' ? 'blue' : 'red'}ward.`;
                 for (const st of window.StateData) {
-                    if (st.region === home.region && st.isBattleground && st.id !== vpHomeStateId) {
+                    if (st.region === home.region && st.isBattleground && st.id !== homeStateId) {
                         const p = this.state.statePolling[st.id];
                         if (p) p.player += 1;
                     }
@@ -1108,7 +1218,7 @@ window.GameEngine = {
             }
         }
 
-        return { message: `VP pick announced: ${vpName}! Media buzz surges.${homeNote}` };
+        return { message: `VP pick announced: ${option.name}! Media buzz surges.${homeNote}` };
     },
 
     // ═══════════════════════════════════════════════
@@ -1355,7 +1465,8 @@ window.GameEngine = {
         this.state = JSON.parse(data);
         // Backfill fields added after older saves were created
         const fresh = this.createFreshState();
-        for (const key of ['endorsements', 'opponentEndorsements', 'pollHistory', 'earlyVote', 'debateHistory', 'opponentVP']) {
+        for (const key of ['endorsements', 'opponentEndorsements', 'pollHistory', 'earlyVote', 'debateHistory', 'opponentVP',
+                           'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias']) {
             if (this.state[key] === undefined) this.state[key] = fresh[key];
         }
         return this.state;

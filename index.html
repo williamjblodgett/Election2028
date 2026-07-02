@@ -200,6 +200,14 @@
     });
     // Register Service Worker for PWA
     if ('serviceWorker' in navigator) {
+        // When an updated service worker takes control, reload once so the
+        // page picks up the freshly deployed files (self-healing updates)
+        let refreshed = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshed) return;
+            refreshed = true;
+            location.reload();
+        });
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./service-worker.js')
                 .then(reg => console.log('SW registered:', reg.scope))

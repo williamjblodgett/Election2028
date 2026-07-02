@@ -3,7 +3,7 @@
  * Enables offline play and PWA installation
  */
 
-const CACHE_NAME = 'election2028-v6';
+const CACHE_NAME = 'election2028-v7';
 const ASSETS = [
     './',
     './index.html',
@@ -42,24 +42,44 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Cache-first strategy: serve from cache, fallback to network
+// Network-first for the app itself (HTML/JS/CSS/JSON) so deploys reach
+// devices immediately; the cache is the offline fallback. Everything else
+// (icons, manifest, cross-origin) stays cache-first.
 self.addEventListener('fetch', event => {
+    if (event.request.method !== 'GET') return;
+
+    const url = new URL(event.request.url);
+    const isNavigation = event.request.mode === 'navigate';
+    const isAppCode = url.origin === self.location.origin &&
+        /\.(?:js|css|json|html)$/.test(url.pathname);
+
+    if (isNavigation || isAppCode) {
+        event.respondWith(
+            fetch(event.request).then(response => {
+                if (response.ok) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                }
+                return response;
+            }).catch(() =>
+                caches.match(event.request).then(cached =>
+                    cached || (isNavigation ? caches.match('./index.html') : undefined)
+                )
+            )
+        );
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request).then(cached => {
             if (cached) return cached;
             return fetch(event.request).then(response => {
-                // Cache new requests dynamically
-                if (response.ok && event.request.method === 'GET') {
+                if (response.ok) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
                 }
                 return response;
             });
-        }).catch(() => {
-            // Offline fallback for navigation
-            if (event.request.mode === 'navigate') {
-                return caches.match('./index.html');
-            }
         })
     );
 });

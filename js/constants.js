@@ -116,6 +116,23 @@ window.GameConstants = {
     },
 
     // ═══════════════════════════════════════════════
+    // PUBLIC ANGER & CANDIDATE SECURITY
+    // Aggressive campaigning heats the national mood; at high anger a
+    // security threat may emerge. Fictional strategy-game mechanic.
+    // ═══════════════════════════════════════════════
+    ANGER: {
+        THRESHOLDS: { ELEVATED: 40, HIGH: 60, SEVERE: 75 },
+        ATTEMPT_MIN_ANGER: 60,           // no threat below this
+        ATTEMPT_CHANCE_PER_POINT: 0.004, // (anger-60) * 0.4%/wk → 8% at 80, 16% at 100
+        SECURITY_COST: 500000,           // one-time Security Detail action
+        SECURITY_ATTEMPT_MULT: 0.5,      // security halves the odds of an attempt
+        BASE_SURVIVAL: 0.8,              // 80% survive by default
+        SECURITY_SURVIVAL_BONUS: 0.12,   // +12% survival with a detail
+        WEEKLY_DECAY: 0.97,              // anger cools ~3%/week on its own
+        HOSPITAL_WEEKS: 2,               // recovery period after surviving
+    },
+
+    // ═══════════════════════════════════════════════
     // ELECTORAL MATH
     // ═══════════════════════════════════════════════
     ELECTORAL_DEFAULT: 538,

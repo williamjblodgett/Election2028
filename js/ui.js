@@ -745,6 +745,16 @@ window.GameUI = {
                     <span class="topbar-kicker">Risk</span>
                     <span>${Math.round(gs.campaign.scandalVulnerability)}/100</span>
                 </div>
+                ${window.GameEngine.getAngerLevel() === 'SEVERE' || window.GameEngine.getAngerLevel() === 'HIGH' ? `
+                <div class="polling-pill threat-pill ${window.GameEngine.getAngerLevel() === 'SEVERE' ? 'threat-severe' : ''}">
+                    <span class="topbar-kicker">Threat</span>
+                    <span>🔥 ${window.GameEngine.getAngerLevel()}</span>
+                </div>` : ''}
+                ${gs.hospitalized > 0 ? `
+                <div class="polling-pill hospital-pill">
+                    <span class="topbar-kicker">Recovery</span>
+                    <span>✚ ${gs.hospitalized}w</span>
+                </div>` : ''}
             </div>
             <div class="top-bar-right">
                 <div class="cash-display">$${this.formatMoney(gs.finances.cashOnHand)}</div>
@@ -804,6 +814,11 @@ window.GameUI = {
                 <button class="btn action-btn" onclick="GameUI.doActivity('debatePrep')">
                     <span class="action-icon">📋</span>
                     <span class="action-copy"><span class="action-label">Debate Prep</span><span class="action-desc">Trade a week of work for cleaner answers under pressure.</span></span>
+                </button>
+                <button class="btn action-btn ${window.GameEngine.state.securityDetail ? 'security-active' : ''}" onclick="GameUI.buySecurityDetail()">
+                    <span class="action-icon">🛡️</span>
+                    <span class="action-copy"><span class="action-label">Security Detail ${window.GameEngine.state.securityDetail ? '<span style="font-size:0.65rem;color:var(--accent-green);">ACTIVE</span>' : ''}</span><span class="action-desc">Enhanced protection: fewer threats, better odds if one comes.</span></span>
+                    ${window.GameEngine.state.securityDetail ? '' : '<span class="action-cost">$500K</span>'}
                 </button>
             </div>
             <div class="panel-section">
@@ -1501,6 +1516,7 @@ window.GameUI = {
                     </div>
                 </div>
             </div>
+            ${this.buildTemperatureSection(gs)}
             ${this.buildEndorsementSection(gs)}
             <div class="panel-section intel-section">
                 <div class="panel-section-title">Opponent Intel</div>
@@ -1535,6 +1551,32 @@ window.GameUI = {
                 ${list(mine)}
                 <div style="font-size:0.72rem;letter-spacing:1px;color:var(--text-muted);margin:6px 0 2px;">${oLast.toUpperCase()} (${theirs.length})</div>
                 ${list(theirs)}
+            </div>`;
+    },
+
+    buildTemperatureSection(gs) {
+        const anger = Math.round(gs.publicAnger || 0);
+        const level = window.GameEngine.getAngerLevel();
+        const t = window.GameConstants.ANGER.THRESHOLDS;
+        const levelClass = level === 'SEVERE' ? 'temp-severe' : level === 'HIGH' ? 'temp-high' : level === 'ELEVATED' ? 'temp-elevated' : 'temp-low';
+        const advisory = anger >= t.HIGH
+            ? `<div class="temp-advisory">⚠ Secret Service advises increased protection.${gs.securityDetail ? ' <strong>Detail active.</strong>' : ''}</div>`
+            : (gs.securityDetail ? '<div class="temp-advisory">🛡 Security detail active.</div>' : '');
+        const hospital = gs.hospitalized > 0
+            ? `<div class="temp-advisory temp-hospital">✚ Candidate recovering — ${gs.hospitalized} week${gs.hospitalized > 1 ? 's' : ''} of limited campaigning.</div>`
+            : '';
+        return `
+            <div class="panel-section intel-section">
+                <div class="panel-section-title">National Temperature</div>
+                <div class="temp-meter">
+                    <div class="temp-needle" style="left:${Math.max(0, Math.min(100, anger))}%;"></div>
+                </div>
+                <div class="temp-readout">
+                    <span class="temp-badge ${levelClass}">${level}</span>
+                    <span class="temp-value">${anger}/100 public anger</span>
+                </div>
+                ${advisory}
+                ${hospital}
             </div>`;
     },
 
@@ -1574,30 +1616,127 @@ window.GameUI = {
             this.updateTicker(result.summary.newsHeadlines);
         }
 
-        // Check for debate
-        if (result.isDebateWeek) {
-            this.showToast('DEBATE NIGHT! Prepare yourself.', 'info');
-            setTimeout(() => this.startDebate(), 1000);
+        // The rest of the week's flow, run either directly or after an
+        // assassination-attempt interstitial resolves
+        const continueWeek = () => {
+            // Check for debate
+            if (result.isDebateWeek) {
+                this.showToast('DEBATE NIGHT! Prepare yourself.', 'info');
+                setTimeout(() => this.startDebate(), 1000);
+                return;
+            }
+
+            // Check for game over (normal end of race)
+            if (result.gameOver) {
+                this.startElectionNight();
+                return;
+            }
+
+            // Show events if any
+            if (this.weeklyEvents.length > 0) {
+                this.activeTab = 'events';
+                if (this.isMobile) this.switchMobileTab('events');
+                this.showToast(`Week ${gs.week - 1} complete. ${this.weeklyEvents.length} event(s) need your response!`, 'info');
+            } else {
+                this.showToast(`Week ${gs.week - 1} complete.`, 'info');
+            }
+
+            // Refresh everything
+            this.renderGameScreen();
+        };
+
+        // Security incident takes over the screen before anything else
+        if (result.assassinationEvent) {
+            this.showAssassinationAttempt(result.assassinationEvent, continueWeek);
             return;
         }
 
-        // Check for game over
-        if (result.gameOver) {
-            this.startElectionNight();
-            return;
-        }
+        continueWeek();
+    },
 
-        // Show events if any
-        if (this.weeklyEvents.length > 0) {
-            this.activeTab = 'events';
-            if (this.isMobile) this.switchMobileTab('events');
-            this.showToast(`Week ${gs.week - 1} complete. ${this.weeklyEvents.length} event(s) need your response!`, 'info');
-        } else {
-            this.showToast(`Week ${gs.week - 1} complete.`, 'info');
-        }
+    showAssassinationAttempt(evt, onContinue) {
+        this.showScreen('debate'); // reuse the full-screen broadcast stage container
+        const stage = document.getElementById('debate-stage');
+        const last = evt.candidateName.split(' ').pop();
 
-        // Refresh everything
-        this.renderGameScreen();
+        // Phase 1: breaking-news alert
+        stage.innerHTML = `
+            <div class="incident-broadcast">
+                <div class="broadcast-header">
+                    <div class="network-bug">GNN <span class="bug-divider">|</span> BREAKING NEWS</div>
+                    <div class="broadcast-title">SPECIAL REPORT</div>
+                    <div class="live-indicator"><span class="live-dot"></span>LIVE</div>
+                </div>
+                <div class="incident-alert">
+                    <div class="incident-alert-flash">SHOTS FIRED AT CAMPAIGN EVENT</div>
+                    <div class="incident-alert-sub">Reports of gunfire at a ${last} rally. Details are still coming in…</div>
+                </div>
+            </div>`;
+
+        setTimeout(() => {
+            if (evt.survived) {
+                stage.innerHTML = `
+                    <div class="incident-broadcast">
+                        <div class="broadcast-header">
+                            <div class="network-bug">GNN <span class="bug-divider">|</span> BREAKING NEWS</div>
+                            <div class="broadcast-title">SPECIAL REPORT</div>
+                            <div class="live-indicator"><span class="live-dot"></span>LIVE</div>
+                        </div>
+                        <div class="incident-outcome survived">
+                            <div class="incident-icon">🇺🇸</div>
+                            <h2>${last.toUpperCase()} STABLE — A NATION RALLIES</h2>
+                            <p class="incident-copy">${evt.candidateName} was rushed to the hospital and is in stable condition. ${evt.hadSecurity ? 'The security detail is credited with the fast response.' : 'Aides say no enhanced security detail was on site.'} Across the country, a shaken electorate is rallying to the campaign.</p>
+                            <div class="incident-effects">
+                                <div class="incident-effect">Approval <strong>+6</strong></div>
+                                <div class="incident-effect">Enthusiasm <strong>+8</strong></div>
+                                <div class="incident-effect">Momentum <strong>+15</strong></div>
+                                <div class="incident-effect">Polling <strong>+1.5 nationwide</strong></div>
+                            </div>
+                            <p class="incident-note">The candidate will campaign at reduced capacity while recovering.</p>
+                            <button class="btn btn-primary btn-lg mt-2" id="incident-continue">CONTINUE THE CAMPAIGN →</button>
+                        </div>
+                    </div>`;
+                document.getElementById('incident-continue').onclick = () => {
+                    this.showScreen('game');
+                    onContinue();
+                };
+            } else {
+                this.showAssassinationTragedy(evt);
+            }
+        }, 2600);
+    },
+
+    showAssassinationTragedy(evt) {
+        const gs = window.GameEngine.state;
+        this.showScreen('election-night');
+        const container = document.getElementById('election-night-content');
+        const debatesWon = (gs.debateHistory || []).filter(d => d.winner === 'player').length;
+        const debatesTotal = (gs.debateHistory || []).length;
+
+        container.innerHTML = `
+            <div class="tragedy-screen">
+                <div class="tragedy-candle">🕯️</div>
+                <h1 class="tragedy-title">In Memoriam</h1>
+                <p class="tragedy-name">${evt.candidateName}</p>
+                <p class="tragedy-copy">The campaign of ${evt.candidateName} ended today. A nation mourns a life cut short on the trail. The race goes on without them.</p>
+                <div class="en-retro">
+                    <div class="en-retro-title">THE CAMPAIGN THAT WAS</div>
+                    <div class="en-retro-grid">
+                        <div class="en-retro-item"><div class="retro-val">Week ${gs.week - 1}</div><div class="retro-label">Reached</div></div>
+                        <div class="en-retro-item"><div class="retro-val">${debatesWon}/${debatesTotal}</div><div class="retro-label">Debates Won</div></div>
+                        <div class="en-retro-item"><div class="retro-val">${(gs.endorsements || []).length}</div><div class="retro-label">Endorsements</div></div>
+                        <div class="en-retro-item"><div class="retro-val">$${this.formatMoney(gs.finances.totalRaised)}</div><div class="retro-label">Total Raised</div></div>
+                    </div>
+                </div>
+                <div class="mt-2 btn-group" style="justify-content:center;">
+                    <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">PLAY AGAIN</button>
+                    <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
+                </div>
+            </div>`;
+        this.updateTicker([
+            `THE NATION MOURNS ${evt.candidateName.toUpperCase()}`,
+            `A CAMPAIGN, AND A LIFE, CUT SHORT`,
+        ]);
     },
 
     startFundraisingBlitz() {
@@ -1630,6 +1769,16 @@ window.GameUI = {
 
         // Fundraising blitz uses the whole week — auto-advance
         setTimeout(() => this.handleEndWeek(), 800);
+    },
+
+    buySecurityDetail() {
+        const result = window.GameEngine.activateSecurityDetail();
+        this.showToast(result.message, result.ok ? 'success' : 'warning');
+        if (result.ok) {
+            this.updateTopBar();
+            this.renderActionPanel();
+            this.renderIntelPanel();
+        }
     },
 
     doActivity(activity) {
@@ -1918,9 +2067,23 @@ window.GameUI = {
         this.debateScores = this.debateCtx.playerScores;
 
         this.showScreen('debate');
-        this.renderDebateStage();
-        this.appendTranscript('moderator', DC.moderatorIntros[Math.floor(Math.random() * DC.moderatorIntros.length)]);
-        setTimeout(() => this.renderDebateExchange(), 700);
+
+        // Continuation shared by the 3D walkout and the no-WebGL fallback
+        const beginDebate = () => {
+            this.renderDebateStage();
+            this.appendTranscript('moderator', DC.moderatorIntros[Math.floor(Math.random() * DC.moderatorIntros.length)]);
+            setTimeout(() => this.renderDebateExchange(), 700);
+        };
+
+        // Optional Three.js walkout intro; falls back instantly if unavailable
+        const stage = document.getElementById('debate-stage');
+        if (window.DebateWalkout && stage) {
+            stage.innerHTML = '<div class="walkout-container" id="walkout-container"></div>';
+            const container = document.getElementById('walkout-container');
+            window.DebateWalkout.play(container, gs.playerCandidate, gs.opponentCandidate, beginDebate);
+        } else {
+            beginDebate();
+        }
     },
 
     renderDebateStage() {

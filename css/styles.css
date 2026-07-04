@@ -1677,6 +1677,200 @@ h3 { font-size: 1.25rem; }
 /* ══════════════════════════════════
    DEBATE BROADCAST STAGE
    ══════════════════════════════════ */
+/* ══════════════════════════════════
+   3D DEBATE WALKOUT
+   ══════════════════════════════════ */
+.walkout-container {
+    position: relative;
+    width: 100%;
+    height: 62vh;
+    min-height: 360px;
+    max-width: 1000px;
+    margin: 0 auto;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: #05070f;
+    border: 1px solid var(--border-color);
+}
+.walkout-container canvas { display: block; width: 100% !important; height: 100% !important; }
+.walkout-skip {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    z-index: 3;
+    background: rgba(8,14,26,0.85);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+}
+.walkout-skip:hover { border-color: var(--accent-yellow); }
+.walkout-bug {
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    z-index: 3;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #fff;
+    background: rgba(8,14,26,0.7);
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+.walkout-live { color: var(--breaking-red); margin-right: 6px; }
+.walkout-live-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--breaking-red); margin-right: 4px;
+    animation: liveBlink 1.2s infinite;
+}
+.walkout-fade {
+    position: absolute; inset: 0; z-index: 2;
+    background: #05070f; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s linear;
+}
+@media (max-width: 768px) {
+    .walkout-container { height: 44vh; min-height: 260px; }
+}
+
+/* ══════════════════════════════════
+   NATIONAL TEMPERATURE / ANGER METER
+   ══════════════════════════════════ */
+.temp-meter {
+    position: relative;
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #2ecc71 0%, #f1c40f 45%, #e67e22 70%, #d42121 100%);
+    margin: 6px 0 8px;
+}
+.temp-needle {
+    position: absolute;
+    top: -3px;
+    width: 4px;
+    height: 18px;
+    background: #fff;
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(0,0,0,0.6);
+    transform: translateX(-2px);
+    transition: left 0.4s ease;
+}
+.temp-readout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.temp-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+.temp-low { background: rgba(46,204,113,0.2); color: #2ecc71; }
+.temp-elevated { background: rgba(241,196,15,0.2); color: #f1c40f; }
+.temp-high { background: rgba(230,126,34,0.25); color: #e67e22; }
+.temp-severe { background: rgba(212,33,33,0.3); color: #ff6b6b; animation: liveBlink 1.4s infinite; }
+.temp-value { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); }
+.temp-advisory {
+    margin-top: 8px;
+    font-size: 0.72rem;
+    color: var(--accent-yellow);
+    line-height: 1.4;
+}
+.temp-hospital { color: #ff8080; }
+
+.threat-pill { border-color: rgba(230,126,34,0.5) !important; }
+.threat-pill.threat-severe { border-color: var(--breaking-red) !important; animation: liveBlink 1.4s infinite; }
+.hospital-pill { border-color: rgba(255,128,128,0.5) !important; }
+.action-btn.security-active { border-color: var(--accent-green) !important; }
+
+/* ══════════════════════════════════
+   ASSASSINATION INCIDENT / TRAGEDY
+   ══════════════════════════════════ */
+.incident-broadcast { max-width: 760px; margin: 0 auto; }
+.incident-alert {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    background: linear-gradient(180deg, rgba(212,33,33,0.18), rgba(8,14,26,0.4));
+    border: 1px solid var(--breaking-red);
+    border-radius: var(--radius-md);
+    margin-top: 12px;
+}
+.incident-alert-flash {
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #ff6b6b;
+    animation: liveBlink 0.9s infinite;
+}
+.incident-alert-sub {
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+.incident-outcome {
+    text-align: center;
+    padding: 2rem 1.5rem;
+    border-radius: var(--radius-md);
+    margin-top: 12px;
+    animation: winnerReveal 0.7s ease;
+}
+.incident-outcome.survived {
+    background: linear-gradient(180deg, rgba(46,204,113,0.15), rgba(8,14,26,0.4));
+    border: 1px solid var(--accent-green);
+}
+.incident-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+.incident-outcome h2 { font-size: 1.6rem; margin-bottom: 0.75rem; }
+.incident-copy { color: var(--text-secondary); line-height: 1.6; max-width: 560px; margin: 0 auto 1rem; }
+.incident-effects {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+    margin: 1rem 0;
+}
+.incident-effect {
+    font-size: 0.8rem;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+}
+.incident-effect strong { color: var(--accent-green); }
+.incident-note { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
+
+.tragedy-screen {
+    text-align: center;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+    animation: fadeIn 1.4s ease;
+}
+.tragedy-candle { font-size: 3.5rem; animation: liveBlink 3s infinite; }
+.tragedy-title {
+    font-size: 2rem;
+    margin: 1rem 0 0.25rem;
+    color: var(--text-primary);
+    font-weight: 400;
+    letter-spacing: 2px;
+}
+.tragedy-name {
+    font-size: 1.3rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+.tragedy-copy {
+    color: var(--text-muted);
+    line-height: 1.7;
+    max-width: 500px;
+    margin: 0 auto 1.5rem;
+}
+
 .debate-broadcast {
     max-width: 900px;
     margin: 0 auto;

@@ -87,6 +87,10 @@ window.GameEngine = {
             earlyVote: {},
             debateHistory: [],
             opponentVP: null,
+            publicAnger: 20,
+            securityDetail: false,
+            hospitalized: 0,
+            assassinationAttempts: [],
         };
     },
 
@@ -387,6 +391,18 @@ window.GameEngine = {
         // 12c. Record battleground polling history for averages/sparklines
         this.recordPollHistory();
 
+        // 12d. Update the national mood from this week's tone
+        this.updatePublicAnger(actions, events);
+
+        // 12e. Recovery: hospitalized candidate heals over time
+        if (this.state.hospitalized > 0) this.state.hospitalized--;
+
+        // 12f. Security threat roll (general election only)
+        const assassinationEvent = this.checkAssassinationRisk();
+        if (assassinationEvent) {
+            summary.newsHeadlines.push(...assassinationEvent.headlines);
+        }
+
         // 13. Generate news headlines
         for (const evt of events) {
             if (evt.isBreakingNews) {
@@ -428,7 +444,8 @@ window.GameEngine = {
         const isDebateWeek = debateWeeks.includes(this.state.week);
 
         // 18. Check game end
-        const gameOver = this.state.week > this.state.totalWeeks;
+        let gameOver = this.state.week > this.state.totalWeeks;
+        if (assassinationEvent && !assassinationEvent.survived) gameOver = 'assassinated';
 
         // 19. Clamp all values
         this.clampStats();
@@ -439,6 +456,7 @@ window.GameEngine = {
             isDebateWeek,
             gameOver,
             phase: this.state.phase,
+            assassinationEvent,
         };
     },
 
@@ -465,8 +483,10 @@ window.GameEngine = {
         if (!st) return {};
 
         const charisma = this.state.playerCandidate.charisma || 50;
-        const boost = 0.5 + (charisma / 100) * 1.5;
-        const enthusiasm_boost = 0.3 + (charisma / 100) * 0.7;
+        // While the candidate recovers, surrogates carry a diminished campaign
+        const recoveryMult = this.state.hospitalized > 0 ? 0.5 : 1;
+        const boost = (0.5 + (charisma / 100) * 1.5) * recoveryMult;
+        const enthusiasm_boost = (0.3 + (charisma / 100) * 0.7) * recoveryMult;
 
         poll.player += boost;
         poll.opponent -= boost * 0.3;
@@ -1119,6 +1139,137 @@ window.GameEngine = {
     },
 
     // ═══════════════════════════════════════════════
+    // PUBLIC ANGER & CANDIDATE SECURITY
+    // ═══════════════════════════════════════════════
+    updatePublicAnger(actions, events) {
+        const cfg = window.GameConstants.ANGER;
+        let anger = this.state.publicAnger;
+
+        // Campaign tone drives the national temperature
+        if (actions) {
+            if (actions.strategy === 'negative') anger += 2.5;
+            else if (actions.strategy === 'contrast') anger += 1;
+            else if (actions.strategy === 'positive') anger -= 1.5;
+
+            if (actions.adBuys) {
+                for (const ad of Object.values(actions.adBuys)) {
+                    if (ad && ad.tone === 'negative') anger += 1;
+                }
+            }
+            if (actions.activities) {
+                for (const a of actions.activities) {
+                    if (a === 'townhall') anger -= 1;   // listening tour cools things
+                    if (a === 'oppoResearch') anger += 1; // digging dirt inflames
+                }
+            }
+        }
+
+        // Firestorms and scandals raise the heat
+        for (const evt of (events || [])) {
+            if (evt.category === 'MEDIA_FIRESTORM' || evt.category === 'SCANDAL' || evt.category === 'NATIONAL_CRISIS') {
+                anger += 2;
+            }
+        }
+
+        // A very high scandal profile keeps the pot simmering
+        if (this.state.campaign.scandalVulnerability > 70) anger += 1;
+
+        // Natural cooling, then clamp
+        anger *= cfg.WEEKLY_DECAY;
+        this.state.publicAnger = Math.max(0, Math.min(100, Math.round(anger * 10) / 10));
+    },
+
+    // Called from processDebateResults: incendiary debates raise anger
+    addDebateAnger(playerScores) {
+        const viral = playerScores.viral || 0;
+        const suburban = playerScores.suburban || 0;
+        // High viral + alienating suburbans = a divisive, rage-baiting night
+        let delta = 0;
+        if (viral > 25) delta += 2;
+        if (suburban < 5) delta += 2;
+        if (delta > 0) {
+            this.state.publicAnger = Math.min(100, this.state.publicAnger + delta);
+        }
+    },
+
+    activateSecurityDetail() {
+        if (this.state.securityDetail) return { ok: false, message: 'Security detail already active.' };
+        const cost = window.GameConstants.ANGER.SECURITY_COST;
+        if (this.state.finances.cashOnHand < cost) return { ok: false, message: 'Not enough cash for a security detail.' };
+        this.state.securityDetail = true;
+        this.state.finances.cashOnHand -= cost;
+        this.state.finances.totalSpent += cost;
+        this.state.campaign.cash = this.state.finances.cashOnHand;
+        return { ok: true, message: 'Enhanced security detail deployed. Threats are less likely and more survivable.' };
+    },
+
+    getAngerLevel() {
+        const t = window.GameConstants.ANGER.THRESHOLDS;
+        const a = this.state.publicAnger;
+        if (a >= t.SEVERE) return 'SEVERE';
+        if (a >= t.HIGH) return 'HIGH';
+        if (a >= t.ELEVATED) return 'ELEVATED';
+        return 'LOW';
+    },
+
+    checkAssassinationRisk() {
+        const cfg = window.GameConstants.ANGER;
+        // Only a general-election concern, never mid-recovery
+        if (this.state.phase !== 'general') return null;
+        if (this.state.hospitalized > 0) return null;
+        if (this.state.publicAnger < cfg.ATTEMPT_MIN_ANGER) return null;
+
+        let chance = (this.state.publicAnger - cfg.ATTEMPT_MIN_ANGER) * cfg.ATTEMPT_CHANCE_PER_POINT;
+        if (this.state.securityDetail) chance *= cfg.SECURITY_ATTEMPT_MULT;
+        if (Math.random() >= chance) return null;
+
+        // An attempt occurs — roll for survival
+        const survival = cfg.BASE_SURVIVAL + (this.state.securityDetail ? cfg.SECURITY_SURVIVAL_BONUS : 0);
+        const survived = Math.random() < survival;
+        const name = this.state.playerCandidate.name;
+        const last = name.split(' ').pop().toUpperCase();
+
+        const record = { week: this.state.week, survived, hadSecurity: this.state.securityDetail };
+        this.state.assassinationAttempts.push(record);
+
+        if (survived) {
+            const c = this.state.campaign;
+            // A nation rallies: sympathy surge across the board
+            c.approval += 6;
+            c.enthusiasm += 8;
+            c.momentum += 15;
+            c.mediaScore += 5;
+            for (const [stId, poll] of Object.entries(this.state.statePolling)) {
+                poll.player += 1.5 * this.getLiveVoteShare(stId);
+                poll.trend += 0.5;
+            }
+            this.state.publicAnger = Math.max(20, this.state.publicAnger - 35);
+            this.state.hospitalized = cfg.HOSPITAL_WEEKS;
+            return {
+                survived: true,
+                hadSecurity: record.hadSecurity,
+                candidateName: name,
+                headlines: [
+                    `BREAKING: SHOTS FIRED AT ${last} CAMPAIGN EVENT`,
+                    `${last} WOUNDED BUT STABLE — NATION HOLDS ITS BREATH`,
+                    `A SHAKEN COUNTRY RALLIES AROUND ${last}`,
+                ],
+            };
+        }
+
+        // Tragedy — the campaign ends
+        return {
+            survived: false,
+            hadSecurity: record.hadSecurity,
+            candidateName: name,
+            headlines: [
+                `BREAKING: SHOTS FIRED AT ${last} CAMPAIGN EVENT`,
+                `A NATION IN MOURNING`,
+            ],
+        };
+    },
+
+    // ═══════════════════════════════════════════════
     // MOMENTUM & NARRATIVE
     // ═══════════════════════════════════════════════
     calculateMomentum() {
@@ -1276,6 +1427,9 @@ window.GameEngine = {
             opponentTotal: Math.round(oppTotal),
         });
         this.state.debatesCompleted++;
+
+        // A rage-baiting debate performance heats the national mood
+        this.addDebateAnger(debateScores);
 
         // Assessment: head-to-head when we know the opponent's numbers,
         // otherwise fall back to raw-score thresholds
@@ -1466,7 +1620,8 @@ window.GameEngine = {
         // Backfill fields added after older saves were created
         const fresh = this.createFreshState();
         for (const key of ['endorsements', 'opponentEndorsements', 'pollHistory', 'earlyVote', 'debateHistory', 'opponentVP',
-                           'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias']) {
+                           'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias',
+                           'publicAnger', 'securityDetail', 'hospitalized', 'assassinationAttempts']) {
             if (this.state[key] === undefined) this.state[key] = fresh[key];
         }
         return this.state;

@@ -1285,6 +1285,7 @@ window.GameUI = {
         window.GameEngine.applyAdBuy(stateId, 'digital', 100000, this.currentStrategy === 'negative' ? 'negative' : this.currentStrategy === 'contrast' ? 'contrast' : 'positive');
         const st = window.StateData.find(s => s.id === stateId);
         this.showToast(`Ad running in ${st ? st.name : stateId}!`, 'success');
+        this.renderIntelPanel();
         this.updateTopBar();
         this.renderCenterContent();
     },

@@ -6,10 +6,32 @@
  */
 window.DebateWalkout = {
 
+    // Stylized appearance per candidate id: skin tone, hair color/style,
+    // facial hair, build. Unknown candidates fall back to a party default.
+    APPEARANCES: {
+        newsom:       { skin: 0xddab7e, hair: 0x2d2620, style: 'slick', beard: null,     female: false, height: 1.06 },
+        buttigieg:    { skin: 0xe4bb92, hair: 0x3a2e22, style: 'side',  beard: null,     female: false, height: 0.98 },
+        aoc:          { skin: 0xc98e63, hair: 0x241a12, style: 'long',  beard: null,     female: true,  height: 0.97, lipstick: 0xb03a48 },
+        harris:       { skin: 0xa4713f, hair: 0x1d150e, style: 'bob',   beard: null,     female: true,  height: 0.96, necklace: true },
+        shapiro:      { skin: 0xe6b48c, hair: 0x241f1a, style: 'short', beard: null,     female: false, height: 1.00 },
+        stephensmith: { skin: 0x7c4a26, hair: 0x1a120c, style: 'bald',  beard: 'goatee', female: false, height: 1.05 },
+        vance:        { skin: 0xe9bd97, hair: 0x33261a, style: 'side',  beard: 'full',   female: false, height: 1.02 },
+        rubio:        { skin: 0xdfa87e, hair: 0x201812, style: 'short', beard: null,     female: false, height: 0.99 },
+        desantis:     { skin: 0xe3b28a, hair: 0x2b2118, style: 'side',  beard: null,     female: false, height: 1.02 },
+        trumpjr:      { skin: 0xe5b58d, hair: 0x2e2318, style: 'slick', beard: 'short',  female: false, height: 1.05 },
+        ramaswamy:    { skin: 0x9c6b40, hair: 0x120d09, style: 'coif',  beard: null,     female: false, height: 1.02 },
+        carlson:      { skin: 0xecc2a0, hair: 0x6b4a2c, style: 'side',  beard: null,     female: false, height: 1.03, bowTie: true },
+    },
+
+    getAppearance(cand) {
+        return this.APPEARANCES[cand && cand.id] ||
+            { skin: 0xe0b088, hair: 0x2a2018, style: 'short', beard: null, female: false, height: 1.0 };
+    },
+
     /**
      * @param {HTMLElement} container  where the canvas mounts
-     * @param {object} playerCand      { name, color, portraitEmoji }
-     * @param {object} oppCand         { name, color, portraitEmoji }
+     * @param {object} playerCand      { id, name, color }
+     * @param {object} oppCand         { id, name, color }
      * @param {function} onDone        called exactly once when the intro ends
      */
     play(container, playerCand, oppCand, onDone) {
@@ -37,7 +59,6 @@ window.DebateWalkout = {
         const H = container.clientHeight || 500;
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(W, H);
-        renderer.shadowMap.enabled = true;
         container.appendChild(renderer.domElement);
 
         // Skip button
@@ -64,24 +85,27 @@ window.DebateWalkout = {
 
         const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 100);
         camera.position.set(0, 4.2, 15);
-        camera.lookAt(0, 2.2, 0);
+        camera.lookAt(0, 2.3, 0);
 
         // ── Lighting ──
-        const ambient = new THREE.AmbientLight(0x334466, 0.6);
+        const ambient = new THREE.AmbientLight(0x445577, 0.75);
         scene.add(ambient);
-        const key = new THREE.DirectionalLight(0xffffff, 0.7);
-        key.position.set(0, 12, 8);
+        const key = new THREE.DirectionalLight(0xfff4e0, 0.85);
+        key.position.set(0, 12, 10);
         scene.add(key);
+        const fill = new THREE.DirectionalLight(0x99aadd, 0.3);
+        fill.position.set(0, 6, -6);
+        scene.add(fill);
 
         const pColor = new THREE.Color(playerCand.color || '#2166d4');
         const oColor = new THREE.Color(oppCand.color || '#d42121');
-        const spotL = new THREE.SpotLight(pColor.getHex(), 0, 40, Math.PI / 7, 0.4);
+        const spotL = new THREE.SpotLight(pColor.getHex(), 0, 40, Math.PI / 7, 0.5);
         spotL.position.set(-6, 12, 6);
-        const spotR = new THREE.SpotLight(oColor.getHex(), 0, 40, Math.PI / 7, 0.4);
+        const spotR = new THREE.SpotLight(oColor.getHex(), 0, 40, Math.PI / 7, 0.5);
         spotR.position.set(6, 12, 6);
         scene.add(spotL, spotR, spotL.target, spotR.target);
-        spotL.target.position.set(-3.2, 1, 0);
-        spotR.target.position.set(3.2, 1, 0);
+        spotL.target.position.set(-3.2, 2, 0.8);
+        spotR.target.position.set(3.2, 2, 0.8);
 
         // ── Stage floor ──
         const floor = new THREE.Mesh(
@@ -111,7 +135,7 @@ window.DebateWalkout = {
         backdrop.position.set(0, 8, -10);
         scene.add(backdrop);
 
-        // ── Podium factory ──
+        // ── Podiums ──
         const makePodium = (x) => {
             const g = new THREE.Group();
             const desk = new THREE.Mesh(
@@ -124,8 +148,8 @@ window.DebateWalkout = {
             scene.add(g);
             return g;
         };
-        const podiumL = makePodium(-3.2);
-        const podiumR = makePodium(3.2);
+        makePodium(-3.2);
+        makePodium(3.2);
 
         // ── Moderator desk (center, further back) ──
         const modDesk = new THREE.Mesh(
@@ -135,68 +159,13 @@ window.DebateWalkout = {
         modDesk.position.set(0, 0.55, -2.5);
         scene.add(modDesk);
 
-        // ── Candidate figure factory ──
-        const makeFigure = (cand, accent) => {
-            const g = new THREE.Group();
-            const suit = new THREE.MeshStandardMaterial({ color: 0x1a2236, roughness: 0.7 });
-            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 1.7, 12), suit);
-            torso.position.y = 1.85;
-            g.add(torso);
-            // Accent tie
-            const tie = new THREE.Mesh(
-                new THREE.BoxGeometry(0.16, 0.8, 0.08),
-                new THREE.MeshStandardMaterial({ color: accent.getHex(), roughness: 0.4, emissive: accent.getHex(), emissiveIntensity: 0.25 })
-            );
-            tie.position.set(0, 1.95, 0.56);
-            g.add(tie);
-            // Head
-            const head = new THREE.Mesh(
-                new THREE.SphereGeometry(0.42, 24, 24),
-                new THREE.MeshStandardMaterial({ color: 0xd9b89a, roughness: 0.8 })
-            );
-            head.position.y = 3.0;
-            g.add(head);
-            // Emoji face billboard
-            const fc = document.createElement('canvas');
-            fc.width = 128; fc.height = 128;
-            const fx = fc.getContext('2d');
-            fx.font = '96px serif'; fx.textAlign = 'center'; fx.textBaseline = 'middle';
-            fx.fillText(cand.portraitEmoji || '🇺🇸', 64, 72);
-            const faceSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(fc), transparent: true }));
-            faceSprite.scale.set(0.9, 0.9, 1);
-            faceSprite.position.set(0, 3.0, 0.42);
-            g.add(faceSprite);
-            // Arms
-            const armMat = suit;
-            const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.4, 8), armMat);
-            armL.position.set(-0.72, 1.9, 0); armL.rotation.z = 0.25;
-            const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.4, 8), armMat);
-            armR.position.set(0.72, 1.9, 0); armR.rotation.z = -0.25;
-            g.add(armL, armR);
-            // Name plate sprite
-            const nc = document.createElement('canvas');
-            nc.width = 256; nc.height = 64;
-            const nx = nc.getContext('2d');
-            nx.fillStyle = 'rgba(8,14,26,0.85)'; nx.fillRect(0, 0, 256, 64);
-            nx.strokeStyle = '#' + accent.getHexString(); nx.lineWidth = 4; nx.strokeRect(2, 2, 252, 60);
-            nx.fillStyle = '#fff'; nx.font = 'bold 30px sans-serif'; nx.textAlign = 'center'; nx.textBaseline = 'middle';
-            nx.fillText((cand.name || '').split(' ').pop().toUpperCase(), 128, 34);
-            const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(nc), transparent: true }));
-            nameSprite.scale.set(2.4, 0.6, 1);
-            nameSprite.position.set(0, 4.0, 0);
-            g.add(nameSprite);
+        const figL = this._buildCharacter(THREE, scene, playerCand, pColor, true);
+        const figR = this._buildCharacter(THREE, scene, oppCand, oColor, false);
 
-            g.userData = { armL, armR, torso };
-            scene.add(g);
-            return g;
-        };
-        const figL = makeFigure(playerCand, pColor);
-        const figR = makeFigure(oppCand, oColor);
-
-        // Start off-stage in the wings
-        const homeLX = -3.2, homeRX = 3.2;
-        figL.position.set(-13, 0, 1.5);
-        figR.position.set(13, 0, 1.5);
+        // Start off-stage in the wings, behind the podiums
+        const homeLX = -3.2, homeRX = 3.2, figZ = 0.8;
+        figL.position.set(-13, 0, figZ);
+        figR.position.set(13, 0, figZ);
 
         // ── Animation loop ──
         const clock = new THREE.Clock();
@@ -213,33 +182,45 @@ window.DebateWalkout = {
 
             // Spotlights sweep on (0–1.2s)
             const lit = Math.min(1, t / 1.2);
-            spotL.intensity = lit * 2.2;
-            spotR.intensity = lit * 2.2;
+            spotL.intensity = lit * 2.0;
+            spotR.intensity = lit * 2.0;
 
             // Walk in (1–4s)
             const walk = Math.max(0, Math.min(1, (t - 1) / 3));
             const we = easeOut(walk);
             figL.position.x = lerp(-13, homeLX, we);
             figR.position.x = lerp(13, homeRX, we);
-            // Walking bob + sway while moving
-            const moving = walk > 0 && walk < 1 ? 1 : 0;
-            figL.position.y = Math.abs(Math.sin(t * 9)) * 0.12 * moving;
-            figR.position.y = Math.abs(Math.sin(t * 9 + 1)) * 0.12 * moving;
-            figL.rotation.y = lerp(0.5, 0, we);
-            figR.rotation.y = lerp(-0.5, 0, we);
 
-            // Wave once arrived (4–5s): right arm raises
+            const moving = walk > 0 && walk < 1 ? 1 : 0;
+            const stride = Math.sin(t * 8);
+            for (const fig of [figL, figR]) {
+                const u = fig.userData;
+                // Leg + opposite-arm swing while walking, settle when arrived
+                u.legL.rotation.x = stride * 0.55 * moving;
+                u.legR.rotation.x = -stride * 0.55 * moving;
+                u.armL.rotation.x = -stride * 0.4 * moving;
+                u.armR.rotation.x = stride * 0.4 * moving;
+                // Slight bounce
+                fig.position.y = Math.abs(Math.sin(t * 8)) * 0.06 * moving;
+            }
+            // Turn from profile to face the audience as they arrive
+            figL.rotation.y = lerp(1.2, 0, we);
+            figR.rotation.y = lerp(-1.2, 0, we);
+
+            // Wave once arrived (4s+): outer arm raises and waves
             if (t > 4) {
-                const wave = Math.sin((t - 4) * 6) * 0.5;
-                figL.userData.armR.rotation.z = -0.25 - Math.max(0, wave) * 1.6;
-                figR.userData.armL.rotation.z = 0.25 + Math.max(0, wave) * 1.6;
+                const wave = Math.max(0, Math.sin((t - 4) * 6));
+                figL.userData.armL.rotation.z = wave * 2.4;
+                figL.userData.armL.rotation.x = 0;
+                figR.userData.armR.rotation.z = -wave * 2.4;
+                figR.userData.armR.rotation.x = 0;
             }
 
             // Camera dolly in over the whole intro
             const cam = easeOut(Math.min(1, t / DURATION));
-            camera.position.z = lerp(15, 10.5, cam);
+            camera.position.z = lerp(15, 9.6, cam);
             camera.position.y = lerp(4.2, 3.0, cam);
-            camera.lookAt(0, 2.3, 0);
+            camera.lookAt(0, 2.4, 0);
 
             // Fade to black at the end
             if (t > DURATION - 0.7) {
@@ -263,6 +244,231 @@ window.DebateWalkout = {
             renderer.setSize(w, h);
         };
         window.addEventListener('resize', this._state.onResize);
+    },
+
+    /**
+     * Procedural low-poly human: legs/arms with joints for the walk cycle,
+     * suit + shirt + party-color tie, and per-candidate head (skin tone,
+     * hair style, facial hair, accessories).
+     */
+    _buildCharacter(THREE, scene, cand, accent, isLeft) {
+        const A = this.getAppearance(cand);
+        const g = new THREE.Group();
+
+        const suitMat = new THREE.MeshStandardMaterial({ color: 0x1c2438, roughness: 0.75 });
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x11182a, roughness: 0.8 });
+        const skinMat = new THREE.MeshStandardMaterial({ color: A.skin, roughness: 0.65 });
+        const hairMat = new THREE.MeshStandardMaterial({ color: A.hair, roughness: 0.9 });
+        const shirtMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 });
+        const tieMat = new THREE.MeshStandardMaterial({ color: accent.getHex(), roughness: 0.5, emissive: accent.getHex(), emissiveIntensity: 0.15 });
+
+        const slim = A.female ? 0.86 : 1;
+
+        // ── Legs (pivot at hip so they can swing) ──
+        const makeLeg = (x) => {
+            const leg = new THREE.Group();
+            const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.085 * slim, 0.075 * slim, 0.85, 10), darkMat);
+            thigh.position.y = -0.425;
+            leg.add(thigh);
+            const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.07, 0.26), new THREE.MeshStandardMaterial({ color: 0x0a0d14, roughness: 0.4 }));
+            shoe.position.set(0, -0.86, 0.06);
+            leg.add(shoe);
+            leg.position.set(x, 0.9, 0);
+            g.add(leg);
+            return leg;
+        };
+        const legL = makeLeg(-0.13);
+        const legR = makeLeg(0.13);
+
+        // ── Torso: suit jacket ──
+        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.32 * slim, 0.26 * slim, 0.8, 12), suitMat);
+        torso.position.y = 1.32;
+        g.add(torso);
+        // Shoulders
+        for (const sx of [-0.29 * slim, 0.29 * slim]) {
+            const sh = new THREE.Mesh(new THREE.SphereGeometry(0.115, 10, 8), suitMat);
+            sh.position.set(sx, 1.68, 0);
+            g.add(sh);
+        }
+        // Shirt front
+        const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.42, 0.03), shirtMat);
+        shirt.position.set(0, 1.5, 0.28);
+        g.add(shirt);
+        // Lapels
+        for (const side of [-1, 1]) {
+            const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.03), suitMat);
+            lapel.position.set(side * 0.12, 1.5, 0.29);
+            lapel.rotation.z = -side * 0.22;
+            g.add(lapel);
+        }
+        // Tie (or bow tie)
+        if (A.bowTie) {
+            for (const side of [-1, 1]) {
+                const wing = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.03), tieMat);
+                wing.position.set(side * 0.06, 1.68, 0.3);
+                wing.rotation.z = side * 0.25;
+                g.add(wing);
+            }
+            const knot = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.035), tieMat);
+            knot.position.set(0, 1.68, 0.31);
+            g.add(knot);
+        } else {
+            const tie = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.36, 0.025), tieMat);
+            tie.position.set(0, 1.48, 0.3);
+            g.add(tie);
+            const knot = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.06, 0.03), tieMat);
+            knot.position.set(0, 1.69, 0.3);
+            g.add(knot);
+        }
+        // Necklace (pearls)
+        if (A.necklace) {
+            const pearls = new THREE.Mesh(
+                new THREE.TorusGeometry(0.13, 0.018, 8, 20),
+                new THREE.MeshStandardMaterial({ color: 0xf5f0e6, roughness: 0.3 })
+            );
+            pearls.position.set(0, 1.72, 0.16);
+            pearls.rotation.x = Math.PI / 2.4;
+            g.add(pearls);
+        }
+
+        // ── Arms (pivot at shoulder) ──
+        const makeArm = (x) => {
+            const arm = new THREE.Group();
+            const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.055, 0.62, 8), suitMat);
+            sleeve.position.y = -0.31;
+            arm.add(sleeve);
+            const hand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), skinMat);
+            hand.position.y = -0.66;
+            arm.add(hand);
+            arm.position.set(x, 1.68, 0);
+            g.add(arm);
+            return arm;
+        };
+        const armL = makeArm(-0.36 * slim);
+        const armR = makeArm(0.36 * slim);
+
+        // ── Neck + head ──
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.14, 8), skinMat);
+        neck.position.y = 1.83;
+        g.add(neck);
+
+        const headG = new THREE.Group();
+        headG.position.y = 2.12;
+        g.add(headG);
+
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 18), skinMat);
+        head.scale.set(0.95, 1.1, 0.92);
+        headG.add(head);
+        // Ears
+        for (const side of [-1, 1]) {
+            const ear = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), skinMat);
+            ear.position.set(side * 0.285, 0, 0.02);
+            headG.add(ear);
+        }
+        // Eyes (whites + pupils)
+        for (const side of [-1, 1]) {
+            const white = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), new THREE.MeshBasicMaterial({ color: 0xf6f6f6 }));
+            white.position.set(side * 0.105, 0.045, 0.245);
+            white.scale.set(1, 0.8, 0.5);
+            headG.add(white);
+            const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), new THREE.MeshBasicMaterial({ color: 0x1a120c }));
+            pupil.position.set(side * 0.105, 0.045, 0.27);
+            headG.add(pupil);
+            // Eyebrow
+            const brow = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.02, 0.02), hairMat);
+            brow.position.set(side * 0.105, 0.125, 0.26);
+            brow.rotation.z = side * -0.12;
+            headG.add(brow);
+        }
+        // Nose
+        const nose = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), skinMat);
+        nose.position.set(0, -0.03, 0.28);
+        nose.scale.set(0.8, 1.1, 1);
+        headG.add(nose);
+        // Mouth
+        const mouth = new THREE.Mesh(
+            new THREE.BoxGeometry(0.11, A.lipstick ? 0.03 : 0.018, 0.012),
+            new THREE.MeshStandardMaterial({ color: A.lipstick || 0x8a5044, roughness: 0.6 })
+        );
+        mouth.position.set(0, -0.135, 0.26);
+        headG.add(mouth);
+
+        // ── Hair ──
+        const addHairDome = (scaleY, zOff, thetaLength) => {
+            // Radius slightly over the (vertically stretched) skull so the
+            // scalp never pokes through the hair
+            const dome = new THREE.Mesh(new THREE.SphereGeometry(0.33, 18, 12, 0, Math.PI * 2, 0, thetaLength || Math.PI * 0.45), hairMat);
+            dome.scale.set(0.98, scaleY, 0.94);
+            dome.position.set(0, 0.035, zOff);
+            headG.add(dome);
+            return dome;
+        };
+        switch (A.style) {
+            case 'slick': addHairDome(1.0, -0.03, Math.PI * 0.44); break;
+            case 'coif': addHairDome(1.3, -0.01, Math.PI * 0.44); break;
+            case 'side': addHairDome(1.05, -0.015, Math.PI * 0.48); break;
+            case 'short': addHairDome(1.0, -0.02, Math.PI * 0.42); break;
+            case 'long': {
+                addHairDome(1.0, -0.01, Math.PI * 0.5);
+                for (const side of [-1, 1]) {
+                    const curtain = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.55, 8), hairMat);
+                    curtain.position.set(side * 0.24, -0.2, -0.06);
+                    headG.add(curtain);
+                }
+                const back = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.12), hairMat);
+                back.position.set(0, -0.12, -0.22);
+                headG.add(back);
+                break;
+            }
+            case 'bob': {
+                addHairDome(1.0, -0.01, Math.PI * 0.5);
+                for (const side of [-1, 1]) {
+                    const curtain = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.065, 0.34, 8), hairMat);
+                    curtain.position.set(side * 0.24, -0.1, -0.05);
+                    headG.add(curtain);
+                }
+                const back = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.34, 0.1), hairMat);
+                back.position.set(0, -0.04, -0.21);
+                headG.add(back);
+                break;
+            }
+            case 'bald': default: break;
+        }
+        // ── Facial hair ──
+        if (A.beard === 'full' || A.beard === 'short') {
+            const beard = new THREE.Mesh(
+                new THREE.SphereGeometry(A.beard === 'full' ? 0.305 : 0.298, 16, 10, 0, Math.PI * 2, Math.PI * 0.58, Math.PI * 0.42),
+                hairMat
+            );
+            beard.scale.set(0.96, 1.05, 0.95);
+            beard.position.set(0, -0.03, 0.03);
+            headG.add(beard);
+        } else if (A.beard === 'goatee') {
+            const goatee = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.1, 0.05), hairMat);
+            goatee.position.set(0, -0.22, 0.2);
+            headG.add(goatee);
+        }
+
+        // ── Name plate sprite ──
+        const nc = document.createElement('canvas');
+        nc.width = 256; nc.height = 64;
+        const nx = nc.getContext('2d');
+        nx.fillStyle = 'rgba(8,14,26,0.85)'; nx.fillRect(0, 0, 256, 64);
+        nx.strokeStyle = '#' + accent.getHexString(); nx.lineWidth = 4; nx.strokeRect(2, 2, 252, 60);
+        nx.fillStyle = '#fff'; nx.font = 'bold 30px sans-serif'; nx.textAlign = 'center'; nx.textBaseline = 'middle';
+        nx.fillText((cand.name || '').split(' ').pop().toUpperCase(), 128, 34);
+        const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(nc), transparent: true }));
+        nameSprite.scale.set(2.2, 0.55, 1);
+        nameSprite.position.set(0, 3.0, 0);
+        g.add(nameSprite);
+
+        // Human-ish proportions → stage scale (podium desk tops out at y≈2,
+        // which should hit around chest height)
+        g.scale.setScalar(1.32 * (A.height || 1));
+
+        g.userData = { legL, legR, armL, armR };
+        scene.add(g);
+        return g;
     },
 
     _cleanup() {

@@ -391,8 +391,8 @@ window.GameEngine = {
         // 12c. Record battleground polling history for averages/sparklines
         this.recordPollHistory();
 
-        // 12d. Update the national mood from this week's tone
-        this.updatePublicAnger(actions, events);
+        // 12d. Update the national mood from this week's events
+        this.updatePublicAnger(events);
 
         // 12e. Recovery: hospitalized candidate heals over time
         if (this.state.hospitalized > 0) this.state.hospitalized--;
@@ -530,9 +530,11 @@ window.GameEngine = {
             poll.opponent -= impact * 1.3;
             poll.player += impact * 0.3;
             this.state.campaign.scandalVulnerability += 2; // Going negative has costs
+            this.bumpAnger(1.5); // attack ads heat the national mood
         } else if (tone === 'contrast') {
             poll.player += impact * 0.7;
             poll.opponent -= impact * 0.5;
+            this.bumpAnger(0.5);
         } else {
             poll.player += impact;
         }
@@ -550,11 +552,13 @@ window.GameEngine = {
             case 'rally':
                 c.enthusiasm += 3; c.baseTurnout += 2; c.mediaScore += 1;
                 this.state.finances.cashOnHand -= 60000;
+                this.bumpAnger(0.5); // fired-up crowds run hot
                 effects.enthusiasm = 3; effects.baseTurnout = 2;
                 break;
             case 'townhall':
                 c.approval += 2; c.persuadableSupport += 2; c.authenticity = (c.authenticity || 50) + 3;
                 this.state.finances.cashOnHand -= 30000;
+                this.bumpAnger(-1); // listening tours cool the temperature
                 effects.approval = 2; effects.persuadableSupport = 2;
                 break;
             case 'podcast':
@@ -596,6 +600,7 @@ window.GameEngine = {
             case 'oppoResearch':
                 this.state.opponent.scandalVulnerability += 4;
                 this.state.finances.cashOnHand -= 150000;
+                this.bumpAnger(1); // digging dirt inflames the discourse
                 effects.opponentVulnerability = 4;
                 break;
             case 'fieldOffice':
@@ -681,15 +686,18 @@ window.GameEngine = {
         switch (strategy) {
             case 'positive':
                 c.approval += 1; c.persuadableSupport += 1; c.donorConfidence += 1;
+                this.bumpAnger(-1.5);
                 break;
             case 'contrast':
                 c.approval += 0.5; this.state.opponent.approval -= 1;
                 c.mediaScore += 1;
+                this.bumpAnger(1);
                 break;
             case 'negative':
                 this.state.opponent.approval -= 2; this.state.opponent.enthusiasm -= 1;
                 c.scandalVulnerability += 2; c.approval -= 0.5;
                 c.mediaScore += 2;
+                this.bumpAnger(2.5);
                 break;
         }
     },
@@ -1141,28 +1149,17 @@ window.GameEngine = {
     // ═══════════════════════════════════════════════
     // PUBLIC ANGER & CANDIDATE SECURITY
     // ═══════════════════════════════════════════════
-    updatePublicAnger(actions, events) {
+    // Nudge the national mood. Campaign-tone effects live in the action
+    // handlers themselves (applyStrategy/applyAdBuy/applyActivityEffects)
+    // because the UI applies those directly, outside processWeek's actions.
+    bumpAnger(delta) {
+        if (!this.state || typeof this.state.publicAnger !== 'number') return;
+        this.state.publicAnger = Math.max(0, Math.min(100, Math.round((this.state.publicAnger + delta) * 10) / 10));
+    },
+
+    updatePublicAnger(events) {
         const cfg = window.GameConstants.ANGER;
         let anger = this.state.publicAnger;
-
-        // Campaign tone drives the national temperature
-        if (actions) {
-            if (actions.strategy === 'negative') anger += 2.5;
-            else if (actions.strategy === 'contrast') anger += 1;
-            else if (actions.strategy === 'positive') anger -= 1.5;
-
-            if (actions.adBuys) {
-                for (const ad of Object.values(actions.adBuys)) {
-                    if (ad && ad.tone === 'negative') anger += 1;
-                }
-            }
-            if (actions.activities) {
-                for (const a of actions.activities) {
-                    if (a === 'townhall') anger -= 1;   // listening tour cools things
-                    if (a === 'oppoResearch') anger += 1; // digging dirt inflames
-                }
-            }
-        }
 
         // Firestorms and scandals raise the heat
         for (const evt of (events || [])) {

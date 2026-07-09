@@ -123,7 +123,7 @@ window.GameConstants = {
     ANGER: {
         THRESHOLDS: { ELEVATED: 40, HIGH: 60, SEVERE: 75 },
         ATTEMPT_MIN_ANGER: 60,           // no threat below this
-        ATTEMPT_CHANCE_PER_POINT: 0.004, // (anger-60) * 0.4%/wk → 8% at 80, 16% at 100
+        ATTEMPT_CHANCE_PER_POINT: 0.005, // (anger-60) * 0.5%/wk → 10% at 80, 20% at 100
         SECURITY_COST: 500000,           // one-time Security Detail action
         SECURITY_ATTEMPT_MULT: 0.5,      // security halves the odds of an attempt
         BASE_SURVIVAL: 0.8,              // 80% survive by default

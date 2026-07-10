@@ -3709,3 +3709,60 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 }
 .contest-result-row.winner { border-color: var(--accent-yellow); }
 .contest-result-row.you { background: rgba(45,111,212,0.12); }
+
+/* ══════════════════════════════════
+   OPPONENT PLAYBOOK
+   ══════════════════════════════════ */
+.playbook-posture {
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    text-align: center;
+}
+.playbook-offense { background: rgba(212,33,33,0.2); color: #ff6b6b; border: 1px solid rgba(212,33,33,0.5); }
+.playbook-defense { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.4); }
+.playbook-balanced { background: rgba(241,196,15,0.12); color: var(--accent-yellow); border: 1px solid rgba(241,196,15,0.35); }
+.playbook-note { font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 8px; }
+.playbook-targets { display: flex; flex-wrap: wrap; gap: 5px; }
+.playbook-target {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border: 1px dashed var(--rep-red);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.playbook-target:hover { color: var(--text-primary); border-style: solid; }
+
+/* ══════════════════════════════════
+   SCANDAL LIFECYCLE TRACKER
+   ══════════════════════════════════ */
+.scandal-story {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent-red);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    margin-bottom: 6px;
+}
+.scandal-story.opponent-story { border-left-color: var(--accent-green); }
+.scandal-story-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+.scandal-flames { white-space: nowrap; font-size: 0.7rem; }
+.scandal-story-meta {
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+    margin-top: 3px;
+    text-transform: uppercase;
+}

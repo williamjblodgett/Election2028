@@ -1145,6 +1145,20 @@ window.GameUI = {
             );
         });
 
+        // AI target markers: where the opponent is spending this week
+        const markers = [];
+        if (!opts.fillOverride && gs.opponentPlaybook && gs.opponentPlaybook.targets) {
+            const oColor = gs.opponentCandidate && gs.opponentCandidate.color ? gs.opponentCandidate.color : '#d42121';
+            for (const id of gs.opponentPlaybook.targets) {
+                const data = mapData.states[id];
+                if (!data || data.external) continue;
+                markers.push(
+                    `<text x="${data.cx + 14}" y="${data.cy - 12}" text-anchor="middle" font-size="13" font-weight="900" ` +
+                    `fill="${oColor}" stroke="#0a0e17" stroke-width="0.6" pointer-events="none">⊕</text>`
+                );
+            }
+        }
+
         return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" class="us-map-svg">` +
             `<style>` +
             `.state-path:hover { filter: brightness(1.3); }` +
@@ -1153,6 +1167,7 @@ window.GameUI = {
             `<g>${paths.join('')}</g>` +
             `<g>${labels.join('')}</g>` +
             `<g class="map-side-stack">${stack.join('')}</g>` +
+            `<g>${markers.join('')}</g>` +
             `</svg>`;
     },
 
@@ -1581,9 +1596,18 @@ window.GameUI = {
                         <div class="intel-risk-copy">${scandalLevel > 60 ? 'High exposure to opposition and media attacks.' : 'Exposure is manageable if messaging stays disciplined.'}</div>
                     </div>
                 </div>
+                ${(gs.activeScandals || []).map(sc => `
+                    <div class="scandal-story ${sc.target === 'opponent' ? 'opponent-story' : ''}">
+                        <div class="scandal-story-head">
+                            <span>${sc.target === 'opponent' ? '🎯 ' : ''}${sc.title}</span>
+                            <span class="scandal-flames">${'🔥'.repeat(Math.max(1, sc.severity))}</span>
+                        </div>
+                        <div class="scandal-story-meta">${sc.target === 'opponent' ? 'THEIR PROBLEM · ' : ''}${sc.stage}${sc.lastResponse !== 'none' ? ' · response: ' + sc.lastResponse : ''}</div>
+                    </div>`).join('')}
             </div>
             ${this.buildTemperatureSection(gs)}
             ${this.buildEndorsementSection(gs)}
+            ${this.buildPlaybookSection(gs)}
             <div class="panel-section intel-section">
                 <div class="panel-section-title">Opponent Intel</div>
                 <div class="intel-opponent-name">${gs.opponentCandidate.name}</div>
@@ -1655,6 +1679,31 @@ window.GameUI = {
                 </div>
                 ${nextContest && !p.decided ? `
                 <div class="next-contest">NEXT: <strong>${nextContest.name.toUpperCase()}</strong> — Week ${nextContest.week} · ${nextContest.delegates} delegates</div>` : ''}
+            </div>`;
+    },
+
+    buildPlaybookSection(gs) {
+        const pb = gs.opponentPlaybook;
+        if (!pb || !pb.targets || !pb.targets.length) return '';
+        const oLast = gs.opponentCandidate.name.split(' ').pop().toUpperCase();
+        const postureCopy = {
+            offense: { label: `${oLast} ON OFFENSE`, cls: 'playbook-offense', note: 'Attacking your narrowest holds with negative ads.' },
+            defense: { label: `${oLast} PLAYING DEFENSE`, cls: 'playbook-defense', note: 'Shoring up their own vulnerable states.' },
+            balanced: { label: `${oLast} PROBING THE MAP`, cls: 'playbook-balanced', note: 'Working the closest battlegrounds with contrast messaging.' },
+            improvising: { label: `${oLast} IMPROVISING`, cls: 'playbook-balanced', note: 'No clear pattern detected.' },
+        };
+        const p = postureCopy[pb.posture] || postureCopy.balanced;
+        return `
+            <div class="panel-section intel-section">
+                <div class="panel-section-title">Opponent Playbook</div>
+                <div class="playbook-posture ${p.cls}">${p.label}</div>
+                <div class="playbook-note">${p.note}</div>
+                <div class="playbook-targets">
+                    ${pb.targets.map(id => {
+                        const st = window.StateData.find(s => s.id === id);
+                        return st ? `<span class="playbook-target" onclick="GameUI.handleStateClick('${id}');GameUI.switchTab('map');">⊕ ${st.name}</span>` : '';
+                    }).join('')}
+                </div>
             </div>`;
     },
 

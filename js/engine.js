@@ -353,6 +353,22 @@ window.GameEngine = {
                 events.unshift(milestone);
             }
         }
+        // 7b. Scandal-class events become evolving multi-week stories with
+        // standardized deny / apologize / counterattack responses
+        for (const evt of events) {
+            if ((evt.category === 'SCANDAL' || evt.category === 'MEDIA_FIRESTORM') && !evt.isScandalStory) {
+                const sc = this.spawnScandal(evt.title, 2 + (Math.random() < 0.3 ? 1 : 0), 'player');
+                if (sc) {
+                    evt.isScandalStory = true;
+                    evt.scandalId = sc.id;
+                    evt.choices = this.buildScandalResponseEvent(sc).choices;
+                }
+            }
+        }
+
+        // 7c. Ongoing stories evolve (escalations add follow-up cards)
+        this.processScandals(events, summary);
+
         summary.events = events;
 
         // 8. Process event choices (if provided)
@@ -363,7 +379,7 @@ window.GameEngine = {
         }
 
         // 9. Process opponent turn
-        const oppActions = this.processOpponentTurn();
+        const oppActions = this.processOpponentTurn(actions);
         summary.opponentActions = oppActions;
 
         // 9b. Endorsement race (general election)
@@ -733,6 +749,11 @@ window.GameEngine = {
             if (headline) this.state.newsHistory.push(headline);
         }
 
+        // Scandal stories: record the response strategy for weekly evolution
+        if (event.isScandalStory) {
+            this.setScandalResponse(event.scandalId, choiceIdx);
+        }
+
         for (const [key, val] of Object.entries(choice.effects)) {
             if (key === 'cash') {
                 this.state.finances.cashOnHand += val;
@@ -927,14 +948,130 @@ window.GameEngine = {
     },
 
     // ═══════════════════════════════════════════════
-    // AI OPPONENT
+    // AI OPPONENT — adaptive strategy brain
     // ═══════════════════════════════════════════════
-    processOpponentTurn() {
+    processOpponentTurn(playerActions) {
+        const opp = this.state.opponent;
+        const actions = [];
+        const mods = this.getDifficultyModifiers();
+        const aiCfg = window.GameConstants.AI;
+
+        // Arcade keeps the old forgiving randomness
+        if (this.state.difficulty === 'arcade') return this.processOpponentTurnLegacy();
+
+        // ── Assess the map and pick a posture ──
+        const map = this.calculateElectoralMap();
+        const evGap = map.opponentEV - map.playerEV; // negative = AI trailing
+        const posture = evGap < -aiCfg.OFFENSE_EV_DEFICIT ? 'offense'
+                      : evGap > aiCfg.DEFENSE_EV_LEAD ? 'defense' : 'balanced';
+
+        // ── Pick targets ──
+        const battlegrounds = window.StateData
+            .filter(s => s.isBattleground && this.state.statePolling[s.id])
+            .map(s => {
+                const poll = this.state.statePolling[s.id];
+                return { s, poll, margin: poll.player - poll.opponent }; // + = player leads
+            });
+        let pool;
+        if (posture === 'offense') {
+            // Attack the player's narrowest holds
+            pool = battlegrounds.filter(x => x.margin > 0).sort((a, b) => a.margin - b.margin);
+            if (!pool.length) pool = battlegrounds.sort((a, b) => Math.abs(a.margin) - Math.abs(b.margin));
+        } else if (posture === 'defense') {
+            // Shore up their own narrowest holds
+            pool = battlegrounds.filter(x => x.margin < 0).sort((a, b) => b.margin - a.margin);
+            if (!pool.length) pool = battlegrounds.sort((a, b) => Math.abs(a.margin) - Math.abs(b.margin));
+        } else {
+            pool = battlegrounds.sort((a, b) => Math.abs(a.margin) - Math.abs(b.margin));
+        }
+        const targetCount = aiCfg.TARGET_COUNT + (this.state.difficulty === 'iron' ? 1 : 0);
+        const targets = pool.slice(0, targetCount);
+        const tone = posture === 'offense' ? 'negative' : posture === 'defense' ? 'positive' : 'contrast';
+
+        // ── Execute: visits ──
+        const budgetMult = this.state.difficulty === 'iron' ? 1.2 : 1;
+        for (const t of targets.slice(0, 3)) {
+            const boost = (0.5 + Math.random() * 0.8) * mods.aiStrengthMod * this.getLiveVoteShare(t.s.id);
+            t.poll.opponent += boost;
+            t.poll.player -= boost * 0.25;
+            actions.push(`Campaigned in ${t.s.name}`);
+        }
+
+        // ── Execute: ads in targets, tone by posture ──
+        if (opp.cash > 800000) {
+            const adTargets = targets.slice(0, posture === 'offense' ? 3 : 2);
+            for (const t of adTargets) {
+                const spend = 150000 * budgetMult;
+                if (opp.cash < spend) break;
+                opp.cash -= spend;
+                const impact = (0.35 + Math.random() * 0.5) * mods.aiStrengthMod * this.getLiveVoteShare(t.s.id);
+                if (tone === 'negative') {
+                    t.poll.player -= impact * 1.2;
+                    t.poll.opponent += impact * 0.3;
+                    opp.scandalVulnerability += 0.7; // their mud has a cost too
+                } else {
+                    t.poll.opponent += impact;
+                }
+                actions.push(`${tone === 'negative' ? 'Attack ads' : 'Ads'} in ${t.s.name}`);
+            }
+            if (tone === 'negative') this.bumpAnger(1); // their attacks heat the mood
+        }
+
+        // ── Counterpunch when the player goes negative ──
+        const playerWentNegative = playerActions && playerActions.strategy === 'negative';
+        if (playerWentNegative && Math.random() < 0.6) {
+            this.state.campaign.approval -= 0.5;
+            actions.push('Counterattacked your negative campaign');
+        }
+
+        // ── Late-race ground game: bank early votes in targets ──
+        const evCfg = window.GameConstants.EARLY_VOTE;
+        if (this.state.phase === 'general' && this.state.week >= evCfg.START_WEEK) {
+            for (const t of targets) {
+                if (!this.state.earlyVote[t.s.id]) {
+                    this.state.earlyVote[t.s.id] = { playerBanked: 0, opponentBanked: 0, pctBanked: 0 };
+                }
+                const ev = this.state.earlyVote[t.s.id];
+                const add = Math.min(0.7 * mods.aiStrengthMod, evCfg.MAX_BANKED_PCT - ev.pctBanked);
+                if (add > 0) { ev.opponentBanked += add; ev.pctBanked += add; }
+            }
+            actions.push('Ran turnout operations in battlegrounds');
+        }
+
+        // ── Debate prep the week before a debate ──
+        if (window.GameConstants.DEBATE_WEEKS.includes(this.state.week + 1)) {
+            opp.debateSkill += 2;
+            actions.push('Hunkered down for debate prep');
+        }
+
+        // ── Fundraising scaled by momentum and confidence ──
+        const aiRaise = (450000 + Math.random() * 550000) * mods.aiStrengthMod * budgetMult *
+            (1 + Math.max(-0.3, opp.momentum / 200));
+        opp.cash += aiRaise;
+
+        // ── Mood drift ──
+        opp.momentum += (Math.random() - 0.45) * 4 + (posture === 'offense' ? 1 : 0);
+        opp.enthusiasm += (Math.random() - 0.5) * 2;
+        opp.approval += (Math.random() - 0.5) * 1;
+        opp.nationalPolling = 100 - this.state.campaign.nationalPolling - 8;
+
+        // ── Publish the playbook for the intel panel ──
+        this.state.opponentPlaybook = {
+            posture,
+            tone,
+            targets: targets.map(t => t.s.id),
+            week: this.state.week,
+        };
+
+        return actions;
+    },
+
+    // The original forgiving AI, kept for arcade difficulty
+    processOpponentTurnLegacy() {
         const opp = this.state.opponent;
         const actions = [];
         const mods = this.getDifficultyModifiers();
 
-        // AI visits competitive states
         const battlegrounds = window.StateData
             .filter(s => s.isBattleground)
             .sort((a, b) => {
@@ -945,7 +1082,6 @@ window.GameEngine = {
                 return marginA - marginB;
             });
 
-        // Visit 1-2 states
         const visitCount = Math.random() > 0.5 ? 2 : 1;
         for (let i = 0; i < Math.min(visitCount, battlegrounds.length); i++) {
             const st = battlegrounds[i];
@@ -958,29 +1094,25 @@ window.GameEngine = {
             }
         }
 
-        // AI runs ads
         if (opp.cash > 1000000) {
             const adTarget = battlegrounds[Math.floor(Math.random() * Math.min(3, battlegrounds.length))];
             if (adTarget) {
                 const poll = this.state.statePolling[adTarget.id];
                 if (poll) {
-                    const adBoost = 0.3 + Math.random() * 0.7 * mods.aiStrengthMod;
-                    poll.opponent += adBoost;
+                    poll.opponent += 0.3 + Math.random() * 0.7 * mods.aiStrengthMod;
                     actions.push(`Ran ads in ${adTarget.name}`);
                 }
             }
         }
 
-        // AI fundraises
         const aiRaise = 400000 + Math.random() * 600000 * mods.aiStrengthMod;
         opp.cash += aiRaise;
-
-        // AI momentum
         opp.momentum += (Math.random() - 0.45) * 5;
         opp.enthusiasm += (Math.random() - 0.5) * 2;
         opp.approval += (Math.random() - 0.5) * 1;
         opp.nationalPolling = 100 - this.state.campaign.nationalPolling - 8;
 
+        this.state.opponentPlaybook = { posture: 'improvising', tone: 'positive', targets: battlegrounds.slice(0, 2).map(s => s.id), week: this.state.week };
         return actions;
     },
 
@@ -1161,6 +1293,106 @@ window.GameEngine = {
                 opponent: Math.round(poll.opponent * 10) / 10,
             });
             if (h.length > cap) h.shift();
+        }
+    },
+
+    // ═══════════════════════════════════════════════
+    // SCANDAL LIFECYCLE
+    // ═══════════════════════════════════════════════
+    spawnScandal(title, severity, target) {
+        const cfg = window.GameConstants.SCANDAL_LIFECYCLE;
+        const list = this.state.activeScandals;
+        if (list.filter(s => s.target === target).length >= cfg.MAX_ACTIVE) return null;
+        const sc = {
+            id: 'sc_' + this.state.week + '_' + Math.floor(Math.random() * 100000),
+            title,
+            severity,
+            stage: 'breaking',
+            startWeek: this.state.week,
+            lastResponse: 'none',
+            target,
+        };
+        list.push(sc);
+        return sc;
+    },
+
+    buildScandalResponseEvent(sc, flavor) {
+        return {
+            id: 'scandal_resp_' + sc.id + '_w' + this.state.week,
+            isScandalStory: true,
+            scandalId: sc.id,
+            title: sc.title,
+            description: flavor || 'The story is gathering steam. How does the campaign respond?',
+            category: 'SCANDAL_RESPONSE',
+            isBreakingNews: true,
+            choices: [
+                { text: 'Deny everything — give them nothing', effects: {}, riskLevel: 'risky', outcomeText: 'The campaign stonewalls. If more comes out, the denials become the story.' },
+                { text: 'Apologize and own it', effects: { approval: -2 }, riskLevel: 'safe', outcomeText: 'A rough news cycle — but contrition tends to shorten the story.' },
+                { text: 'Counterattack — turn it back on your opponent', effects: {}, riskLevel: 'moderate', outcomeText: 'You change the subject with fire. The base cheers; the temperature rises.' },
+            ],
+        };
+    },
+
+    setScandalResponse(scandalId, choiceIdx) {
+        const sc = this.state.activeScandals.find(s => s.id === scandalId);
+        if (!sc) return;
+        sc.lastResponse = ['deny', 'apologize', 'counterattack'][choiceIdx] || 'none';
+        if (sc.lastResponse === 'counterattack') {
+            this.state.opponent.approval -= 1.5;
+            this.bumpAnger(2);
+        }
+    },
+
+    processScandals(events, summary) {
+        const cfg = window.GameConstants.SCANDAL_LIFECYCLE;
+        const resolved = [];
+
+        for (const sc of this.state.activeScandals) {
+            if (sc.startWeek === this.state.week) continue; // give the initial response a week to land
+
+            const w = cfg.WEIGHTS[sc.lastResponse] || cfg.WEIGHTS.none;
+            const media = sc.target === 'player' ? this.state.campaign.mediaScore : this.state.opponent.mediaScore;
+            const escalate = w.escalate * (1 - (media - 50) / 200); // a good press shop calms stories
+            const roll = Math.random();
+
+            if (roll < escalate) {
+                sc.severity = Math.min(5, sc.severity + 1);
+                sc.stage = 'developing';
+                if (sc.target === 'player') {
+                    const coverUp = sc.lastResponse === 'deny';
+                    this.state.campaign.approval -= coverUp ? 3 : 1.5;
+                    this.bumpAnger(coverUp ? 2 : 1.5);
+                    summary.newsHeadlines.push(`NEW REVELATIONS: ${sc.title.toUpperCase()}${coverUp ? ' — DENIALS UNRAVEL' : ''}`);
+                    events.push(this.buildScandalResponseEvent(sc, 'New reporting escalates the story. The last response didn\'t hold.'));
+                } else {
+                    this.state.opponent.approval -= 2;
+                    summary.newsHeadlines.push(`OPPONENT SCANDAL DEEPENS: ${sc.title.toUpperCase()}`);
+                }
+            } else if (roll < escalate + w.fade) {
+                sc.severity -= 1;
+                sc.stage = 'fading';
+                if (sc.severity <= 0) {
+                    resolved.push(sc.id);
+                    if (sc.target === 'player') this.state.campaign.approval += 1;
+                    summary.newsHeadlines.push(`${sc.title.toUpperCase()} FADES FROM THE HEADLINES`);
+                }
+            }
+
+            // A live opponent scandal keeps bleeding them
+            if (sc.target === 'opponent' && sc.severity > 0) {
+                this.state.opponent.approval -= 0.5;
+            }
+        }
+        this.state.activeScandals = this.state.activeScandals.filter(s => !resolved.includes(s.id));
+
+        // Opponent scandals surface based on their vulnerability — which your
+        // Oppo Research raises. This is the payoff.
+        if (Math.random() < this.state.opponent.scandalVulnerability * cfg.OPPONENT_SPAWN_BASE) {
+            const titles = ['Campaign Finance Irregularities', 'Leaked Internal Memo', 'Staff Exodus Story', 'Undisclosed Conflict of Interest', 'Resurfaced Recording'];
+            const sc = this.spawnScandal(titles[Math.floor(Math.random() * titles.length)], 2, 'opponent');
+            if (sc) {
+                summary.newsHeadlines.push(`BREAKING: ${this.state.opponentCandidate.name.split(' ').pop().toUpperCase()} CAMPAIGN ROCKED — ${sc.title.toUpperCase()}`);
+            }
         }
     },
 

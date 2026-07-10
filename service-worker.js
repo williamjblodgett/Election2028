@@ -3,7 +3,7 @@
  * Enables offline play and PWA installation
  */
 
-const CACHE_NAME = 'election2028-v8';
+const CACHE_NAME = 'election2028-v9';
 const ASSETS = [
     './',
     './index.html',

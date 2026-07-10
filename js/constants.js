@@ -116,6 +116,79 @@ window.GameConstants = {
     },
 
     // ═══════════════════════════════════════════════
+    // POLICY PLATFORM — issue positioning
+    // Stances run -2 (left pole) … +2 (right pole). Keys match the
+    // issueSalience keys in states.js.
+    // ═══════════════════════════════════════════════
+    ISSUES: [
+        { key: 'economy',     label: 'Economy & Taxes',   left: 'Tax the wealthy, invest big', right: 'Cut taxes, shrink government' },
+        { key: 'immigration', label: 'Immigration',       left: 'Broad pathways, humane system', right: 'Hard border, strict enforcement' },
+        { key: 'healthcare',  label: 'Healthcare',        left: 'Universal public coverage', right: 'Market-driven care' },
+        { key: 'abortion',    label: 'Abortion',          left: 'Federal protections', right: 'State restrictions' },
+        { key: 'gunPolicy',   label: 'Guns',              left: 'Sweeping gun reform', right: 'Expand gun rights' },
+        { key: 'energy',      label: 'Climate & Energy',  left: 'Aggressive green transition', right: 'Drill and deregulate' },
+        { key: 'crime',       label: 'Crime & Policing',  left: 'Reform-first justice', right: 'Back the blue, tough on crime' },
+        { key: 'cultureWar',  label: 'Culture',           left: 'Progressive social change', right: 'Traditional values' },
+        { key: 'labor',       label: 'Labor & Unions',    left: 'Union power, worker rights', right: 'Right-to-work, pro-business' },
+        { key: 'education',   label: 'Education',         left: 'Public investment, loan relief', right: 'School choice, parental control' },
+    ],
+    PLATFORM: {
+        MAX_SHIFTS_PER_WEEK: 1,
+        SHIFT_ENTHUSIASM_COST: 2,
+        SHIFT_SCANDAL_COST: 2,
+        DRIFT_MAX: 0.15,             // max weekly polling drift per state from platform fit
+        BASE_CENTER: 1.5,            // party-base ideal distance from center (D: -1.5, R: +1.5)
+    },
+
+    // ═══════════════════════════════════════════════
+    // PRIMARY SEASON — contests, delegates, thresholds
+    // ═══════════════════════════════════════════════
+    PRIMARY_CALENDAR: [
+        { week: 3,  name: 'Iowa Caucuses',        delegates: 40,   states: ['IA'] },
+        { week: 4,  name: 'New Hampshire Primary', delegates: 33,  states: ['NH'] },
+        { week: 5,  name: 'Nevada Caucuses',      delegates: 36,   states: ['NV'] },
+        { week: 6,  name: 'South Carolina Primary', delegates: 55, states: ['SC'] },
+        { week: 8,  name: 'SUPER TUESDAY',        delegates: 1300, states: ['AL', 'AR', 'CA', 'CO', 'ME', 'MA', 'MN', 'NC', 'OK', 'TN', 'TX', 'UT', 'VT', 'VA'] },
+        { week: 9,  name: 'Michigan Week',        delegates: 250,  states: ['MI', 'WA', 'MO', 'MS'] },
+        { week: 10, name: 'Mid-March Contests',   delegates: 350,  states: ['GA', 'KS', 'LA'] },
+        { week: 12, name: 'March Finale',         delegates: 400,  states: ['AZ', 'FL', 'IL', 'OH'] },
+        { week: 14, name: 'Wisconsin Week',       delegates: 230,  states: ['WI', 'NY'] },
+        { week: 16, name: 'Final Contests',       delegates: 306,  states: ['PA', 'NJ', 'MD', 'OR'] },
+    ],
+    PRIMARY: {
+        TOTAL_DELEGATES: 3000,
+        DELEGATES_TO_CLINCH: 1500,
+        VIABILITY_THRESHOLD: 15,     // % support needed to win delegates in a contest
+        PLAYER_START_SUPPORT: 38,    // modest frontrunner
+        RIVAL_START_SUPPORT: [26, 22],
+        DROPOUT_SUPPORT: 10,         // rivals below this after Super Tuesday drop out
+    },
+
+    // ═══════════════════════════════════════════════
+    // ADAPTIVE OPPONENT AI
+    // ═══════════════════════════════════════════════
+    AI: {
+        OFFENSE_EV_DEFICIT: 40,      // trailing by more → offense posture
+        DEFENSE_EV_LEAD: 80,         // leading by more → defense posture
+        TARGET_COUNT: 3,
+    },
+
+    // ═══════════════════════════════════════════════
+    // SCANDAL LIFECYCLE
+    // ═══════════════════════════════════════════════
+    SCANDAL_LIFECYCLE: {
+        MAX_ACTIVE: 3,
+        // escalate / simmer / fade weights by last response
+        WEIGHTS: {
+            deny:         { escalate: 0.40, fade: 0.25 },
+            apologize:    { escalate: 0.12, fade: 0.55 },
+            counterattack:{ escalate: 0.25, fade: 0.35 },
+            none:         { escalate: 0.30, fade: 0.30 },
+        },
+        OPPONENT_SPAWN_BASE: 0.0008, // × opponent scandalVulnerability per week
+    },
+
+    // ═══════════════════════════════════════════════
     // PUBLIC ANGER & CANDIDATE SECURITY
     // Aggressive campaigning heats the national mood; at high anger a
     // security threat may emerge. Fictional strategy-game mechanic.

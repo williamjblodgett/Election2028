@@ -224,6 +224,7 @@ window.GameUI = {
         this.selectedDifficulty = 'realistic';
         this.selectedMode = 'campaign';
         this.campaignPerks = { warChest: 0, groundSwell: 0, mediaDarling: 0, partyMachine: 0, digitalArmy: 0, teflonCandidate: 0 };
+        this.setupPlatform = null;
         this.showScreen('select');
         this.renderSetupStep();
     },
@@ -363,7 +364,7 @@ window.GameUI = {
             case 7: // Campaign Perks (point allocation)
                 title.textContent = 'Campaign Advantages';
                 subtitle.textContent = 'Allocate early advantages before the first week begins.';
-                nextBtn.textContent = 'START CAMPAIGN';
+                nextBtn.textContent = 'NEXT';
                 const perks = this.campaignPerks;
                 const usedPoints = Object.values(perks).reduce((a, b) => a + b, 0);
                 const remaining = this.totalPerkPoints - usedPoints;
@@ -411,6 +412,19 @@ window.GameUI = {
                         </div>
                     </div>`;
                 break;
+
+            case 8: { // Policy Platform
+                title.textContent = 'Set Your Platform';
+                subtitle.textContent = 'Where do you stand? States that share your priorities will drift your way.';
+                nextBtn.textContent = 'START CAMPAIGN';
+                const platNominee = this.getPlayerCandidateSelection();
+                if (!this.setupPlatform) this.setupPlatform = window.GameEngine.seedPlatform(platNominee);
+                stageContent = `
+                    <div class="platform-grid">
+                        ${window.GameConstants.ISSUES.map(issue => this.renderPlatformRow(issue, this.setupPlatform[issue.key], 'GameUI.setSetupStance')).join('')}
+                    </div>`;
+                break;
+            }
         }
 
         content.innerHTML = `
@@ -423,6 +437,32 @@ window.GameUI = {
             </div>`;
     },
 
+    renderPlatformRow(issue, stance, handler) {
+        const stops = [-2, -1, 0, 1, 2];
+        return `
+            <div class="platform-row">
+                <div class="platform-row-head">
+                    <span class="platform-issue-label">${issue.label}</span>
+                </div>
+                <div class="platform-poles">
+                    <span>${issue.left}</span>
+                    <span>${issue.right}</span>
+                </div>
+                <div class="platform-stops">
+                    ${stops.map(v => `
+                        <button class="platform-stop ${stance === v ? 'selected' : ''}" onclick="${handler}('${issue.key}', ${v})">
+                            ${v === 0 ? '◈' : ''}
+                        </button>`).join('')}
+                </div>
+            </div>`;
+    },
+
+    setSetupStance(issueKey, value) {
+        if (!this.setupPlatform) return;
+        this.setupPlatform[issueKey] = value;
+        this.renderSetupStep();
+    },
+
     getSetupFlowSteps() {
         return [
             { id: 1, label: 'Mode', icon: '🎯' },
@@ -432,6 +472,7 @@ window.GameUI = {
             { id: 5, label: 'VP', icon: '⭐' },
             { id: 6, label: 'Difficulty', icon: '⚙️' },
             { id: 7, label: 'Perks', icon: '🚀' },
+            { id: 8, label: 'Platform', icon: '🧭' },
         ];
     },
 
@@ -467,6 +508,7 @@ window.GameUI = {
             5: 'Running mates affect both campaign attributes and state-level advantages.',
             6: 'Difficulty adjusts fundraising pressure, volatility, and forgiveness.',
             7: 'Early advantages trade flexibility for a sharper opening position.',
+            8: 'Your platform decides which states reward you — and the base is watching. You can shift later, but flip-flops cost credibility.',
         };
 
         return copy[this.setupStep] || '';
@@ -634,7 +676,7 @@ window.GameUI = {
             return;
         }
 
-        if (this.setupStep >= 7) {
+        if (this.setupStep >= 8) {
             this.launchGame();
             return;
         }
@@ -657,6 +699,7 @@ window.GameUI = {
 
         window.GameEngine.initGame(playerCand, oppCand, this.selectedMode, this.selectedDifficulty);
         window.GameEngine.assignRunningMates(playerVP, opponentVP);
+        if (this.setupPlatform) window.GameEngine.state.platform = { ...this.setupPlatform };
 
         // Apply campaign perk bonuses
         const perks = this.campaignPerks;
@@ -735,12 +778,18 @@ window.GameUI = {
                     <span class="text-muted">vs</span>
                     <span style="color:${oColor}">Opp ${Math.round(gs.opponent.nationalPolling)}%</span>
                 </div>
+                ${gs.phase === 'primary' && gs.primary ? `
+                <div class="polling-pill">
+                    <span class="topbar-kicker">Delegates</span>
+                    <span style="color:${pColor}">${gs.primary.playerDelegates}</span>
+                    <span class="text-muted">/ ${window.GameConstants.PRIMARY.DELEGATES_TO_CLINCH}</span>
+                </div>` : `
                 <div class="polling-pill">
                     <span class="topbar-kicker">EV</span>
                     <span style="color:${pColor}">${map.playerEV}</span>
                     <span class="text-muted">to</span>
                     <span style="color:${oColor}">${map.opponentEV}</span>
-                </div>
+                </div>`}
                 <div class="polling-pill">
                     <span class="topbar-kicker">Risk</span>
                     <span>${Math.round(gs.campaign.scandalVulnerability)}/100</span>
@@ -814,6 +863,10 @@ window.GameUI = {
                 <button class="btn action-btn" onclick="GameUI.doActivity('debatePrep')">
                     <span class="action-icon">📋</span>
                     <span class="action-copy"><span class="action-label">Debate Prep</span><span class="action-desc">Trade a week of work for cleaner answers under pressure.</span></span>
+                </button>
+                <button class="btn action-btn" onclick="GameUI.showPlatformModal()">
+                    <span class="action-icon">🧭</span>
+                    <span class="action-copy"><span class="action-label">Platform</span><span class="action-desc">Review your positions — or reposition, and eat the flip-flop.</span></span>
                 </button>
                 <button class="btn action-btn ${window.GameEngine.state.securityDetail ? 'security-active' : ''}" onclick="GameUI.buySecurityDetail()">
                     <span class="action-icon">🛡️</span>
@@ -1250,6 +1303,17 @@ window.GameUI = {
                         <div class="info-label">Ticket Factors</div>
                         <div>${ticketFactors.join(' ')}</div>
                     </div>` : ''}
+                    ${gs.platform ? (() => {
+                        const fitGap = window.GameEngine.computePlatformFit(gs.platform, st) -
+                                       window.GameEngine.computePlatformFit(gs.opponentPlatform, st);
+                        const drift = fitGap * window.GameConstants.PLATFORM.DRIFT_MAX * 2;
+                        const verdict = drift > 0.03 ? 'Good' : drift < -0.03 ? 'Poor' : 'Even';
+                        return `
+                    <div class="state-info-item">
+                        <div class="info-label">Platform Fit</div>
+                        <div>${verdict} (${drift >= 0 ? '+' : ''}${drift.toFixed(2)}/wk)</div>
+                    </div>`;
+                    })() : ''}
                 </div>
                 <div class="mt-1 btn-group">
                     <button class="btn btn-sm btn-primary" onclick="GameUI.quickVisit('${stateId}')">Visit Now ($80K)</button>
@@ -1498,6 +1562,7 @@ window.GameUI = {
         const scandalClass = scandalLevel > 70 ? 'severity-critical' : scandalLevel > 50 ? 'severity-high' : scandalLevel > 30 ? 'severity-medium' : 'severity-low';
 
         panel.innerHTML = `
+            ${this.buildPrimaryScoreboard(gs)}
             <div class="panel-section intel-section">
                 <div class="panel-section-title">Battleground Watch</div>
                 <div class="intel-section-copy">Closest states first. Tap any card to focus the map.</div>
@@ -1552,6 +1617,44 @@ window.GameUI = {
                 ${list(mine)}
                 <div style="font-size:0.72rem;letter-spacing:1px;color:var(--text-muted);margin:6px 0 2px;">${oLast.toUpperCase()} (${theirs.length})</div>
                 ${list(theirs)}
+            </div>`;
+    },
+
+    buildPrimaryScoreboard(gs) {
+        const p = gs.primary;
+        if (!p || gs.phase !== 'primary') return '';
+        const cfg = window.GameConstants.PRIMARY;
+        const pLast = gs.playerCandidate.name.split(' ').pop();
+        const nextContest = window.GameConstants.PRIMARY_CALENDAR.find(ct => ct.week >= gs.week);
+        const allocated = p.playerDelegates + p.rivals.reduce((a, r) => a + r.delegates, 0);
+        const clinchPct = (cfg.DELEGATES_TO_CLINCH / cfg.TOTAL_DELEGATES) * 100;
+
+        const bar = [
+            `<div class="delegate-fill" style="width:${(p.playerDelegates / cfg.TOTAL_DELEGATES) * 100}%;background:${gs.playerCandidate.color || 'var(--dem-blue)'};"></div>`,
+            ...p.rivals.map(r => `<div class="delegate-fill" style="width:${(r.delegates / cfg.TOTAL_DELEGATES) * 100}%;background:${r.color || '#666'};opacity:0.7;"></div>`),
+        ].join('');
+
+        return `
+            <div class="panel-section intel-section primary-scoreboard">
+                <div class="panel-section-title">Primary Scoreboard ${p.decided ? '— NOMINEE ✓' : ''}</div>
+                <div class="delegate-bar">
+                    ${bar}
+                    <div class="delegate-clinch-marker" style="left:${clinchPct}%;"></div>
+                </div>
+                <div class="delegate-readout">
+                    <span><strong>${p.playerDelegates}</strong> ${pLast.toUpperCase()}</span>
+                    <span class="text-muted">${cfg.DELEGATES_TO_CLINCH} to clinch · ${cfg.TOTAL_DELEGATES - allocated} left</span>
+                </div>
+                <div class="rival-chips">
+                    <div class="rival-chip you"><span class="rival-name">${pLast} (you)</span><span class="rival-support">${Math.round(p.playerSupport)}%</span></div>
+                    ${p.rivals.map(r => `
+                        <div class="rival-chip ${r.droppedOut ? 'dropped' : ''}">
+                            <span class="rival-name">${r.portraitEmoji} ${r.name.split(' ').pop()}</span>
+                            <span class="rival-support">${r.droppedOut ? 'OUT' : Math.round(r.support) + '% · ' + r.delegates + ' del'}</span>
+                        </div>`).join('')}
+                </div>
+                ${nextContest && !p.decided ? `
+                <div class="next-contest">NEXT: <strong>${nextContest.name.toUpperCase()}</strong> — Week ${nextContest.week} · ${nextContest.delegates} delegates</div>` : ''}
             </div>`;
     },
 
@@ -1620,6 +1723,17 @@ window.GameUI = {
         // The rest of the week's flow, run either directly or after an
         // assassination-attempt interstitial resolves
         const continueWeek = () => {
+            // Losing the nomination ends the run before any general election
+            if (result.gameOver === 'lostNomination') {
+                this.showPrimaryDefeat();
+                return;
+            }
+
+            // Primary contest results night
+            if (result.primaryResult) {
+                this.showContestResults(result.primaryResult);
+            }
+
             // Check for debate
             if (result.isDebateWeek) {
                 this.showToast('DEBATE NIGHT! Prepare yourself.', 'info');
@@ -1653,6 +1767,57 @@ window.GameUI = {
         }
 
         continueWeek();
+    },
+
+    showContestResults(cr) {
+        const html = `
+            <div style="text-align:center;">
+                <div style="font-size:0.7rem;letter-spacing:2px;color:var(--text-muted);margin-bottom:4px;">PRIMARY NIGHT — WEEK ${cr.week}</div>
+                <h3 style="margin-bottom:2px;">${cr.name}</h3>
+                <div class="text-muted" style="font-size:0.8rem;margin-bottom:12px;">${cr.delegates} delegates at stake</div>
+                <div style="display:flex;flex-direction:column;gap:6px;max-width:420px;margin:0 auto 12px;">
+                    ${cr.results.map((r, i) => `
+                        <div class="contest-result-row ${i === 0 ? 'winner' : ''} ${r.isPlayer ? 'you' : ''}">
+                            <span>${i === 0 ? '🏆 ' : ''}${r.name}${r.isPlayer ? ' (you)' : ''}</span>
+                            <span style="font-family:var(--font-mono);">${r.pct}% · <strong>${r.delegates}</strong> del</span>
+                        </div>`).join('')}
+                </div>
+                <button class="btn btn-primary" onclick="GameUI.closeModal()">${cr.playerWon ? 'VICTORY SPEECH →' : 'BACK TO WORK →'}</button>
+            </div>`;
+        this.showModal(cr.playerWon ? '🎉 You won the night' : 'A tough night', html);
+    },
+
+    showPrimaryDefeat() {
+        const gs = window.GameEngine.state;
+        this.showScreen('election-night');
+        const container = document.getElementById('election-night-content');
+        const p = gs.primary;
+        const winner = p.rivals.slice().sort((a, b) => b.delegates - a.delegates)[0];
+
+        container.innerHTML = `
+            <div class="tragedy-screen">
+                <div class="tragedy-candle">🥀</div>
+                <h1 class="tragedy-title">The Nomination Slips Away</h1>
+                <p class="tragedy-name">${gs.playerCandidate.name}</p>
+                <p class="tragedy-copy">The delegate math is unforgiving. ${winner ? winner.name + ' will carry the party banner into November.' : 'Another candidate will carry the party banner into November.'} There's always the next cycle.</p>
+                <div class="en-retro">
+                    <div class="en-retro-title">THE PRIMARY THAT WAS</div>
+                    <div class="en-retro-grid">
+                        <div class="en-retro-item"><div class="retro-val">${p.playerDelegates}</div><div class="retro-label">Your Delegates</div></div>
+                        <div class="en-retro-item"><div class="retro-val">${winner ? winner.delegates : '—'}</div><div class="retro-label">${winner ? winner.name.split(' ').pop() : 'Rival'}</div></div>
+                        <div class="en-retro-item"><div class="retro-val">${p.contestHistory.filter(c => c.playerWon).length}/${p.contestHistory.length}</div><div class="retro-label">Contests Won</div></div>
+                        <div class="en-retro-item"><div class="retro-val">$${this.formatMoney(gs.finances.totalRaised)}</div><div class="retro-label">Total Raised</div></div>
+                    </div>
+                </div>
+                <div class="mt-2 btn-group" style="justify-content:center;">
+                    <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">RUN AGAIN</button>
+                    <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
+                </div>
+            </div>`;
+        this.updateTicker([
+            `${gs.playerCandidate.name.split(' ').pop().toUpperCase()} CAMPAIGN SUSPENDS AFTER DELEGATE MATH TURNS FATAL`,
+            winner ? `${winner.name.toUpperCase()} MARCHES TOWARD THE NOMINATION` : 'THE PRIMARY RACE MOVES ON',
+        ]);
     },
 
     showAssassinationAttempt(evt, onContinue) {
@@ -1770,6 +1935,54 @@ window.GameUI = {
 
         // Fundraising blitz uses the whole week — auto-advance
         setTimeout(() => this.handleEndWeek(), 800);
+    },
+
+    showPlatformModal() {
+        const gs = window.GameEngine.state;
+        if (!gs.platform) return;
+        const shiftedThisWeek = gs.platformShiftedWeek === gs.week;
+        const html = `
+            <p class="text-muted mb-1" style="font-size:0.85rem;">
+                States drift toward the candidate whose platform fits their priorities.
+                You may shift <strong>one issue per week</strong>; every shift costs enthusiasm and credibility
+                (flip-flops so far: <strong>${gs.flipFlops}</strong>).
+                ${shiftedThisWeek ? '<br><span style="color:var(--accent-yellow);">You already repositioned this week.</span>' : ''}
+            </p>
+            <div class="platform-grid platform-modal-grid">
+                ${window.GameConstants.ISSUES.map(issue => {
+                    const stance = gs.platform[issue.key];
+                    const oppStance = gs.opponentPlatform ? gs.opponentPlatform[issue.key] : null;
+                    return `
+                    <div class="platform-row">
+                        <div class="platform-row-head">
+                            <span class="platform-issue-label">${issue.label}</span>
+                            <span class="platform-shift-btns">
+                                <button class="btn btn-sm" onclick="GameUI.doShiftPlatform('${issue.key}', -1)" ${shiftedThisWeek || stance <= -2 ? 'disabled' : ''}>◀</button>
+                                <button class="btn btn-sm" onclick="GameUI.doShiftPlatform('${issue.key}', 1)" ${shiftedThisWeek || stance >= 2 ? 'disabled' : ''}>▶</button>
+                            </span>
+                        </div>
+                        <div class="platform-poles"><span>${issue.left}</span><span>${issue.right}</span></div>
+                        <div class="platform-stops readonly">
+                            ${[-2, -1, 0, 1, 2].map(v => `
+                                <div class="platform-stop ${stance === v ? 'selected' : ''} ${oppStance === v ? 'opp-marker' : ''}">
+                                    ${oppStance === v && stance !== v ? '·' : ''}
+                                </div>`).join('')}
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+            <p class="text-muted" style="font-size:0.7rem;margin-top:8px;">Your position ■ · Opponent's position ·</p>`;
+        this.showModal('Policy Platform', html);
+    },
+
+    doShiftPlatform(issueKey, dir) {
+        const result = window.GameEngine.shiftPlatform(issueKey, dir);
+        this.showToast(result.message, result.ok ? 'warning' : 'error');
+        if (result.ok) {
+            if (result.headline) this.updateTicker([result.headline]);
+            this.showPlatformModal(); // re-render with new state
+            this.renderIntelPanel();
+        }
     },
 
     buySecurityDetail() {
@@ -2042,7 +2255,14 @@ window.GameUI = {
     startDebate() {
         const gs = window.GameEngine.state;
         const DC = window.DebateContent;
-        const oc = gs.opponentCandidate;
+
+        // Primary-phase debates are against your leading party rival
+        const aliveRivals = gs.phase === 'primary' && gs.primary && !gs.primary.decided
+            ? gs.primary.rivals.filter(r => !r.droppedOut) : [];
+        const primaryMode = aliveRivals.length > 0;
+        const oc = primaryMode
+            ? aliveRivals.sort((a, b) => b.support - a.support)[0]
+            : gs.opponentCandidate;
 
         // Opponent answer strategy: party + ideological lean (mirrors DebateSystem.generateResponses)
         const oppParty = oc.party === 'Democrat' ? 'democrat' : 'republican';
@@ -2063,6 +2283,8 @@ window.GameUI = {
             opponentStrategy,
             debateNumber: gs.debatesCompleted + 1,
             advanceTimer: null,
+            primaryMode,
+            debateOpponent: oc,
         };
         // Keep legacy field in sync for anything reading it
         this.debateScores = this.debateCtx.playerScores;
@@ -2081,7 +2303,7 @@ window.GameUI = {
         if (window.DebateWalkout && stage) {
             stage.innerHTML = '<div class="walkout-container" id="walkout-container"></div>';
             const container = document.getElementById('walkout-container');
-            window.DebateWalkout.play(container, gs.playerCandidate, gs.opponentCandidate, beginDebate);
+            window.DebateWalkout.play(container, gs.playerCandidate, this.debateCtx.debateOpponent || gs.opponentCandidate, beginDebate);
         } else {
             beginDebate();
         }
@@ -2092,7 +2314,7 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const ctx = this.debateCtx;
         const pc = gs.playerCandidate;
-        const oc = gs.opponentCandidate;
+        const oc = ctx.debateOpponent || gs.opponentCandidate;
         const pLast = pc.name.split(' ').pop();
         const oLast = oc.name.split(' ').pop();
 
@@ -2145,7 +2367,7 @@ window.GameUI = {
             lineClass = 'player';
             chipHTML = `<span class="speaker-chip" style="color:${c.color};">${c.portraitEmoji} ${c.name.split(' ').pop().toUpperCase()} (YOU)</span>`;
         } else {
-            const c = gs.opponentCandidate;
+            const c = ctx.debateOpponent || gs.opponentCandidate;
             lineClass = 'opponent';
             chipHTML = `<span class="speaker-chip" style="color:${c.color};">${c.portraitEmoji} ${c.name.split(' ').pop().toUpperCase()}</span>`;
         }
@@ -2211,7 +2433,28 @@ window.GameUI = {
                 playerQScore += val;
             }
         }
-        this.appendTranscript('player', response.text);
+
+        // Platform consistency: an answer's intensity should match how strongly
+        // you've positioned on that issue (0 = measured, 1 = combative, 2 = bold)
+        const TOPIC_ISSUE = { 'Economy': 'economy', 'Immigration': 'immigration', 'Healthcare': 'healthcare', 'Climate & Energy': 'energy', 'Culture & Values': 'cultureWar' };
+        const TOPIC_INTENSITY = {
+            'Economy': [0, 0, 1, 2], 'Immigration': [0, 0, 1, 2], 'Healthcare': [0, 0, 2, 1],
+            'Democracy & Institutions': [0, 1, 1, 2], 'Climate & Energy': [0, 2, 0, 1], 'Culture & Values': [0, 2, 0, 1],
+        };
+        let consistencyNote = '';
+        const issueKey = TOPIC_ISSUE[q.topic];
+        if (issueKey && gs.platform && TOPIC_INTENSITY[q.topic]) {
+            const stanceMag = Math.abs(gs.platform[issueKey] || 0);
+            const intensity = TOPIC_INTENSITY[q.topic][responseIdx];
+            if ((intensity === 2 && stanceMag >= 1.5) || (intensity === 0 && stanceMag <= 1)) {
+                ctx.playerScores.authenticity += 2; playerQScore += 2;
+                consistencyNote = 'The answer rings true — it matches the candidate\'s platform.';
+            } else if ((intensity === 2 && stanceMag <= 0.5) || (intensity === 0 && stanceMag >= 2)) {
+                ctx.playerScores.authenticity -= 2; playerQScore -= 2;
+                consistencyNote = 'Pundits note the answer clashes with the candidate\'s stated platform.';
+            }
+        }
+        this.appendTranscript('player', response.text, consistencyNote);
 
         const choiceArea = document.getElementById('debate-choice-area');
         choiceArea.querySelectorAll('.debate-response').forEach(b => { b.disabled = true; b.classList.add('dimmed'); });
@@ -2224,7 +2467,8 @@ window.GameUI = {
 
             // Normalize to the player's scale (content lines score all 7 dimensions,
             // player answers only ~6) and let debate skill scale the whole answer
-            const skillFactor = 0.7 * (1 + (gs.opponent.debateSkill - 50) / 150);
+            const oppSkill = ctx.primaryMode && ctx.debateOpponent ? (ctx.debateOpponent.debate || 55) : gs.opponent.debateSkill;
+            const skillFactor = 0.7 * (1 + (oppSkill - 50) / 150);
             let oppQScore = 0;
             for (const [key, val] of Object.entries(line.scores)) {
                 if (ctx.opponentScores.hasOwnProperty(key)) {
@@ -2244,7 +2488,7 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const DC = window.DebateContent;
         const pc = gs.playerCandidate;
-        const oc = gs.opponentCandidate;
+        const oc = ctx.debateOpponent || gs.opponentCandidate;
         const pLast = pc.name.split(' ').pop();
         const oLast = oc.name.split(' ').pop();
 
@@ -2295,13 +2539,13 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const DC = window.DebateContent;
         const pc = gs.playerCandidate;
-        const oc = gs.opponentCandidate;
+        const oc = ctx.debateOpponent || gs.opponentCandidate;
         const pLast = pc.name.split(' ').pop();
         const oLast = oc.name.split(' ').pop();
 
         // Head-to-head verdict from the (frozen) DebateSystem
         const winner = window.DebateSystem.calculateWinner(ctx.playerScores, ctx.opponentScores);
-        const result = window.GameEngine.processDebateResults(ctx.playerScores, ctx.opponentScores, winner);
+        const result = window.GameEngine.processDebateResults(ctx.playerScores, ctx.opponentScores, winner, { primaryMode: ctx.primaryMode });
 
         const winnerName = winner === 'player' ? pLast : winner === 'opponent' ? oLast : null;
         const loserName = winner === 'player' ? oLast : winner === 'opponent' ? pLast : null;

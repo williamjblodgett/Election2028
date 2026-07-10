@@ -91,6 +91,13 @@ window.GameEngine = {
             securityDetail: false,
             hospitalized: 0,
             assassinationAttempts: [],
+            platform: null,
+            opponentPlatform: null,
+            flipFlops: 0,
+            platformShiftedWeek: 0,
+            primary: null,
+            opponentPlaybook: null,
+            activeScandals: [],
         };
     },
 
@@ -106,6 +113,9 @@ window.GameEngine = {
         this.state.difficulty = difficulty;
         this.state.playerTicket = { nominee: playerCandidate, vp: null };
         this.state.opponentTicket = { nominee: opponentCandidate, vp: null };
+        this.state.platform = this.seedPlatform(playerCandidate);
+        this.state.opponentPlatform = this.seedPlatform(opponentCandidate);
+        this.initPrimary();
 
         // Apply candidate stats to campaign
         const pc = playerCandidate;
@@ -368,6 +378,9 @@ window.GameEngine = {
         const oppVPNews = this.processOpponentVP();
         if (oppVPNews) summary.newsHeadlines.push(oppVPNews);
 
+        // 9d. Primary season: support dynamics, contests, dropouts
+        const primaryResult = this.processPrimaryWeek(summary);
+
         // 10. Calculate fundraising
         const fundsRaised = this.calculateFundraising();
         summary.financialSummary = {
@@ -384,6 +397,9 @@ window.GameEngine = {
         this.applyPollingNoise();
         this.state.campaign.nationalPolling = this.calculateNationalPolling();
         this.state.opponent.nationalPolling = 100 - this.state.campaign.nationalPolling - 8;
+
+        // 12a. Platform alignment slowly moves states toward the better fit
+        this.applyPlatformDrift();
 
         // 12b. Early voting banks votes in the final stretch
         this.processEarlyVoting();
@@ -446,6 +462,7 @@ window.GameEngine = {
         // 18. Check game end
         let gameOver = this.state.week > this.state.totalWeeks;
         if (assassinationEvent && !assassinationEvent.survived) gameOver = 'assassinated';
+        if (this.state.primary && this.state.primary.lostNomination) gameOver = 'lostNomination';
 
         // 19. Clamp all values
         this.clampStats();
@@ -457,6 +474,7 @@ window.GameEngine = {
             gameOver,
             phase: this.state.phase,
             assassinationEvent,
+            primaryResult,
         };
     },
 
@@ -1147,6 +1165,279 @@ window.GameEngine = {
     },
 
     // ═══════════════════════════════════════════════
+    // PRIMARY SEASON
+    // ═══════════════════════════════════════════════
+    initPrimary() {
+        const cfg = window.GameConstants.PRIMARY;
+        const party = this.state.playerParty === 'democrat' ? 'democrats' : 'republicans';
+        const pool = (window.CandidateData[party] || []).filter(c =>
+            c.id !== this.state.playerCandidate.id && c.id !== this.state.opponentCandidate.id);
+        // Two same-party rivals, random draw
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+        const rivals = shuffled.slice(0, 2).map((c, i) => ({
+            id: c.id,
+            name: c.name,
+            party: c.party,
+            color: c.color,
+            portraitEmoji: c.portraitEmoji,
+            ideologicalElasticity: c.ideologicalElasticity || 50,
+            debate: c.debate || 55,
+            homeState: c.homeState,
+            support: cfg.RIVAL_START_SUPPORT[i] || 20,
+            delegates: 0,
+            droppedOut: false,
+        }));
+        // Harder difficulties narrow the head start
+        const mods = this.getDifficultyModifiers();
+        const startSupport = mods.aiStrengthMod > 1
+            ? cfg.PLAYER_START_SUPPORT - 4
+            : cfg.PLAYER_START_SUPPORT;
+
+        this.state.primary = {
+            rivals,
+            playerSupport: startSupport,
+            playerDelegates: 0,
+            undecided: Math.max(5, 100 - startSupport - rivals.reduce((a, r) => a + r.support, 0)),
+            decided: false,
+            lostNomination: false,
+            contestHistory: [],
+        };
+    },
+
+    // Weekly primary dynamics: support drift, rival AI, contests, dropouts
+    processPrimaryWeek(summary) {
+        const p = this.state.primary;
+        if (!p || p.decided || this.state.phase !== 'primary') return null;
+        const cfg = window.GameConstants.PRIMARY;
+        const c = this.state.campaign;
+
+        // Player support drift: campaign strength + base alignment + noise
+        const baseAlign = this.getBaseAlignment(); // running to the base pays in the primary
+        let drift = 0;
+        drift += (c.enthusiasm - 50) / 60;
+        drift += c.momentum / 60;
+        drift += (c.mediaScore - 50) / 90;
+        drift += baseAlign * 0.8;
+        drift += (Math.random() - 0.5) * 1.6;
+        p.playerSupport += drift;
+
+        // Rival AI: they campaign, and the leader takes incoming fire
+        const alive = p.rivals.filter(r => !r.droppedOut);
+        const leaderIsPlayer = p.playerSupport >= Math.max(...alive.map(r => r.support), 0);
+        for (const r of alive) {
+            let rDrift = (Math.random() - 0.45) * 1.6;
+            rDrift += ((r.ideologicalElasticity > 60 ? 1 : 0.5)) * 0.3; // firebrands generate energy
+            if (leaderIsPlayer && Math.random() < 0.5) {
+                // Attack the frontrunner
+                p.playerSupport -= 0.7;
+                rDrift += 0.5;
+                summary.newsHeadlines.push(`${r.name.split(' ').pop().toUpperCase()} SHARPENS ATTACKS ON THE FRONTRUNNER`);
+            }
+            r.support = Math.max(2, r.support + rDrift);
+        }
+        p.playerSupport = Math.max(5, Math.min(80, p.playerSupport));
+
+        // Normalize against undecided pool
+        const total = p.playerSupport + p.rivals.reduce((a, r) => a + (r.droppedOut ? 0 : r.support), 0);
+        p.undecided = Math.max(3, 100 - total);
+
+        // Contest night?
+        let contestResult = null;
+        const contest = window.GameConstants.PRIMARY_CALENDAR.find(ct => ct.week === this.state.week);
+        if (contest) contestResult = this.runPrimaryContest(contest, summary);
+
+        // Dropouts: mathematically eliminated, or floundering after Super Tuesday
+        const remaining = window.GameConstants.PRIMARY_CALENDAR
+            .filter(ct => ct.week > this.state.week)
+            .reduce((a, ct) => a + ct.delegates, 0);
+        for (const r of p.rivals) {
+            if (r.droppedOut) continue;
+            const eliminated = r.delegates + remaining < cfg.DELEGATES_TO_CLINCH;
+            const floundering = this.state.week > 8 && r.support < cfg.DROPOUT_SUPPORT;
+            if (eliminated || floundering) {
+                r.droppedOut = true;
+                // Support redistributes toward the ideologically nearest survivor
+                const share = r.support;
+                r.support = 0;
+                const survivors = p.rivals.filter(x => !x.droppedOut);
+                const playerElastic = (this.state.playerCandidate.ideologicalElasticity || 50);
+                const nearestIsPlayer = !survivors.length ||
+                    Math.abs(playerElastic - r.ideologicalElasticity) <=
+                    Math.min(...survivors.map(s => Math.abs(s.ideologicalElasticity - r.ideologicalElasticity)));
+                if (nearestIsPlayer) {
+                    p.playerSupport += share * 0.6;
+                    summary.newsHeadlines.push(`${r.name.toUpperCase()} DROPS OUT, ENDORSES ${this.state.playerCandidate.name.split(' ').pop().toUpperCase()}`);
+                } else {
+                    survivors[0].support += share * 0.6;
+                    summary.newsHeadlines.push(`${r.name.toUpperCase()} SUSPENDS CAMPAIGN`);
+                }
+            }
+        }
+
+        // Endgame checks
+        if (p.playerDelegates >= cfg.DELEGATES_TO_CLINCH && !p.decided) {
+            p.decided = true;
+            c.enthusiasm += 8;
+            c.donorConfidence += 10;
+            c.momentum += 15;
+            summary.newsHeadlines.push(`${this.state.playerCandidate.name.split(' ').pop().toUpperCase()} CLINCHES THE NOMINATION`);
+        }
+        const rivalClinched = p.rivals.find(r => r.delegates >= cfg.DELEGATES_TO_CLINCH);
+        if (rivalClinched && !p.decided) {
+            p.lostNomination = true;
+            p.decided = true;
+        }
+        // Calendar exhausted with no outright majority → the delegate leader
+        // takes the nomination on the convention floor
+        const lastContestWeek = window.GameConstants.PRIMARY_CALENDAR[window.GameConstants.PRIMARY_CALENDAR.length - 1].week;
+        if (!p.decided && this.state.week >= lastContestWeek) {
+            const topRivalDelegates = Math.max(0, ...p.rivals.map(r => r.delegates));
+            if (p.playerDelegates >= topRivalDelegates) {
+                p.decided = true;
+                c.enthusiasm += 6;
+                c.momentum += 10;
+                summary.newsHeadlines.push(`${this.state.playerCandidate.name.split(' ').pop().toUpperCase()} SECURES THE NOMINATION ON THE CONVENTION FLOOR`);
+            } else {
+                p.lostNomination = true;
+                p.decided = true;
+            }
+        }
+
+        return contestResult;
+    },
+
+    runPrimaryContest(contest, summary) {
+        const p = this.state.primary;
+        const cfg = window.GameConstants.PRIMARY;
+        const c = this.state.campaign;
+
+        // Shares: national support + ground game edge + home-state bumps + noise
+        const entrants = [
+            { who: 'player', name: this.state.playerCandidate.name, base: p.playerSupport + (c.groundGame - 30) / 10, home: this.state.playerCandidate.homeState },
+            ...p.rivals.filter(r => !r.droppedOut).map(r => ({ who: r.id, name: r.name, base: r.support, home: r.homeState, rival: r })),
+        ];
+        for (const e of entrants) {
+            e.share = e.base + (Math.random() - 0.5) * 6;
+            if (e.home && contest.states.some(id => {
+                const st = window.StateData.find(s => s.id === id);
+                return st && st.name === e.home;
+            })) e.share += 6;
+            e.share = Math.max(1, e.share);
+        }
+        const totalShare = entrants.reduce((a, e) => a + e.share, 0);
+        for (const e of entrants) e.pct = (e.share / totalShare) * 100;
+
+        // Proportional delegates among viable candidates
+        const viable = entrants.filter(e => e.pct >= cfg.VIABILITY_THRESHOLD);
+        const viableTotal = viable.reduce((a, e) => a + e.pct, 0) || 1;
+        for (const e of entrants) {
+            e.delegates = viable.includes(e) ? Math.round(contest.delegates * (e.pct / viableTotal)) : 0;
+            if (e.who === 'player') p.playerDelegates += e.delegates;
+            else if (e.rival) e.rival.delegates += e.delegates;
+        }
+
+        entrants.sort((a, b) => b.pct - a.pct);
+        const winner = entrants[0];
+        if (winner.who === 'player') { c.momentum += 5; c.enthusiasm += 2; }
+        else c.momentum -= 3;
+
+        const result = {
+            name: contest.name,
+            week: this.state.week,
+            delegates: contest.delegates,
+            results: entrants.map(e => ({ name: e.name, pct: Math.round(e.pct * 10) / 10, delegates: e.delegates, isPlayer: e.who === 'player' })),
+            winnerName: winner.name,
+            playerWon: winner.who === 'player',
+        };
+        p.contestHistory.push(result);
+        summary.newsHeadlines.push(`${winner.name.split(' ').pop().toUpperCase()} WINS ${contest.name.toUpperCase()} — ${winner.delegates} DELEGATES`);
+        return result;
+    },
+
+    // ═══════════════════════════════════════════════
+    // POLICY PLATFORM
+    // ═══════════════════════════════════════════════
+    seedPlatform(candidate) {
+        // Elastic candidates start further from center; D left, R right
+        const isDem = candidate.party === 'Democrat';
+        const magnitude = (candidate.ideologicalElasticity || 50) > 60 ? 2 : 1;
+        const stance = isDem ? -magnitude : magnitude;
+        const platform = {};
+        for (const issue of window.GameConstants.ISSUES) {
+            platform[issue.key] = stance;
+        }
+        return platform;
+    },
+
+    // Where a state's electorate sits on the -2..+2 axis
+    getStateStance(st) {
+        return Math.max(-2, Math.min(2, st.partisanLean / 15));
+    },
+
+    // 0..1: how well a platform matches a state's priorities
+    computePlatformFit(platform, st) {
+        if (!platform || !st.issueSalience) return 0.5;
+        const stance = this.getStateStance(st);
+        let weighted = 0, totalSalience = 0;
+        for (const [key, salience] of Object.entries(st.issueSalience)) {
+            const pos = platform[key];
+            if (typeof pos !== 'number') continue;
+            weighted += salience * (1 - Math.abs(pos - stance) / 4);
+            totalSalience += salience;
+        }
+        return totalSalience > 0 ? weighted / totalSalience : 0.5;
+    },
+
+    // Weekly polling drift toward the better-aligned platform
+    applyPlatformDrift() {
+        if (!this.state.platform || !this.state.opponentPlatform) return;
+        const max = window.GameConstants.PLATFORM.DRIFT_MAX;
+        for (const st of window.StateData) {
+            const poll = this.state.statePolling[st.id];
+            if (!poll) continue;
+            const fitGap = this.computePlatformFit(this.state.platform, st) -
+                           this.computePlatformFit(this.state.opponentPlatform, st);
+            const drift = fitGap * max * 2 * this.getLiveVoteShare(st.id);
+            poll.player += drift;
+            poll.opponent -= drift * 0.5;
+        }
+    },
+
+    // -1..1: how well the platform matches the player's party base
+    getBaseAlignment() {
+        if (!this.state.platform) return 0;
+        const center = (this.state.playerParty === 'democrat' ? -1 : 1) * window.GameConstants.PLATFORM.BASE_CENTER;
+        const keys = Object.keys(this.state.platform);
+        let dist = 0;
+        for (const k of keys) dist += Math.abs(this.state.platform[k] - center);
+        const avg = dist / (keys.length || 1); // 0 (perfect) .. 3.5 (opposite)
+        return 1 - avg / 1.75; // ≈ 1 at the base's center, negative when centrist/crossed
+    },
+
+    shiftPlatform(issueKey, dir) {
+        const cfg = window.GameConstants.PLATFORM;
+        if (!this.state.platform || this.state.platform[issueKey] === undefined) {
+            return { ok: false, message: 'Unknown issue.' };
+        }
+        if (this.state.platformShiftedWeek === this.state.week) {
+            return { ok: false, message: 'You can only reposition on one issue per week.' };
+        }
+        const next = Math.max(-2, Math.min(2, this.state.platform[issueKey] + (dir > 0 ? 1 : -1)));
+        if (next === this.state.platform[issueKey]) {
+            return { ok: false, message: 'Already at the end of that spectrum.' };
+        }
+        this.state.platform[issueKey] = next;
+        this.state.platformShiftedWeek = this.state.week;
+        this.state.flipFlops++;
+        this.state.campaign.enthusiasm -= cfg.SHIFT_ENTHUSIASM_COST;
+        this.state.campaign.scandalVulnerability += cfg.SHIFT_SCANDAL_COST;
+        const issue = window.GameConstants.ISSUES.find(i => i.key === issueKey);
+        const headline = `${this.state.playerCandidate.name.split(' ').pop().toUpperCase()} SHIFTS POSITION ON ${(issue ? issue.label : issueKey).toUpperCase()}`;
+        this.state.newsHistory.push(headline);
+        return { ok: true, message: `Position shifted. The press notices — flip-flop #${this.state.flipFlops}.`, headline };
+    },
+
+    // ═══════════════════════════════════════════════
     // PUBLIC ANGER & CANDIDATE SECURITY
     // ═══════════════════════════════════════════════
     // Nudge the national mood. Campaign-tone effects live in the action
@@ -1372,10 +1663,42 @@ window.GameEngine = {
     // ═══════════════════════════════════════════════
     // DEBATE PROCESSING
     // ═══════════════════════════════════════════════
-    processDebateResults(debateScores, opponentScores, winner) {
+    processDebateResults(debateScores, opponentScores, winner, opts) {
         const c = this.state.campaign;
         const o = this.state.opponent;
         opponentScores = opponentScores || {};
+        opts = opts || {};
+
+        // Primary debates move primary support, not the general-election map
+        if (opts.primaryMode && this.state.primary && !this.state.primary.decided) {
+            const p = this.state.primary;
+            const totalScoreP = Object.values(debateScores).reduce((a, b) => a + b, 0);
+            c.mediaScore += (debateScores.press || 0) * 0.4;
+            c.enthusiasm += (debateScores.base || 0) * 0.4;
+            c.onlineInfluence += (debateScores.viral || 0) * 0.4;
+            if (winner === 'player') { p.playerSupport += 3; c.momentum += 8; }
+            else if (winner === 'opponent') {
+                p.playerSupport -= 2;
+                const leader = p.rivals.filter(r => !r.droppedOut).sort((a, b) => b.support - a.support)[0];
+                if (leader) leader.support += 3;
+                c.momentum -= 5;
+            }
+            this.addDebateAnger(debateScores);
+            this.state.debateHistory.push({
+                week: this.state.week, winner: winner || null, primary: true,
+                playerTotal: Math.round(totalScoreP),
+                opponentTotal: Math.round(Object.values(opponentScores).reduce((a, b) => a + b, 0)),
+            });
+            this.state.debatesCompleted++;
+            const gapP = totalScoreP - Object.values(opponentScores).reduce((a, b) => a + b, 0);
+            return {
+                totalScore: totalScoreP,
+                normalizedScore: totalScoreP / 30,
+                winner: winner || null,
+                assessment: winner === 'player' ? (gapP > 40 ? "Commanding performance" : "Solid showing") :
+                            winner === 'tie' ? "Fought to a draw" : "Outmaneuvered tonight",
+            };
+        }
 
         // Apply debate effects to campaign stats
         c.mediaScore += (debateScores.press || 0) * 0.5;
@@ -1618,8 +1941,17 @@ window.GameEngine = {
         const fresh = this.createFreshState();
         for (const key of ['endorsements', 'opponentEndorsements', 'pollHistory', 'earlyVote', 'debateHistory', 'opponentVP',
                            'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias',
-                           'publicAnger', 'securityDetail', 'hospitalized', 'assassinationAttempts']) {
+                           'publicAnger', 'securityDetail', 'hospitalized', 'assassinationAttempts',
+                           'platform', 'opponentPlatform', 'flipFlops', 'platformShiftedWeek',
+                           'primary', 'opponentPlaybook', 'activeScandals']) {
             if (this.state[key] === undefined) this.state[key] = fresh[key];
+        }
+        // Old saves: seed platforms from the candidates so drift math works
+        if (!this.state.platform && this.state.playerCandidate) {
+            this.state.platform = this.seedPlatform(this.state.playerCandidate);
+        }
+        if (!this.state.opponentPlatform && this.state.opponentCandidate) {
+            this.state.opponentPlatform = this.seedPlatform(this.state.opponentCandidate);
         }
         return this.state;
     }

@@ -2671,7 +2671,22 @@ window.GameUI = {
     startElectionNight() {
         this.showScreen('election-night');
         const nightData = window.GameEngine.generateElectionNight();
-        this.animateElectionNight(nightData);
+        const gs = window.GameEngine.state;
+
+        // The 2D screen serves as the post-broadcast recap after the cutscene
+        const showRecap = () => {
+            this.animateElectionNight(nightData);
+            this.skipElectionNight();
+        };
+
+        if (window.ElectionNight3D && window.THREE) {
+            const container = document.getElementById('election-night-content');
+            container.innerHTML = '<div class="cutscene-container" id="cutscene-container"></div>';
+            const mount = document.getElementById('cutscene-container');
+            window.ElectionNight3D.play(mount, nightData, gs, showRecap);
+        } else {
+            this.animateElectionNight(nightData);
+        }
     },
 
     animateElectionNight(nightData) {

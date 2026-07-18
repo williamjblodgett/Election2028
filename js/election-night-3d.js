@@ -40,6 +40,9 @@ window.ElectionNight3D = {
         const oLast = results.opponentName.split(' ').pop();
         const pColor = gs.playerCandidate.color || '#2166d4';
         const oColor = gs.opponentCandidate.color || '#d42121';
+        // Preload real headshots for the video wall (no-op when absent)
+        const pId = gs.playerCandidate.id, oId = gs.opponentCandidate.id;
+        if (window.Portraits) { window.Portraits.load(pId); window.Portraits.load(oId); }
         const anchors = (window.DebateContent && window.DebateContent.moderators) || [{ name: 'Dana Whitfield' }, { name: 'Marcus Cole' }];
         const anchorA = anchors[0].name, anchorB = (anchors[1] || anchors[0]).name;
 
@@ -204,7 +207,11 @@ window.ElectionNight3D = {
                 wctx.fillStyle = '#ff2a2a'; wctx.fillRect(0, 40, w, 54);
                 wctx.fillStyle = '#fff'; wctx.font = 'bold 34px sans-serif'; wctx.textAlign = 'center';
                 wctx.fillText('GNN PROJECTION', w / 2, 78);
-                wctx.font = 'bold 58px sans-serif';
+                if (window.Portraits) {
+                    const winId = projectionCard.name === results.playerName ? pId : oId;
+                    window.Portraits.drawCircle(wctx, winId, w / 2, 148, 44, projectionCard.color);
+                }
+                wctx.fillStyle = '#fff'; wctx.font = 'bold 58px sans-serif';
                 wctx.fillText(projectionCard.name.toUpperCase(), w / 2, 220);
                 wctx.font = 'bold 40px sans-serif';
                 wctx.fillText('ELECTED PRESIDENT', w / 2, 285);
@@ -272,16 +279,21 @@ window.ElectionNight3D = {
             drawSeries('o', oColor);
             wctx.lineWidth = 1;
 
-            // ── Right bottom: road to 270 ──
+            // ── Right bottom: road to 270 (with headshots when photos exist) ──
             const by = cy0 + ch + 24;
+            const P = window.Portraits;
+            const pShot = P && P.drawCircle(wctx, pId, cx0 + 20, by + 22, 22, pColor);
+            const oShot = P && P.drawCircle(wctx, oId, cx0 + cw - 20, by + 22, 22, oColor);
+            const pX = pShot ? cx0 + 52 : cx0;
+            const oX = oShot ? cx0 + cw - 52 : cx0 + cw;
             wctx.fillStyle = '#e8ecf4'; wctx.font = 'bold 17px sans-serif'; wctx.textAlign = 'left';
-            wctx.fillText(pLast.toUpperCase(), cx0, by);
+            wctx.fillText(pLast.toUpperCase(), pX, by);
             wctx.textAlign = 'right';
-            wctx.fillText(oLast.toUpperCase(), cx0 + cw, by);
+            wctx.fillText(oLast.toUpperCase(), oX, by);
             wctx.textAlign = 'left'; wctx.font = 'bold 40px monospace';
-            wctx.fillStyle = pColor; wctx.fillText(String(evP), cx0, by + 42);
+            wctx.fillStyle = pColor; wctx.fillText(String(evP), pX, by + 42);
             wctx.textAlign = 'right';
-            wctx.fillStyle = oColor; wctx.fillText(String(evO), cx0 + cw, by + 42);
+            wctx.fillStyle = oColor; wctx.fillText(String(evO), oX, by + 42);
             // Bar
             const barY = by + 56, barH = 22;
             wctx.fillStyle = '#1a2440'; wctx.fillRect(cx0, barY, cw, barH);

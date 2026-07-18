@@ -9,18 +9,18 @@ window.DebateWalkout = {
     // Stylized appearance per candidate id: skin tone, hair color/style,
     // facial hair, build. Unknown candidates fall back to a party default.
     APPEARANCES: {
-        newsom:       { skin: 0xddab7e, hair: 0x2d2620, style: 'slick', beard: null,     female: false, height: 1.06 },
-        buttigieg:    { skin: 0xe4bb92, hair: 0x3a2e22, style: 'side',  beard: null,     female: false, height: 0.98 },
-        aoc:          { skin: 0xc98e63, hair: 0x241a12, style: 'long',  beard: null,     female: true,  height: 0.97, lipstick: 0xb03a48 },
-        harris:       { skin: 0xa4713f, hair: 0x1d150e, style: 'bob',   beard: null,     female: true,  height: 0.96, necklace: true },
-        shapiro:      { skin: 0xe6b48c, hair: 0x241f1a, style: 'short', beard: null,     female: false, height: 1.00 },
-        stephensmith: { skin: 0x7c4a26, hair: 0x1a120c, style: 'bald',  beard: 'goatee', female: false, height: 1.05 },
-        vance:        { skin: 0xe9bd97, hair: 0x33261a, style: 'side',  beard: 'full',   female: false, height: 1.02 },
-        rubio:        { skin: 0xdfa87e, hair: 0x201812, style: 'short', beard: null,     female: false, height: 0.99 },
-        desantis:     { skin: 0xe3b28a, hair: 0x2b2118, style: 'side',  beard: null,     female: false, height: 1.02 },
-        trumpjr:      { skin: 0xe5b58d, hair: 0x2e2318, style: 'slick', beard: 'short',  female: false, height: 1.05 },
-        ramaswamy:    { skin: 0x9c6b40, hair: 0x120d09, style: 'coif',  beard: null,     female: false, height: 1.02 },
-        carlson:      { skin: 0xecc2a0, hair: 0x6b4a2c, style: 'side',  beard: null,     female: false, height: 1.03, bowTie: true },
+        newsom:       { skin: 0xddab7e, hair: 0x2d2620, style: 'slick', beard: null,     female: false, height: 1.06, face: { h: 1.06, chin: 1.0 } },
+        buttigieg:    { skin: 0xe4bb92, hair: 0x3a2e22, style: 'side',  beard: null,     female: false, height: 0.98, face: { w: 0.96, h: 1.04 } },
+        aoc:          { skin: 0xc98e63, hair: 0x241a12, style: 'long',  beard: null,     female: true,  height: 0.97, lipstick: 0xb03a48, face: { w: 0.95, brow: 1.15 } },
+        harris:       { skin: 0xa4713f, hair: 0x1d150e, style: 'bob',   beard: null,     female: true,  height: 0.96, necklace: true, face: { w: 0.97 } },
+        shapiro:      { skin: 0xe6b48c, hair: 0x241f1a, style: 'short', beard: null,     female: false, height: 1.00, face: { w: 1.02 } },
+        stephensmith: { skin: 0x7c4a26, hair: 0x1a120c, style: 'bald',  beard: 'goatee', female: false, height: 1.05, face: { w: 1.05, brow: 1.3, chin: 0.9 } },
+        vance:        { skin: 0xe9bd97, hair: 0x33261a, style: 'side',  beard: 'full',   female: false, height: 1.02, face: { w: 1.08, h: 0.98 } },
+        rubio:        { skin: 0xdfa87e, hair: 0x201812, style: 'short', beard: null,     female: false, height: 0.99, face: { w: 1.0, ear: 1.15 } },
+        desantis:     { skin: 0xe3b28a, hair: 0x2b2118, style: 'side',  beard: null,     female: false, height: 1.02, face: { w: 1.06, h: 0.97, jowls: true } },
+        trumpjr:      { skin: 0xe5b58d, hair: 0x2e2318, style: 'slick', beard: 'short',  female: false, height: 1.05, face: { w: 1.04, chin: 1.1 } },
+        ramaswamy:    { skin: 0x9c6b40, hair: 0x120d09, style: 'coif',  beard: null,     female: false, height: 1.02, face: { w: 0.97, h: 1.05, brow: 1.2 } },
+        carlson:      { skin: 0xecc2a0, hair: 0x6b4a2c, style: 'side',  beard: null,     female: false, height: 1.03, bowTie: true, face: { w: 1.1, h: 0.96, brow: 1.25 } },
     },
 
     getAppearance(cand) {
@@ -371,33 +371,39 @@ window.DebateWalkout = {
         headG.position.y = 2.12;
         g.add(headG);
 
+        // Caricature parameters: per-person head proportions. w/h/d scale the
+        // skull (gaunt = w<1 h>1, round = w>1 h<1); nose/noseLen/brow/ear
+        // scale features; chin/jowls add geometry. All optional.
+        const F = A.face || {};
+        const fw = F.w || 1, fh = F.h || 1, fd = F.d || 1;
+
         const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 18), skinMat);
-        head.scale.set(0.95, 1.1, 0.92);
+        head.scale.set(0.95 * fw, 1.1 * fh, 0.92 * fd);
         headG.add(head);
         // Ears
         for (const side of [-1, 1]) {
-            const ear = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), skinMat);
-            ear.position.set(side * 0.285, 0, 0.02);
+            const ear = new THREE.Mesh(new THREE.SphereGeometry(0.05 * (F.ear || 1), 8, 8), skinMat);
+            ear.position.set(side * 0.285 * fw, 0, 0.02);
             headG.add(ear);
         }
         // Eyes (whites + pupils + blink lids)
         const eyelids = [];
         for (const side of [-1, 1]) {
             const white = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), new THREE.MeshBasicMaterial({ color: 0xf6f6f6 }));
-            white.position.set(side * 0.105, 0.045, 0.245);
+            white.position.set(side * 0.105 * fw, 0.045, 0.245 * fd);
             white.scale.set(1, 0.8, 0.5);
             headG.add(white);
             const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), new THREE.MeshBasicMaterial({ color: 0x1a120c }));
-            pupil.position.set(side * 0.105, 0.045, 0.27);
+            pupil.position.set(side * 0.105 * fw, 0.045, 0.27 * fd);
             headG.add(pupil);
             const lid = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.012), skinMat);
-            lid.position.set(side * 0.105, 0.05, 0.285);
+            lid.position.set(side * 0.105 * fw, 0.05, 0.285 * fd);
             lid.scale.y = 0.01; // open
             headG.add(lid);
             eyelids.push(lid);
             // Eyebrow
-            const brow = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.02, 0.02), hairMat);
-            brow.position.set(side * 0.105, 0.125, 0.26);
+            const brow = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.02 * (F.brow || 1), 0.02), hairMat);
+            brow.position.set(side * 0.105 * fw, 0.125, 0.26 * fd);
             brow.rotation.z = side * -0.12;
             headG.add(brow);
         }
@@ -406,32 +412,46 @@ window.DebateWalkout = {
             const rimMat = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.4, metalness: 0.6 });
             for (const side of [-1, 1]) {
                 const rim = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.008, 8, 20), rimMat);
-                rim.position.set(side * 0.105, 0.045, 0.27);
+                rim.position.set(side * 0.105 * fw, 0.045, 0.27 * fd);
                 headG.add(rim);
             }
-            const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.01, 0.01), rimMat);
-            bridge.position.set(0, 0.055, 0.275);
+            const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.075 * fw, 0.01, 0.01), rimMat);
+            bridge.position.set(0, 0.055, 0.275 * fd);
             headG.add(bridge);
         }
         // Nose
         const nose = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), skinMat);
-        nose.position.set(0, -0.03, 0.28);
-        nose.scale.set(0.8, 1.1, 1);
+        nose.position.set(0, -0.03, 0.28 * fd);
+        nose.scale.set(0.8 * (F.nose || 1), 1.1 * (F.nose || 1) * (F.noseLen || 1), F.nose || 1);
         headG.add(nose);
         // Mouth
         const mouth = new THREE.Mesh(
             new THREE.BoxGeometry(0.11, A.lipstick ? 0.03 : 0.018, 0.012),
             new THREE.MeshStandardMaterial({ color: A.lipstick || 0x8a5044, roughness: 0.6 })
         );
-        mouth.position.set(0, -0.135, 0.26);
+        mouth.position.set(0, -0.135, 0.26 * fd);
         headG.add(mouth);
+        // Strong chin / jowls (caricature extras)
+        if (F.chin) {
+            const chin = new THREE.Mesh(new THREE.SphereGeometry(0.07 * F.chin, 8, 8), skinMat);
+            chin.position.set(0, -0.26, 0.16 * fd);
+            headG.add(chin);
+        }
+        if (F.jowls) {
+            for (const side of [-1, 1]) {
+                const jowl = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 8), skinMat);
+                jowl.position.set(side * 0.17 * fw, -0.18, 0.14 * fd);
+                jowl.scale.set(1, 1.15, 0.9);
+                headG.add(jowl);
+            }
+        }
 
         // ── Hair ──
         const addHairDome = (scaleY, zOff, thetaLength) => {
             // Radius slightly over the (vertically stretched) skull so the
             // scalp never pokes through the hair
             const dome = new THREE.Mesh(new THREE.SphereGeometry(0.33, 18, 12, 0, Math.PI * 2, 0, thetaLength || Math.PI * 0.45), hairMat);
-            dome.scale.set(0.98, scaleY, 0.94);
+            dome.scale.set(0.98 * fw, scaleY * Math.max(fh, 1), 0.94 * fd);
             dome.position.set(0, 0.035, zOff);
             headG.add(dome);
             return dome;
@@ -477,7 +497,7 @@ window.DebateWalkout = {
                 new THREE.SphereGeometry(A.beard === 'full' ? 0.305 : 0.298, 16, 10, 0, Math.PI * 2, Math.PI * 0.58, Math.PI * 0.42),
                 hairMat
             );
-            beard.scale.set(0.96, 1.05, 0.95);
+            beard.scale.set(0.96 * fw, 1.05 * fh, 0.95 * fd);
             beard.position.set(0, -0.03, 0.03);
             headG.add(beard);
         } else if (A.beard === 'goatee') {

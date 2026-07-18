@@ -581,7 +581,7 @@ window.GameUI = {
         return `
             <div class="candidate-card vp-card ${isSelected ? `selected ${partyClass}` : ''}" onclick="GameUI.selectVPOption('${option.id}')">
                 <div class="wildcard-badge">${tag}</div>
-                <div class="candidate-portrait">${option.portraitEmoji || '🗳️'}</div>
+                <div class="candidate-portrait">${window.Portraits.html(option)}</div>
                 <div class="candidate-name">${option.name}</div>
                 <div class="candidate-title">${option.title} | ${option.homeState}</div>
                 <div class="vp-card-copy">${option.description}</div>
@@ -617,7 +617,7 @@ window.GameUI = {
         return `
             <div class="candidate-card ${isSelected ? 'selected ' + partyClass : ''}" onclick="GameUI.selectCandidate('${candidate.id}', ${!!isOpponent})">
                 ${candidate.isWildcard ? '<div class="wildcard-badge">WILDCARD</div>' : ''}
-                <div class="candidate-portrait">${candidate.portraitEmoji}</div>
+                <div class="candidate-portrait">${window.Portraits.html(candidate)}</div>
                 <div class="candidate-name">${candidate.name}</div>
                 <div class="candidate-title">${candidate.title} | Age ${candidate.age}</div>
                 <div style="margin:8px 0;">
@@ -2678,7 +2678,7 @@ window.GameUI = {
                 <div class="debate-stage-set">
                     <div class="stage-backdrop-stripes"></div>
                     <div class="debate-podium player" id="podium-player">
-                        <div class="podium-avatar" style="border-color:${pc.color};box-shadow:0 0 18px ${pc.color}55;">${pc.portraitEmoji}</div>
+                        <div class="podium-avatar" style="border-color:${pc.color};box-shadow:0 0 18px ${pc.color}55;">${window.Portraits.html(pc)}</div>
                         <div class="podium-desk"></div>
                         <div class="podium-name-plate">${pLast.toUpperCase()} <span class="plate-you">(YOU)</span></div>
                     </div>
@@ -2688,7 +2688,7 @@ window.GameUI = {
                         <div class="moderator-name">${ctx.moderator.name}<br><span class="moderator-role">MODERATOR</span></div>
                     </div>
                     <div class="debate-podium opponent" id="podium-opponent">
-                        <div class="podium-avatar" style="border-color:${oc.color};box-shadow:0 0 18px ${oc.color}55;">${oc.portraitEmoji}</div>
+                        <div class="podium-avatar" style="border-color:${oc.color};box-shadow:0 0 18px ${oc.color}55;">${window.Portraits.html(oc)}</div>
                         <div class="podium-desk"></div>
                         <div class="podium-name-plate">${oLast.toUpperCase()}</div>
                     </div>
@@ -2715,11 +2715,11 @@ window.GameUI = {
         } else if (speaker === 'player') {
             const c = gs.playerCandidate;
             lineClass = 'player';
-            chipHTML = `<span class="speaker-chip" style="color:${c.color};">${c.portraitEmoji} ${c.name.split(' ').pop().toUpperCase()} (YOU)</span>`;
+            chipHTML = `<span class="speaker-chip" style="color:${c.color};">${window.Portraits.html(c, 'portrait-chip')} ${c.name.split(' ').pop().toUpperCase()} (YOU)</span>`;
         } else {
             const c = ctx.debateOpponent || gs.opponentCandidate;
             lineClass = 'opponent';
-            chipHTML = `<span class="speaker-chip" style="color:${c.color};">${c.portraitEmoji} ${c.name.split(' ').pop().toUpperCase()}</span>`;
+            chipHTML = `<span class="speaker-chip" style="color:${c.color};">${window.Portraits.html(c, 'portrait-chip')} ${c.name.split(' ').pop().toUpperCase()}</span>`;
         }
 
         const line = document.createElement('div');
@@ -3306,6 +3306,7 @@ window.GameUI = {
                 <p style="margin-top:16px;font-size:0.85rem;">All candidate information based on publicly documented reporting as of March 2026.</p>
                 <p style="font-size:0.85rem;">Scandals and controversies are labeled as opposition attack lines, reported criticisms, or campaign liabilities.</p>
                 <p style="margin-top:16px;font-size:0.8rem;color:var(--text-muted);">This is a work of political fiction and strategy gaming.<br>No endorsement of any candidate or party is intended.</p>
+                <p style="font-size:0.8rem;color:var(--text-muted);">Candidate photos, where present, are official U.S. government portraits (public domain) or Creative Commons images — see images/portraits/README.md for sources and credits.</p>
             </div>`);
     },
 
@@ -3317,7 +3318,7 @@ window.GameUI = {
         this.showModal(`${c.name} — Dossier`, `
             <div style="font-size:0.9rem;">
                 <div style="text-align:center;margin-bottom:16px;">
-                    <div style="font-size:3rem;">${c.portraitEmoji}</div>
+                    <div class="candidate-portrait dossier-portrait">${window.Portraits.html(c)}</div>
                     <div style="font-weight:700;font-size:1.2rem;">${c.name}</div>
                     <div class="text-muted">${c.title} | Age ${c.age} | ${c.homeState}</div>
                     <div style="font-style:italic;margin-top:4px;">"${c.slogan}"</div>

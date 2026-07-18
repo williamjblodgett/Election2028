@@ -123,18 +123,18 @@
 
     // ── 3D appearances (registered into the walkout's table) ──
     const LEGEND_APPEARANCES = {
-        legend_fdr:          { skin: 0xe3b28a, hair: 0x8a8f96, style: 'side',  beard: null,       glasses: true,  female: false, height: 1.04 },
-        legend_jfk:          { skin: 0xe6bd97, hair: 0x4a3626, style: 'side',  beard: null,       glasses: false, female: false, height: 1.02 },
-        legend_lbj:          { skin: 0xe0b088, hair: 0x9a9da3, style: 'slick', beard: null,       glasses: false, female: false, height: 1.1 },
-        legend_truman:       { skin: 0xe4b892, hair: 0xb5b8bd, style: 'short', beard: null,       glasses: true,  female: false, height: 0.99 },
-        legend_obama:        { skin: 0x9c6b45, hair: 0x2a2a2e, style: 'short', beard: null,       glasses: false, female: false, height: 1.05 },
-        legend_lincoln:      { skin: 0xdcae87, hair: 0x1c1712, style: 'coif',  beard: 'full',     glasses: false, female: false, height: 1.14 },
-        legend_teddy:        { skin: 0xe2b28c, hair: 0x4a3223, style: 'side',  beard: 'mustache', glasses: true,  female: false, height: 1.0 },
-        legend_ike:          { skin: 0xe6bd97, hair: 0xc6c9cd, style: 'bald',  beard: null,       glasses: false, female: false, height: 1.02 },
-        legend_reagan:       { skin: 0xe0ab80, hair: 0x3a2a20, style: 'slick', beard: null,       glasses: false, female: false, height: 1.04 },
-        legend_nixon:        { skin: 0xe3b28a, hair: 0x2e2620, style: 'side',  beard: null,       glasses: false, female: false, height: 1.02 },
-        legend_washington_d: { skin: 0xe6c09c, hair: 0xd9dade, style: 'side',  beard: null,       glasses: false, female: false, height: 1.06 },
-        legend_washington_r: { skin: 0xe6c09c, hair: 0xd9dade, style: 'side',  beard: null,       glasses: false, female: false, height: 1.06 },
+        legend_fdr:          { skin: 0xe3b28a, hair: 0x8a8f96, style: 'side',  beard: null,       glasses: true,  female: false, height: 1.04, face: { h: 1.1, chin: 1.1, nose: 1.05 } },
+        legend_jfk:          { skin: 0xe6bd97, hair: 0x4a3626, style: 'side',  beard: null,       glasses: false, female: false, height: 1.02, face: { w: 1.08, h: 0.98 } },
+        legend_lbj:          { skin: 0xe0b088, hair: 0x9a9da3, style: 'slick', beard: null,       glasses: false, female: false, height: 1.1,  face: { h: 1.08, ear: 1.5, nose: 1.2, noseLen: 1.15, jowls: true } },
+        legend_truman:       { skin: 0xe4b892, hair: 0xb5b8bd, style: 'short', beard: null,       glasses: true,  female: false, height: 0.99, face: { w: 0.98 } },
+        legend_obama:        { skin: 0x9c6b45, hair: 0x2a2a2e, style: 'short', beard: null,       glasses: false, female: false, height: 1.05, face: { w: 0.96, h: 1.05, ear: 1.4 } },
+        legend_lincoln:      { skin: 0xdcae87, hair: 0x1c1712, style: 'coif',  beard: 'full',     glasses: false, female: false, height: 1.14, face: { w: 0.86, h: 1.16, nose: 1.15, noseLen: 1.2, brow: 1.35, ear: 1.25 } },
+        legend_teddy:        { skin: 0xe2b28c, hair: 0x4a3223, style: 'side',  beard: 'mustache', glasses: true,  female: false, height: 1.0,  face: { w: 1.14, h: 0.96, nose: 1.05, jowls: true } },
+        legend_ike:          { skin: 0xe6bd97, hair: 0xc6c9cd, style: 'bald',  beard: null,       glasses: false, female: false, height: 1.02, face: { w: 1.1, h: 0.97 } },
+        legend_reagan:       { skin: 0xe0ab80, hair: 0x3a2a20, style: 'slick', beard: null,       glasses: false, female: false, height: 1.04, face: { h: 1.04, chin: 1.05, nose: 1.05 } },
+        legend_nixon:        { skin: 0xe3b28a, hair: 0x2e2620, style: 'side',  beard: null,       glasses: false, female: false, height: 1.02, face: { nose: 1.35, noseLen: 1.25, brow: 1.4, jowls: true, w: 1.02 } },
+        legend_washington_d: { skin: 0xe6c09c, hair: 0xd9dade, style: 'side',  beard: null,       glasses: false, female: false, height: 1.06, face: { h: 1.06, nose: 1.12, chin: 0.9 } },
+        legend_washington_r: { skin: 0xe6c09c, hair: 0xd9dade, style: 'side',  beard: null,       glasses: false, female: false, height: 1.06, face: { h: 1.06, nose: 1.12, chin: 0.9 } },
     };
     if (window.DebateWalkout && window.DebateWalkout.APPEARANCES) {
         Object.assign(window.DebateWalkout.APPEARANCES, LEGEND_APPEARANCES);

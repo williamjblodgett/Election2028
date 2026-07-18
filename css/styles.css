@@ -3956,3 +3956,48 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
     .builder-layout { flex-direction: column; }
     .builder-preview-col { flex: none; margin: 0 auto; }
 }
+
+/* ═══ REAL PORTRAITS (public-domain photos, emoji fallback) ═══ */
+.portrait {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.portrait img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center 15%;
+    display: block;
+    border-radius: inherit;
+}
+.portrait .portrait-emoji { display: none; }
+.portrait.no-photo img { display: none; }
+.portrait.no-photo .portrait-emoji { display: inline; }
+
+/* Roster / VP cards + dossier: round photo, plain emoji fallback */
+.candidate-portrait .portrait {
+    width: 84px; height: 84px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--border-color);
+    background: #0a0e17;
+}
+.candidate-portrait .portrait.no-photo {
+    width: auto; height: auto;
+    border: none;
+    background: none;
+    overflow: visible;
+}
+
+/* Debate podium avatars: photo fills the existing circle */
+.podium-avatar .portrait { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
+
+/* Transcript speaker chips: tiny inline headshot */
+.speaker-chip .portrait-chip {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    overflow: hidden;
+    vertical-align: -4px;
+}
+.speaker-chip .portrait-chip.no-photo { width: auto; height: auto; overflow: visible; vertical-align: baseline; }

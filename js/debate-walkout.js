@@ -24,6 +24,9 @@ window.DebateWalkout = {
     },
 
     getAppearance(cand) {
+        // Custom candidates carry their appearance inline; legends register
+        // theirs into APPEARANCES; everyone else gets a sensible default
+        if (cand && cand.appearance) return cand.appearance;
         return this.APPEARANCES[cand && cand.id] ||
             { skin: 0xe0b088, hair: 0x2a2018, style: 'short', beard: null, female: false, height: 1.0 };
     },
@@ -198,10 +201,15 @@ window.DebateWalkout = {
                 // Leg + opposite-arm swing while walking, settle when arrived
                 u.legL.rotation.x = stride * 0.55 * moving;
                 u.legR.rotation.x = -stride * 0.55 * moving;
+                // Knees bend on the back-swing for a real gait
+                u.legL.userData.knee.rotation.x = Math.max(0, -stride) * 0.85 * moving;
+                u.legR.userData.knee.rotation.x = Math.max(0, stride) * 0.85 * moving;
                 u.armL.rotation.x = -stride * 0.4 * moving;
                 u.armR.rotation.x = stride * 0.4 * moving;
                 // Slight bounce
                 fig.position.y = Math.abs(Math.sin(t * 8)) * 0.06 * moving;
+                // Blink (no talking during the walkout — they wave instead)
+                this.animateFace(fig, t, false);
             }
             // Turn from profile to face the audience as they arrive
             figL.rotation.y = lerp(1.2, 0, we);
@@ -264,18 +272,25 @@ window.DebateWalkout = {
 
         const slim = A.female ? 0.86 : 1;
 
-        // ── Legs (pivot at hip so they can swing) ──
+        // ── Legs: thigh group at the hip, shin group at the knee ──
         const makeLeg = (x) => {
-            const leg = new THREE.Group();
-            const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.085 * slim, 0.075 * slim, 0.85, 10), darkMat);
-            thigh.position.y = -0.425;
-            leg.add(thigh);
+            const hip = new THREE.Group();
+            const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.085 * slim, 0.075 * slim, 0.45, 10), darkMat);
+            thigh.position.y = -0.225;
+            hip.add(thigh);
+            const knee = new THREE.Group();
+            const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.072 * slim, 0.065 * slim, 0.42, 10), darkMat);
+            shin.position.y = -0.21;
+            knee.add(shin);
             const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.07, 0.26), new THREE.MeshStandardMaterial({ color: 0x0a0d14, roughness: 0.4 }));
-            shoe.position.set(0, -0.86, 0.06);
-            leg.add(shoe);
-            leg.position.set(x, 0.9, 0);
-            g.add(leg);
-            return leg;
+            shoe.position.set(0, -0.42, 0.06);
+            knee.add(shoe);
+            knee.position.y = -0.45;
+            hip.add(knee);
+            hip.position.set(x, 0.9, 0);
+            g.add(hip);
+            hip.userData.knee = knee;
+            return hip;
         };
         const legL = makeLeg(-0.13);
         const legR = makeLeg(0.13);
@@ -365,7 +380,8 @@ window.DebateWalkout = {
             ear.position.set(side * 0.285, 0, 0.02);
             headG.add(ear);
         }
-        // Eyes (whites + pupils)
+        // Eyes (whites + pupils + blink lids)
+        const eyelids = [];
         for (const side of [-1, 1]) {
             const white = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), new THREE.MeshBasicMaterial({ color: 0xf6f6f6 }));
             white.position.set(side * 0.105, 0.045, 0.245);
@@ -374,11 +390,28 @@ window.DebateWalkout = {
             const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), new THREE.MeshBasicMaterial({ color: 0x1a120c }));
             pupil.position.set(side * 0.105, 0.045, 0.27);
             headG.add(pupil);
+            const lid = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.012), skinMat);
+            lid.position.set(side * 0.105, 0.05, 0.285);
+            lid.scale.y = 0.01; // open
+            headG.add(lid);
+            eyelids.push(lid);
             // Eyebrow
             const brow = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.02, 0.02), hairMat);
             brow.position.set(side * 0.105, 0.125, 0.26);
             brow.rotation.z = side * -0.12;
             headG.add(brow);
+        }
+        // Glasses: wire-rim rings + bridge
+        if (A.glasses) {
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.4, metalness: 0.6 });
+            for (const side of [-1, 1]) {
+                const rim = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.008, 8, 20), rimMat);
+                rim.position.set(side * 0.105, 0.045, 0.27);
+                headG.add(rim);
+            }
+            const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.01, 0.01), rimMat);
+            bridge.position.set(0, 0.055, 0.275);
+            headG.add(bridge);
         }
         // Nose
         const nose = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), skinMat);
@@ -435,7 +468,11 @@ window.DebateWalkout = {
             case 'bald': default: break;
         }
         // ── Facial hair ──
-        if (A.beard === 'full' || A.beard === 'short') {
+        if (A.beard === 'mustache') {
+            const stache = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.035, 0.03), hairMat);
+            stache.position.set(0, -0.095, 0.27);
+            headG.add(stache);
+        } else if (A.beard === 'full' || A.beard === 'short') {
             const beard = new THREE.Mesh(
                 new THREE.SphereGeometry(A.beard === 'full' ? 0.305 : 0.298, 16, 10, 0, Math.PI * 2, Math.PI * 0.58, Math.PI * 0.42),
                 hairMat
@@ -466,9 +503,22 @@ window.DebateWalkout = {
         // which should hit around chest height)
         g.scale.setScalar(1.32 * (A.height || 1));
 
-        g.userData = { legL, legR, armL, armR };
+        g.userData = { legL, legR, armL, armR, mouth, eyelids, blinkSeed: Math.random() * 10 };
         scene.add(g);
         return g;
+    },
+
+    // Shared per-frame face animation: blink cycle (+ optional talking mouth)
+    animateFace(fig, t, talking) {
+        const u = fig.userData;
+        if (u.eyelids) {
+            const phase = (t + u.blinkSeed) % 3.4;
+            const blink = phase < 0.14 ? Math.sin((phase / 0.14) * Math.PI) : 0;
+            for (const lid of u.eyelids) lid.scale.y = 0.01 + blink * 0.95;
+        }
+        if (u.mouth) {
+            u.mouth.scale.y = talking ? 1 + Math.abs(Math.sin(t * 11)) * 2.4 : 1;
+        }
     },
 
     _cleanup() {

@@ -1399,11 +1399,25 @@ window.GameEngine = {
     // ═══════════════════════════════════════════════
     // PRIMARY SEASON
     // ═══════════════════════════════════════════════
+    // The roster a candidate belongs to: legends rival legends, moderns
+    // rival moderns; custom candidates face the modern field
+    getPartyPool(candidate) {
+        const key = candidate.party === 'Democrat' ? 'democrats' : 'republicans';
+        if (candidate.isLegend && window.LegendData) return window.LegendData[key];
+        return window.CandidateData[key] || [];
+    },
+
     initPrimary() {
         const cfg = window.GameConstants.PRIMARY;
-        const party = this.state.playerParty === 'democrat' ? 'democrats' : 'republicans';
-        const pool = (window.CandidateData[party] || []).filter(c =>
-            c.id !== this.state.playerCandidate.id && c.id !== this.state.opponentCandidate.id);
+        let pool = this.getPartyPool(this.state.playerCandidate).filter(c =>
+            c.id !== this.state.playerCandidate.id && c.id !== this.state.opponentCandidate.id &&
+            c.name !== this.state.playerCandidate.name);
+        // Legends bench too thin? borrow from the modern field
+        if (pool.length < 2) {
+            const key = this.state.playerParty === 'democrat' ? 'democrats' : 'republicans';
+            pool = pool.concat((window.CandidateData[key] || []).filter(c =>
+                c.id !== this.state.playerCandidate.id && c.id !== this.state.opponentCandidate.id));
+        }
         // Two same-party rivals, random draw
         const shuffled = [...pool].sort(() => Math.random() - 0.5);
         const rivals = shuffled.slice(0, 2).map((c, i) => ({

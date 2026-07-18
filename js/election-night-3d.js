@@ -442,8 +442,9 @@ window.ElectionNight3D = {
             if (flashState && simMin >= flashUntil) flashState = null;
             if (now - lastPaint > 0.5) { paintWall(Math.max(0, simMin)); lastPaint = now; }
 
-            // Camera: hard-cut shot + slow drift
-            const sInto = Math.min((now - shotStart) / 9, 1);
+            // Camera: hard-cut shot + slow eased drift
+            const sRaw = Math.min((now - shotStart) / 9, 1);
+            const sInto = sRaw * sRaw * (3 - 2 * sRaw); // smoothstep ease
             camera.position.set(
                 shot.pos[0] + shot.drift[0] * sInto,
                 shot.pos[1] + shot.drift[1] * sInto,
@@ -459,6 +460,7 @@ window.ElectionNight3D = {
                 head.rotation.x = talking ? Math.sin(now * 7) * 0.05 : Math.sin(now * 0.8) * 0.02;
                 head.rotation.y = talking ? Math.sin(now * 2.3) * 0.08 : (shot === SHOTS.wall ? -0.5 : 0) + Math.sin(now * 0.5 + 2) * 0.04;
                 if (a.userData.foreArm) a.userData.foreArm.rotation.x = talking ? -0.5 + Math.sin(now * 5) * 0.18 : -0.45;
+                if (window.DebateWalkout) window.DebateWalkout.animateFace(a, now, talking);
             }
 
             // Caption fade
@@ -586,6 +588,7 @@ window.ElectionNight3D = {
         const head = new THREE.Mesh(new THREE.SphereGeometry(0.31, 20, 18), skinMat);
         head.scale.set(0.95, 1.1, 0.92);
         headG.add(head);
+        const eyelids = [];
         for (const side of [-1, 1]) {
             const ear = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), skinMat);
             ear.position.set(side * 0.29, 0, 0.02);
@@ -597,6 +600,11 @@ window.ElectionNight3D = {
             const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), new THREE.MeshBasicMaterial({ color: 0x1a120c }));
             pupil.position.set(side * 0.105, 0.05, 0.275);
             headG.add(pupil);
+            const lid = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.012), skinMat);
+            lid.position.set(side * 0.105, 0.055, 0.29);
+            lid.scale.y = 0.01;
+            headG.add(lid);
+            eyelids.push(lid);
             const brow = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.02, 0.02), hairMat);
             brow.position.set(side * 0.105, 0.13, 0.265);
             brow.rotation.z = side * -0.12;
@@ -635,7 +643,7 @@ window.ElectionNight3D = {
             dome(1.02, -0.015, Math.PI * 0.46);
         }
 
-        g.userData = { head: headG, foreArm };
+        g.userData = { head: headG, foreArm, mouth, eyelids, blinkSeed: Math.random() * 10 };
         return g;
     },
 

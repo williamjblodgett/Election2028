@@ -37,6 +37,7 @@ window.GameUI = {
         this._initialized = true;
 
         this.checkMobile();
+        this.loadCustomCandidates();
         this.checkSavedGame();
         this.renderTitleScreen();
         this.showScreen('title');
@@ -291,21 +292,22 @@ window.GameUI = {
                     </div>`;
                 break;
 
-            case 3: // Candidate Selection
+            case 3: { // Candidate Selection
                 title.textContent = `Choose Your ${this.playerParty === 'democrat' ? 'Democratic' : 'Republican'} Candidate`;
                 subtitle.textContent = 'Compare strengths, liabilities, and coalition fit.';
-                const candidates = this.playerParty === 'democrat' ? window.CandidateData.democrats : window.CandidateData.republicans;
                 const selected = this.playerParty === 'democrat' ? this.selectedDemocrat : this.selectedRepublican;
-                stageContent = `<div class="candidate-grid">${candidates.map(c => this.renderCandidateCard(c, selected)).join('')}</div>`;
+                stageContent = this.renderRosterStage(this.playerParty, selected, false);
                 break;
+            }
 
-            case 4: // Opponent Selection
+            case 4: { // Opponent Selection
                 title.textContent = `Choose Your ${this.playerParty === 'democrat' ? 'Republican' : 'Democratic'} Opponent`;
                 subtitle.textContent = 'Set the matchup and shape the general-election battlefield.';
-                const oppCandidates = this.playerParty === 'democrat' ? window.CandidateData.republicans : window.CandidateData.democrats;
+                const oppParty = this.playerParty === 'democrat' ? 'republican' : 'democrat';
                 const oppSelected = this.playerParty === 'democrat' ? this.selectedRepublican : this.selectedDemocrat;
-                stageContent = `<div class="candidate-grid">${oppCandidates.map(c => this.renderCandidateCard(c, oppSelected, true)).join('')}</div>`;
+                stageContent = this.renderRosterStage(oppParty, oppSelected, true);
                 break;
+            }
 
             case 5: // VP Selection
                 title.textContent = 'Build Your Ticket';
@@ -640,8 +642,306 @@ window.GameUI = {
         </div>`;
     },
 
+    rosterTab: 'modern',
+
+    // ═══════════════════════════════════════════════
+    // CREATE-A-CANDIDATE
+    // ═══════════════════════════════════════════════
+    BUILDER_SKINS: [0xf0d0b0, 0xe6bd97, 0xddab7e, 0xc98e63, 0x9c6b45, 0x6b4526],
+    BUILDER_HAIR_COLORS: [0x1c1712, 0x3a2a20, 0x6b4a2c, 0x9a4a2a, 0xb5b8bd, 0xd9dade],
+    BUILDER_STYLES: ['short', 'side', 'slick', 'coif', 'long', 'bob', 'bald'],
+    BUILDER_BEARDS: [null, 'short', 'full', 'goatee', 'mustache'],
+    BUILDER_EMOJIS: ['🦅', '🌟', '🔥', '🌊', '⚡', '🌄', '🗽', '🛡️', '🎯', '🌾', '🏔️', '🚜', '🧢', '📣', '🕊️', '🦬', '🌵', '⚓', '🛠️', '🎖️', '🏈', '🎸', '☕', '🌻'],
+    BUILDER_STATS: [
+        { key: 'charisma', label: 'Charisma' },
+        { key: 'debate', label: 'Debate' },
+        { key: 'mediaHandling', label: 'Media Handling' },
+        { key: 'scandalResistance', label: 'Scandal Resistance' },
+        { key: 'viralPotential', label: 'Viral Potential' },
+        { key: 'donorTrust', label: 'Donor Trust' },
+    ],
+    BUILDER_POINTS: 30,
+
+    loadCustomCandidates() {
+        try {
+            window.CandidateData.custom = JSON.parse(localStorage.getItem('election2028_custom_candidates') || '[]');
+        } catch (e) {
+            window.CandidateData.custom = [];
+        }
+    },
+
+    saveCustomCandidatesToStorage() {
+        try {
+            localStorage.setItem('election2028_custom_candidates', JSON.stringify(window.CandidateData.custom || []));
+        } catch (e) { /* storage full — keep in memory */ }
+    },
+
+    showCandidateBuilder() {
+        const party = this.playerParty === 'democrat' ? 'Democrat' : 'Republican';
+        this.builderState = {
+            name: '', title: 'Governor', homeState: 'Pennsylvania', party,
+            portraitEmoji: this.BUILDER_EMOJIS[0],
+            appearance: { skin: this.BUILDER_SKINS[1], hair: this.BUILDER_HAIR_COLORS[1], style: 'short', beard: null, glasses: false, female: false, height: 1.02 },
+            stats: { charisma: 0, debate: 0, mediaHandling: 0, scandalResistance: 0, viralPotential: 0, donorTrust: 0 },
+            elasticity: 50,
+        };
+        this.renderCandidateBuilder();
+    },
+
+    renderCandidateBuilder() {
+        const b = this.builderState;
+        const used = Object.values(b.stats).reduce((a, v) => a + v, 0);
+        const remaining = this.BUILDER_POINTS - used;
+        const swatches = (list, current, handler) => list.map(v =>
+            `<button class="builder-swatch ${current === v ? 'selected' : ''}" style="background:#${v.toString(16).padStart(6, '0')};" onclick="${handler}(${v})"></button>`).join('');
+
+        const html = `
+            <div class="builder-layout">
+                <div class="builder-preview-col">
+                    <div id="builder-preview" class="builder-preview"></div>
+                    <div class="builder-preview-note">Live 3D preview</div>
+                </div>
+                <div class="builder-form-col">
+                    <div class="builder-row">
+                        <input id="builder-name" class="builder-input" placeholder="Candidate name" value="${b.name}" oninput="GameUI.builderState.name = this.value" maxlength="30">
+                        <input id="builder-title" class="builder-input" placeholder="Title" value="${b.title}" oninput="GameUI.builderState.title = this.value" maxlength="40">
+                    </div>
+                    <div class="builder-row">
+                        <select class="builder-input" onchange="GameUI.builderState.homeState = this.value">
+                            ${window.StateData.map(s => `<option ${b.homeState === s.name ? 'selected' : ''}>${s.name}</option>`).join('')}
+                        </select>
+                        <div class="builder-emoji-current" title="Campaign emblem">${b.portraitEmoji}</div>
+                    </div>
+                    <div class="builder-emoji-grid">
+                        ${this.BUILDER_EMOJIS.map(e => `<button class="builder-emoji ${b.portraitEmoji === e ? 'selected' : ''}" onclick="GameUI.setBuilder('portraitEmoji', '${e}')">${e}</button>`).join('')}
+                    </div>
+                    <div class="builder-section-label">APPEARANCE</div>
+                    <div class="builder-row"><span class="builder-mini-label">Skin</span>${swatches(this.BUILDER_SKINS, b.appearance.skin, 'GameUI.setBuilderLook(\'skin\',')}</div>
+                    <div class="builder-row"><span class="builder-mini-label">Hair</span>${swatches(this.BUILDER_HAIR_COLORS, b.appearance.hair, 'GameUI.setBuilderLook(\'hair\',')}</div>
+                    <div class="builder-row">
+                        <span class="builder-mini-label">Style</span>
+                        ${this.BUILDER_STYLES.map(s => `<button class="builder-chip ${b.appearance.style === s ? 'selected' : ''}" onclick="GameUI.setBuilderLook('style', '${s}')">${s}</button>`).join('')}
+                    </div>
+                    <div class="builder-row">
+                        <span class="builder-mini-label">Face</span>
+                        ${this.BUILDER_BEARDS.map(v => `<button class="builder-chip ${b.appearance.beard === v ? 'selected' : ''}" onclick="GameUI.setBuilderLook('beard', ${v === null ? 'null' : `'${v}'`})">${v || 'clean'}</button>`).join('')}
+                        <button class="builder-chip ${b.appearance.glasses ? 'selected' : ''}" onclick="GameUI.setBuilderLook('glasses', ${!b.appearance.glasses})">👓 glasses</button>
+                        <button class="builder-chip ${b.appearance.female ? 'selected' : ''}" onclick="GameUI.setBuilderLook('female', ${!b.appearance.female})">slim build</button>
+                    </div>
+                    <div class="builder-section-label">STATS — <span class="${remaining < 0 ? 'text-red' : ''}">${remaining} points left</span> (base 40 each)</div>
+                    ${this.BUILDER_STATS.map(st => `
+                        <div class="builder-stat-row">
+                            <span class="builder-mini-label">${st.label}</span>
+                            <button class="perk-btn" onclick="GameUI.adjustBuilderStat('${st.key}', -5)" ${b.stats[st.key] <= 0 ? 'disabled' : ''}>−</button>
+                            <div class="builder-pips">${[5, 10, 15, 20, 25].map(v => `<div class="perk-pip ${b.stats[st.key] >= v ? 'filled' : ''}"></div>`).join('')}</div>
+                            <button class="perk-btn" onclick="GameUI.adjustBuilderStat('${st.key}', 5)" ${b.stats[st.key] >= 25 || remaining < 5 ? 'disabled' : ''}>+</button>
+                            <span class="builder-stat-val">${40 + b.stats[st.key]}</span>
+                        </div>`).join('')}
+                    <div class="builder-row">
+                        <span class="builder-mini-label">Ideology</span>
+                        <input type="range" min="20" max="85" value="${b.elasticity}" style="flex:1;" oninput="GameUI.builderState.elasticity = +this.value">
+                        <span class="text-muted" style="font-size:0.7rem;">firebrand ↔ moderate</span>
+                    </div>
+                    <div class="btn-group" style="margin-top:12px;">
+                        <button class="btn btn-primary" onclick="GameUI.saveCustomCandidate()">SAVE CANDIDATE</button>
+                        <button class="btn" onclick="GameUI.closeModal()">CANCEL</button>
+                    </div>
+                </div>
+            </div>`;
+        this.showModal(`Create a ${b.party} Candidate`, html);
+        this.startBuilderPreview();
+    },
+
+    setBuilder(key, value) {
+        this.builderState[key] = value;
+        this.renderCandidateBuilder();
+    },
+
+    setBuilderLook(key, value) {
+        this.builderState.appearance[key] = value;
+        this.renderCandidateBuilder();
+    },
+
+    adjustBuilderStat(key, delta) {
+        const b = this.builderState;
+        const used = Object.values(b.stats).reduce((a, v) => a + v, 0);
+        const next = Math.max(0, Math.min(25, b.stats[key] + delta));
+        if (delta > 0 && used + (next - b.stats[key]) > this.BUILDER_POINTS) return;
+        b.stats[key] = next;
+        this.renderCandidateBuilder();
+    },
+
+    startBuilderPreview() {
+        this.stopBuilderPreview();
+        const mount = document.getElementById('builder-preview');
+        if (!mount || !window.THREE || !window.DebateWalkout) {
+            if (mount) mount.innerHTML = `<div style="font-size:4rem;line-height:200px;text-align:center;">${this.builderState.portraitEmoji}</div>`;
+            return;
+        }
+        const THREE = window.THREE;
+        let renderer;
+        try {
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            if (!renderer.getContext()) throw new Error('no gl');
+        } catch (e) { return; }
+        const size = Math.min(mount.clientWidth || 220, 240);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(size, size * 1.25);
+        mount.innerHTML = '';
+        mount.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.add(new THREE.AmbientLight(0x8899bb, 1.0));
+        const keyL = new THREE.DirectionalLight(0xfff2e0, 1.0);
+        keyL.position.set(2, 6, 6);
+        scene.add(keyL);
+        const cam = new THREE.PerspectiveCamera(38, size / (size * 1.25), 0.1, 50);
+        cam.position.set(0, 2.6, 6.4);
+        cam.lookAt(0, 2.1, 0);
+
+        const fig = window.DebateWalkout._buildCharacter(THREE, scene,
+            { id: '__preview', name: this.builderState.name || 'You', appearance: this.builderState.appearance },
+            new THREE.Color(this.builderState.party === 'Democrat' ? '#2166d4' : '#d42121'), true);
+
+        const state = { renderer, scene, raf: 0, running: true };
+        this._builderPreview = state;
+        const loop = () => {
+            if (!state.running) return;
+            state.raf = requestAnimationFrame(loop);
+            const t = performance.now() / 1000;
+            fig.rotation.y = Math.sin(t * 0.7) * 0.55;
+            window.DebateWalkout.animateFace(fig, t, false);
+            renderer.render(scene, cam);
+        };
+        loop();
+    },
+
+    stopBuilderPreview() {
+        const s = this._builderPreview;
+        if (!s) return;
+        s.running = false;
+        if (s.raf) cancelAnimationFrame(s.raf);
+        try {
+            s.scene.traverse(o => {
+                if (o.geometry) o.geometry.dispose();
+                if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+            });
+            s.renderer.dispose();
+            const gl = s.renderer.getContext();
+            const lose = gl && gl.getExtension && gl.getExtension('WEBGL_lose_context');
+            if (lose) lose.loseContext();
+            if (s.renderer.domElement.parentNode) s.renderer.domElement.parentNode.removeChild(s.renderer.domElement);
+        } catch (e) { /* ignore */ }
+        this._builderPreview = null;
+    },
+
+    saveCustomCandidate() {
+        const b = this.builderState;
+        if (!b.name || b.name.trim().length < 2) {
+            this.showToast('Give your candidate a name first.', 'warning');
+            return;
+        }
+        const s = b.stats;
+        const lowRes = 40 + s.scandalResistance < 55;
+        const cand = {
+            id: 'custom_' + Date.now(),
+            name: b.name.trim(),
+            party: b.party,
+            title: (b.title || 'Candidate').trim(),
+            age: 52,
+            homeState: b.homeState,
+            portraitEmoji: b.portraitEmoji,
+            color: b.party === 'Democrat' ? '#2166d4' : '#d42121',
+            charisma: 40 + s.charisma,
+            debate: 40 + s.debate,
+            mediaHandling: 40 + s.mediaHandling,
+            scandalResistance: 40 + s.scandalResistance,
+            viralPotential: 40 + s.viralPotential,
+            donorTrust: 40 + s.donorTrust,
+            baseEnthusiasm: 45 + Math.round((s.charisma + s.viralPotential) / 2.5),
+            eliteSupport: 40 + Math.round(s.donorTrust * 0.8),
+            crossoverAppeal: b.elasticity > 60 ? 45 : 62,
+            ideologicalElasticity: b.elasticity,
+            fatigueFactor: 35,
+            isCustom: true,
+            appearance: { ...b.appearance },
+            strengths: [
+                'A fresh face with no baggage the opposition has found — yet',
+                40 + s.charisma >= 60 ? 'Natural magnetism on the rope line' : 'A disciplined, workmanlike campaigner',
+                40 + s.viralPotential >= 60 ? 'Clips travel: built for the algorithm era' : 'Prefers substance to spectacle',
+            ],
+            vulnerabilities: [
+                'Opposition attack line: an untested newcomer on the national stage',
+                lowRes ? 'A thin paper trail invites aggressive opposition research' : 'The establishment wonders where the loyalty lies',
+                40 + s.debate < 55 ? 'Debate coaches privately worry about unscripted moments' : 'High expectations are their own hazard',
+            ],
+        };
+        window.CandidateData.custom = window.CandidateData.custom || [];
+        window.CandidateData.custom.push(cand);
+        this.saveCustomCandidatesToStorage();
+        this.stopBuilderPreview();
+        document.getElementById('modal-overlay').classList.add('hidden');
+        this.rosterTab = 'custom';
+        this.showToast(`${cand.name} enters the race!`, 'success');
+        this.renderSetupStep();
+    },
+
+    deleteCustomCandidate(id) {
+        window.CandidateData.custom = (window.CandidateData.custom || []).filter(c => c.id !== id);
+        this.saveCustomCandidatesToStorage();
+        this.showToast('Candidate removed.', 'info');
+        this.renderSetupStep();
+    },
+
+    getRosterPool(party, tab) {
+        const key = party === 'democrat' ? 'democrats' : 'republicans';
+        if (tab === 'legends') return window.LegendData ? window.LegendData[key] : [];
+        if (tab === 'custom') {
+            return (window.CandidateData.custom || []).filter(c =>
+                (party === 'democrat') === (c.party === 'Democrat'));
+        }
+        return window.CandidateData[key];
+    },
+
+    renderRosterStage(party, selected, isOpponent) {
+        const tabs = [
+            { id: 'modern', label: '2028 FIELD' },
+            { id: 'legends', label: '🏛️ LEGENDS' },
+            { id: 'custom', label: '✨ MY CANDIDATES' },
+        ];
+        const pool = this.getRosterPool(party, this.rosterTab);
+        const cards = pool.map(c => this.renderCandidateCard(c, selected, isOpponent)).join('');
+        const createCard = this.rosterTab === 'custom' && !isOpponent ? `
+            <div class="candidate-card create-candidate-card" onclick="GameUI.showCandidateBuilder()">
+                <div style="font-size:2.4rem;margin-bottom:8px;">＋</div>
+                <div style="font-weight:800;">CREATE YOUR OWN</div>
+                <div class="text-muted" style="font-size:0.75rem;margin-top:4px;">Name, look, and stats — then run them for president.</div>
+            </div>` : '';
+        const emptyNote = !pool.length && !createCard
+            ? `<div class="text-muted" style="padding:2rem;text-align:center;">No ${this.rosterTab === 'custom' ? 'custom candidates for this party yet — create one from your own nominee step' : 'candidates here'}.</div>`
+            : '';
+        return `
+            <div class="roster-tabs">
+                ${tabs.map(t => `<button class="roster-tab ${this.rosterTab === t.id ? 'active' : ''}" onclick="GameUI.setRosterTab('${t.id}')">${t.label}</button>`).join('')}
+            </div>
+            <div class="candidate-grid">${createCard}${cards}</div>${emptyNote}
+            ${this.rosterTab === 'custom' && pool.length ? `
+            <div class="custom-manage-row">
+                ${pool.map(c => `<button class="btn btn-sm btn-ghost" onclick="GameUI.deleteCustomCandidate('${c.id}')">🗑 ${c.name}</button>`).join('')}
+            </div>` : ''}`;
+    },
+
+    setRosterTab(tab) {
+        this.rosterTab = tab;
+        this.renderSetupStep();
+    },
+
     selectCandidate(candidateId, isOpponent) {
-        const allCandidates = [...window.CandidateData.democrats, ...window.CandidateData.republicans];
+        const allCandidates = [
+            ...window.CandidateData.democrats, ...window.CandidateData.republicans,
+            ...(window.LegendData ? [...window.LegendData.democrats, ...window.LegendData.republicans] : []),
+            ...(window.CandidateData.custom || []),
+        ];
         const candidate = allCandidates.find(c => c.id === candidateId);
         if (!candidate) return;
 
@@ -2074,6 +2374,7 @@ window.GameUI = {
     closeModal(event) {
         if (event && event.target !== document.getElementById('modal-overlay')) return;
         document.getElementById('modal-overlay').classList.add('hidden');
+        this.stopBuilderPreview();
     },
 
     showVisitModal() {

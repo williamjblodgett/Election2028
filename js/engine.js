@@ -98,6 +98,7 @@ window.GameEngine = {
             primary: null,
             opponentPlaybook: null,
             activeScandals: [],
+            transition: null,
         };
     },
 
@@ -2177,6 +2178,112 @@ window.GameEngine = {
         return `Week ${w} — ${months[date.getMonth()]} ${date.getFullYear()}`;
     },
 
+    // ═══════════════════════════════════════════════
+    // TRANSITION & CABINET (post-victory)
+    // ═══════════════════════════════════════════════
+    beginTransition(results) {
+        if (this.state.transition) return this.state.transition;
+        // Coattails: popular-vote margin drives your Senate majority;
+        // electoral-vote margin drives political capital for deal-cutting
+        const margin = results.nationalPopularVote.player - results.nationalPopularVote.opponent;
+        const jitter = Math.floor(Math.random() * 5) - 2;
+        const senateSeats = Math.max(44, Math.min(58, 50 + Math.round(margin * 1.2) + jitter));
+        const capital = Math.max(3, Math.min(12, 5 + Math.round((results.playerEV - 270) / 25)));
+        this.state.transition = {
+            senateSeats,
+            capital,
+            posts: {},      // postId -> installed option (+ votesFor/votesAgainst)
+            failed: [],     // burned nominee ids — can't renominate
+            log: [],
+            complete: false,
+        };
+        return this.state.transition;
+    },
+
+    getCabinetOptions(postId) {
+        const gs = this.state;
+        const party = gs.playerCandidate.party;
+        const pool = ((window.CabinetData.OPTIONS[party] || {})[postId]) || [];
+        const options = pool.map(o => Object.assign({}, o));
+        // Team of Rivals: your defeated general-election opponent, for State
+        if (postId === 'state' && gs.opponentCandidate) {
+            const oc = gs.opponentCandidate;
+            options.unshift({
+                id: oc.id, name: oc.name, title: oc.title || 'Defeated nominee',
+                competence: Math.round(((oc.debate || 60) + (oc.mediaHandling || 60)) / 2),
+                loyalty: 25, controversy: 60, rival: true,
+                blurb: 'The boldest play in politics: hand your defeated opponent the world stage. History remembers a Team of Rivals — if it doesn\'t blow up.',
+            });
+        }
+        // Party unity: defeated primary rivals for Chief of Staff / Treasury
+        if ((postId === 'chief' || postId === 'treasury') && gs.primary && gs.primary.rivals) {
+            for (const r of gs.primary.rivals) {
+                options.push({
+                    id: r.id, name: r.name, title: r.title || 'Former primary rival',
+                    competence: Math.round(((r.charisma || 60) + (r.debate || 60)) / 2),
+                    loyalty: 55, controversy: postId === 'chief' ? 0 : 35, rival: true,
+                    blurb: 'Party unity made flesh — a primary rival brought inside the tent.',
+                });
+            }
+        }
+        // Exclude anyone already serving, burned by the Senate, on your ticket
+        const t = gs.transition || { posts: {}, failed: [] };
+        const taken = new Set(Object.values(t.posts).map(p => p.id));
+        t.failed.forEach(id => taken.add(id));
+        if (gs.vpChoice && gs.vpChoice.id) taken.add(gs.vpChoice.id);
+        taken.add(gs.playerCandidate.id);
+        return options.filter(o => o.id && !taken.has(o.id));
+    },
+
+    nominate(postId, option, cutDeals) {
+        const t = this.state.transition;
+        const post = window.CabinetData.POSTS.find(p => p.id === postId);
+        if (!t || !post || t.posts[postId]) return null;
+        if (!post.confirmable) {
+            t.posts[postId] = Object.assign({ votesFor: null, votesAgainst: null }, option);
+            t.log.push(`${option.name} named ${post.title}.`);
+            this.checkTransitionComplete();
+            return { confirmed: true, appointed: true, votesFor: null, votesAgainst: null };
+        }
+        // Confirmation: your Senate seats minus defections plus crossovers.
+        // Deal-cutting spends 2 political capital to whip wavering votes.
+        let defections = Math.max(0, Math.round((option.controversy - 40) / 12)) + Math.floor(Math.random() * 3);
+        let crossovers = Math.max(0, Math.round((60 - option.controversy) / 15));
+        if (cutDeals && t.capital >= 2) {
+            t.capital -= 2;
+            defections = Math.max(0, defections - 2);
+            crossovers += 1;
+        }
+        const votesFor = Math.max(0, Math.min(100, t.senateSeats - defections + crossovers));
+        const votesAgainst = 100 - votesFor;
+        const confirmed = votesFor >= 50; // the VP breaks a 50-50 tie
+        if (confirmed) {
+            t.posts[postId] = Object.assign({ votesFor, votesAgainst }, option);
+            t.log.push(`${option.name} confirmed as ${post.title}, ${votesFor}–${votesAgainst}.`);
+        } else {
+            t.failed.push(option.id);
+            t.capital = Math.max(0, t.capital - 1);
+            t.log.push(`${option.name} rejected by the Senate, ${votesFor}–${votesAgainst}. The nomination collapses.`);
+        }
+        this.checkTransitionComplete();
+        return { confirmed, votesFor, votesAgainst };
+    },
+
+    checkTransitionComplete() {
+        const t = this.state.transition;
+        if (t && window.CabinetData.POSTS.every(p => t.posts[p.id])) t.complete = true;
+    },
+
+    getCabinetGrade() {
+        const t = this.state.transition;
+        if (!t) return null;
+        const picks = Object.values(t.posts);
+        if (!picks.length) return null;
+        const score = Math.round(picks.reduce((s, p) => s + p.competence * 0.7 + p.loyalty * 0.3, 0) / picks.length);
+        const letter = score >= 86 ? 'A+' : score >= 80 ? 'A' : score >= 73 ? 'B' : score >= 65 ? 'C' : score >= 55 ? 'D' : 'F';
+        return { score, letter };
+    },
+
     serialize() {
         return JSON.stringify(this.state);
     },
@@ -2189,7 +2296,7 @@ window.GameEngine = {
                            'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias',
                            'publicAnger', 'securityDetail', 'hospitalized', 'assassinationAttempts',
                            'platform', 'opponentPlatform', 'flipFlops', 'platformShiftedWeek',
-                           'primary', 'opponentPlaybook', 'activeScandals']) {
+                           'primary', 'opponentPlaybook', 'activeScandals', 'transition']) {
             if (this.state[key] === undefined) this.state[key] = fresh[key];
         }
         // Old saves: seed platforms from the candidates so drift math works

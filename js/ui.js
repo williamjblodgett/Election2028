@@ -3226,10 +3226,12 @@ window.GameUI = {
                     </div>
                 </div>
                 <div class="mt-2 btn-group" style="justify-content:center;">
-                    <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">PLAY AGAIN</button>
+                    ${isPlayerWin ? `<button class="btn btn-primary btn-lg" onclick="GameUI.startTransition()">🏛️ FORM YOUR GOVERNMENT →</button>` : ''}
+                    <button class="btn ${isPlayerWin ? '' : 'btn-primary'} btn-lg" onclick="GameUI.startNewGame()">PLAY AGAIN</button>
                     <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
                 </div>
             </div>`;
+        this._lastResults = results;
         banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         // Update ticker
@@ -3238,6 +3240,190 @@ window.GameUI = {
             `${winnerEV} ELECTORAL VOTES — ${winnerName.toUpperCase()} CLAIMS VICTORY`,
             `THE 2028 PRESIDENTIAL RACE IS OVER — ${winnerName.toUpperCase()} WINS`
         ]);
+    },
+
+    // ═══════════════════════════════════════════════
+    // TRANSITION & CABINET
+    // ═══════════════════════════════════════════════
+    startTransition() {
+        if (!this._lastResults) return;
+        window.GameEngine.beginTransition(this._lastResults);
+        this.renderTransition();
+    },
+
+    renderTransition() {
+        const gs = window.GameEngine.state;
+        const t = gs.transition;
+        if (!t) return;
+        const host = document.getElementById('election-night-content');
+        if (!host) return;
+        const partyClass = gs.playerCandidate.party === 'Democrat' ? 'dem' : 'rep';
+        const seatPct = t.senateSeats;
+        const filled = window.CabinetData.POSTS.filter(p => t.posts[p.id]).length;
+
+        const postCards = window.CabinetData.POSTS.map(post => {
+            const pick = t.posts[post.id];
+            if (pick) {
+                const vote = pick.votesFor !== null && pick.votesFor !== undefined
+                    ? `<span class="cab-vote">CONFIRMED ${pick.votesFor}–${pick.votesAgainst}</span>`
+                    : `<span class="cab-vote appointed">APPOINTED</span>`;
+                return `
+                    <div class="cabinet-card filled ${partyClass}">
+                        <div class="cab-icon">${post.icon}</div>
+                        <div class="cab-post">${post.title}</div>
+                        <div class="cab-portrait">${window.Portraits.html({ id: pick.id, portraitEmoji: post.icon })}</div>
+                        <div class="cab-name">${pick.name}</div>
+                        ${vote}
+                    </div>`;
+            }
+            return `
+                <div class="cabinet-card open" onclick="GameUI.showCabinetPicker('${post.id}')">
+                    <div class="cab-icon">${post.icon}</div>
+                    <div class="cab-post">${post.title}</div>
+                    <div class="cab-empty">MAKE YOUR PICK</div>
+                    <div class="cab-desc">${post.desc}</div>
+                    ${post.confirmable ? '<div class="cab-tag">SENATE CONFIRMATION REQUIRED</div>' : '<div class="cab-tag safe">NO CONFIRMATION NEEDED</div>'}
+                </div>`;
+        }).join('');
+
+        const finale = t.complete ? this.renderInauguration() : '';
+        const logLines = t.log.slice(-4).reverse().map(l => `<div class="transition-log-line">${l}</div>`).join('');
+
+        host.innerHTML = `
+            <div class="transition-shell">
+                ${finale}
+                <div class="transition-header">
+                    <div class="transition-kicker">THE TRANSITION · 73 DAYS TO INAUGURATION</div>
+                    <h2>PRESIDENT-ELECT ${gs.playerCandidate.name.toUpperCase()}</h2>
+                    <div class="transition-meta">
+                        <div class="senate-bar-wrap">
+                            <div class="senate-bar-label">YOUR SENATE: <strong>${t.senateSeats}</strong> SEATS</div>
+                            <div class="senate-bar">
+                                <div class="senate-bar-fill ${partyClass}" style="width:${seatPct}%"></div>
+                                <div class="senate-bar-mid"></div>
+                            </div>
+                        </div>
+                        <div class="capital-wrap" title="Political capital — spend it to cut deals in tough confirmations">
+                            POLITICAL CAPITAL <strong>${'⭐'.repeat(Math.min(t.capital, 12)) || '—'}</strong> (${t.capital})
+                        </div>
+                        <div class="cab-progress">${filled}/${window.CabinetData.POSTS.length} SEATS FILLED</div>
+                    </div>
+                </div>
+                <div class="cabinet-grid">${postCards}</div>
+                ${logLines ? `<div class="transition-log">${logLines}</div>` : ''}
+            </div>`;
+        host.scrollTop = 0;
+    },
+
+    showCabinetPicker(postId) {
+        const post = window.CabinetData.POSTS.find(p => p.id === postId);
+        const options = window.GameEngine.getCabinetOptions(postId);
+        const t = window.GameEngine.state.transition;
+        this._pickerPost = postId;
+        const controversyTag = (c) => {
+            if (!post.confirmable) return '';
+            const [label, cls] = c >= 70 ? ['EXTREME FIGHT', 'extreme'] : c >= 50 ? ['HARD FIGHT', 'hard'] : c >= 30 ? ['SOME FRICTION', 'mid'] : ['SMOOTH SAILING', 'safe'];
+            return `<span class="cab-controversy ${cls}">${label}</span>`;
+        };
+        const cards = options.map((o, i) => `
+            <div class="cabinet-option" id="cab-opt-${i}">
+                ${o.rival ? '<div class="wildcard-badge">TEAM OF RIVALS</div>' : ''}
+                <div class="cab-opt-portrait">${window.Portraits.html({ id: o.id, portraitEmoji: post.icon })}</div>
+                <div class="cab-opt-main">
+                    <div class="cab-opt-name">${o.name} ${controversyTag(o.controversy)}</div>
+                    <div class="cab-opt-title">${o.title}</div>
+                    <div class="cab-opt-blurb">${o.blurb}</div>
+                    ${this.createStatBar('Competence', o.competence, 'dem')}
+                    ${this.createStatBar('Loyalty', o.loyalty, 'rep')}
+                </div>
+                <div class="cab-opt-actions">
+                    <button class="btn btn-sm btn-primary" onclick="GameUI.confirmNomination('${postId}', ${i}, false)">${post.confirmable ? 'NOMINATE' : 'APPOINT'}</button>
+                    ${post.confirmable ? `<button class="btn btn-sm" ${t.capital >= 2 ? '' : 'disabled'} onclick="GameUI.confirmNomination('${postId}', ${i}, true)" title="Spend 2 political capital whipping votes before the roll call">CUT DEALS FIRST (−2⭐)</button>` : ''}
+                </div>
+            </div>`).join('');
+        this._pickerOptions = options;
+        this.showModal(`${post.icon} ${post.title}`, `
+            <p class="text-muted" style="margin-bottom:12px;">${post.desc} ${post.confirmable ? `Your Senate holds <strong>${t.senateSeats}</strong> seats — 50 votes confirms (your VP breaks a tie).` : ''}</p>
+            <div class="cabinet-option-list">${cards}</div>`);
+    },
+
+    confirmNomination(postId, optionIndex, cutDeals) {
+        const option = (this._pickerOptions || [])[optionIndex];
+        if (!option) return;
+        const post = window.CabinetData.POSTS.find(p => p.id === postId);
+        const result = window.GameEngine.nominate(postId, option, cutDeals);
+        if (!result) return;
+        this.closeModal();
+        if (result.appointed) {
+            this.showToast(`${option.name} appointed ${post.title}`, 'success');
+            this.renderTransition();
+            return;
+        }
+        // Animated Senate roll call
+        const target = result.votesFor;
+        this.showModal('🏛️ THE SENATE VOTES', `
+            <div class="senate-vote-stage">
+                <div class="senate-vote-sub">ON THE NOMINATION OF</div>
+                <div class="senate-vote-name">${option.name.toUpperCase()} — ${post.title.toUpperCase()}</div>
+                <div class="senate-tally"><span id="senate-yea">0</span> YEA · <span id="senate-nay">0</span> NAY</div>
+                <div class="senate-vote-bar"><div class="senate-vote-fill" id="senate-vote-fill" style="width:0%"></div><div class="senate-bar-mid"></div></div>
+                <div class="senate-vote-result hidden" id="senate-vote-result"></div>
+                <div class="mt-2 hidden" id="senate-vote-done" style="text-align:center;">
+                    <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.renderTransition();">CONTINUE</button>
+                </div>
+            </div>`);
+        let shown = 0;
+        const timer = setInterval(() => {
+            shown = Math.min(100, shown + 3 + Math.floor(Math.random() * 4));
+            const yea = Math.round(target * shown / 100);
+            const nay = Math.round((100 - target) * shown / 100);
+            const yeaEl = document.getElementById('senate-yea');
+            if (!yeaEl) { clearInterval(timer); return; }
+            yeaEl.textContent = yea;
+            document.getElementById('senate-nay').textContent = nay;
+            document.getElementById('senate-vote-fill').style.width = (yea) + '%';
+            if (shown >= 100) {
+                clearInterval(timer);
+                const res = document.getElementById('senate-vote-result');
+                res.classList.remove('hidden');
+                res.innerHTML = result.confirmed
+                    ? `<span class="confirmed">✅ CONFIRMED ${result.votesFor}–${result.votesAgainst}</span>`
+                    : `<span class="rejected">❌ REJECTED ${result.votesFor}–${result.votesAgainst} — the nomination collapses</span>`;
+                document.getElementById('senate-vote-done').classList.remove('hidden');
+            }
+        }, 60);
+    },
+
+    renderInauguration() {
+        const gs = window.GameEngine.state;
+        const t = gs.transition;
+        const grade = window.GameEngine.getCabinetGrade();
+        const partyClass = gs.playerCandidate.party === 'Democrat' ? 'dem' : 'rep';
+        const seats = window.CabinetData.POSTS.map(post => {
+            const pick = t.posts[post.id];
+            return `<div class="inaug-member">
+                <div class="inaug-portrait">${window.Portraits.html({ id: pick.id, portraitEmoji: post.icon })}</div>
+                <div class="inaug-name">${pick.name}</div>
+                <div class="inaug-post">${post.title}</div>
+            </div>`;
+        }).join('');
+        return `
+            <div class="inauguration-panel ${partyClass}">
+                <div class="inaug-kicker">JANUARY 20, 2029 · THE WEST FRONT OF THE CAPITOL</div>
+                <h2>🇺🇸 INAUGURATION DAY</h2>
+                <p class="inaug-oath">"I do solemnly swear that I will faithfully execute the Office of President of the United States..."</p>
+                <div class="inaug-grid">${seats}</div>
+                <div class="inaug-scorecard">
+                    <div class="inaug-stat"><div class="retro-val">${grade ? grade.letter : '—'}</div><div class="retro-label">Cabinet Grade</div></div>
+                    <div class="inaug-stat"><div class="retro-val">${t.senateSeats}</div><div class="retro-label">Senate Seats</div></div>
+                    <div class="inaug-stat"><div class="retro-val">${t.capital}⭐</div><div class="retro-label">Capital Remaining</div></div>
+                </div>
+                <div class="inaug-tease">THE FIRST TERM — COMING SOON</div>
+                <div class="mt-2 btn-group" style="justify-content:center;">
+                    <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">PLAY AGAIN</button>
+                    <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
+                </div>
+            </div>`;
     },
 
     // ═══════════════════════════════════════════════

@@ -4001,3 +4001,80 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
     vertical-align: -4px;
 }
 .speaker-chip .portrait-chip.no-photo { width: auto; height: auto; overflow: visible; vertical-align: baseline; }
+
+/* ═══ TRANSITION & CABINET ═══ */
+.transition-shell { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.transition-header { text-align: center; margin-bottom: 1.5rem; }
+.transition-kicker { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 2px; color: var(--accent-gold, #ffd75e); margin-bottom: 6px; }
+.transition-header h2 { font-size: 1.8rem; margin-bottom: 12px; }
+.transition-meta { display: flex; gap: 18px; align-items: center; justify-content: center; flex-wrap: wrap; font-family: var(--font-mono); font-size: 0.75rem; }
+.senate-bar-wrap { min-width: 260px; }
+.senate-bar-label { margin-bottom: 4px; text-align: left; }
+.senate-bar { position: relative; height: 14px; background: #3a1f26; border-radius: 7px; overflow: hidden; }
+.senate-bar-fill { height: 100%; border-radius: 7px 0 0 7px; }
+.senate-bar-fill.dem { background: #2166d4; }
+.senate-bar-fill.rep { background: #d42121; }
+.senate-bar-mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: #ffd75e; }
+.capital-wrap strong { letter-spacing: 1px; }
+.cab-progress { color: var(--text-muted); }
+
+.cabinet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.cabinet-card { background: var(--bg-panel, #101726); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; text-align: center; position: relative; transition: border-color 0.15s, transform 0.15s; }
+.cabinet-card.open { cursor: pointer; }
+.cabinet-card.open:hover { border-color: var(--accent-gold, #ffd75e); transform: translateY(-2px); }
+.cabinet-card.filled.dem { border-color: #2166d4; }
+.cabinet-card.filled.rep { border-color: #d42121; }
+.cab-icon { font-size: 1.6rem; }
+.cab-post { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-secondary); margin: 4px 0 8px; }
+.cab-empty { font-weight: 800; letter-spacing: 1px; color: var(--accent-gold, #ffd75e); margin: 10px 0; }
+.cab-desc { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; }
+.cab-tag { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 1px; color: #ff8a8a; margin-top: 10px; }
+.cab-tag.safe { color: #7fd98f; }
+.cab-portrait { margin: 6px auto; }
+.cab-portrait .portrait { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; border: 2px solid var(--border-color); background: #0a0e17; font-size: 1.8rem; }
+.cab-portrait .portrait.no-photo { border: none; background: none; overflow: visible; }
+.cab-name { font-weight: 700; }
+.cab-vote { display: inline-block; font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 1px; color: #7fd98f; margin-top: 6px; }
+.cab-vote.appointed { color: var(--text-muted); }
+
+.cabinet-option-list { display: flex; flex-direction: column; gap: 12px; }
+.cabinet-option { display: flex; gap: 14px; align-items: flex-start; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; position: relative; }
+.cab-opt-portrait .portrait { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; border: 2px solid var(--border-color); background: #0a0e17; font-size: 1.6rem; }
+.cab-opt-portrait .portrait.no-photo { border: none; background: none; overflow: visible; }
+.cab-opt-main { flex: 1; min-width: 0; }
+.cab-opt-name { font-weight: 700; }
+.cab-opt-title { font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px; }
+.cab-opt-blurb { font-size: 0.8rem; color: var(--text-secondary); font-style: italic; margin-bottom: 8px; line-height: 1.4; }
+.cab-opt-actions { display: flex; flex-direction: column; gap: 6px; }
+.cab-controversy { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 1px; padding: 2px 6px; border-radius: 4px; vertical-align: 2px; }
+.cab-controversy.safe { background: #12351c; color: #7fd98f; }
+.cab-controversy.mid { background: #333012; color: #ffd75e; }
+.cab-controversy.hard { background: #3a2412; color: #ffab5e; }
+.cab-controversy.extreme { background: #3a1216; color: #ff8a8a; }
+
+.senate-vote-stage { text-align: center; }
+.senate-vote-sub { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 2px; color: var(--text-muted); }
+.senate-vote-name { font-weight: 800; letter-spacing: 1px; margin: 6px 0 14px; }
+.senate-tally { font-family: var(--font-mono); font-size: 1.4rem; margin-bottom: 10px; }
+.senate-vote-bar { position: relative; height: 18px; background: #3a1f26; border-radius: 9px; overflow: hidden; margin-bottom: 14px; }
+.senate-vote-fill { height: 100%; background: #2f9e4f; transition: width 0.06s linear; }
+.senate-vote-result { font-weight: 800; font-size: 1.1rem; margin: 8px 0; }
+.senate-vote-result .confirmed { color: #7fd98f; }
+.senate-vote-result .rejected { color: #ff8a8a; }
+
+.inauguration-panel { text-align: center; border: 1px solid var(--accent-gold, #ffd75e); border-radius: 14px; padding: 24px 18px; margin-bottom: 24px; background: linear-gradient(180deg, rgba(255,215,94,0.06), transparent); }
+.inaug-kicker { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 2px; color: var(--accent-gold, #ffd75e); margin-bottom: 8px; }
+.inaug-oath { font-style: italic; color: var(--text-secondary); max-width: 560px; margin: 8px auto 18px; }
+.inaug-grid { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-bottom: 18px; }
+.inaug-member { width: 130px; }
+.inaug-portrait .portrait { width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid var(--accent-gold, #ffd75e); background: #0a0e17; font-size: 1.7rem; margin: 0 auto 6px; }
+.inaug-portrait .portrait.no-photo { border: none; background: none; overflow: visible; }
+.inaug-name { font-weight: 700; font-size: 0.85rem; }
+.inaug-post { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 0.5px; }
+.inaug-scorecard { display: flex; gap: 22px; justify-content: center; margin-bottom: 14px; }
+.inaug-tease { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 3px; color: var(--text-muted); margin: 10px 0; }
+@media (max-width: 768px) {
+    .cabinet-grid { grid-template-columns: 1fr; }
+    .cabinet-option { flex-direction: column; }
+    .cab-opt-actions { flex-direction: row; }
+}

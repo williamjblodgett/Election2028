@@ -99,6 +99,7 @@ window.GameEngine = {
             opponentPlaybook: null,
             activeScandals: [],
             transition: null,
+            interviews: { lastWeek: -99, history: [], active: null },
         };
     },
 
@@ -2296,7 +2297,7 @@ window.GameEngine = {
                            'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias',
                            'publicAnger', 'securityDetail', 'hospitalized', 'assassinationAttempts',
                            'platform', 'opponentPlatform', 'flipFlops', 'platformShiftedWeek',
-                           'primary', 'opponentPlaybook', 'activeScandals', 'transition']) {
+                           'primary', 'opponentPlaybook', 'activeScandals', 'transition', 'interviews']) {
             if (this.state[key] === undefined) this.state[key] = fresh[key];
         }
         // Old saves: seed platforms from the candidates so drift math works

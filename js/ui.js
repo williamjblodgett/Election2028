@@ -1140,10 +1140,15 @@ window.GameUI = {
                     <span class="action-copy"><span class="action-label">Podcast Tour</span><span class="action-desc">Cheap reach for online influence and authenticity.</span></span>
                     <span class="action-cost">$5K</span>
                 </button>
-                <button class="btn action-btn" onclick="GameUI.doActivity('interview')">
+                ${window.InterviewSystem && window.InterviewSystem.isAvailable() ? `
+                <button class="btn action-btn" onclick="GameUI.showInterviewVenues()">
                     <span class="action-icon">📺</span>
-                    <span class="action-copy"><span class="action-label">TV Interview</span><span class="action-desc">Manage the narrative without leaving the trail.</span></span>
-                </button>
+                    <span class="action-copy"><span class="action-label">TV Interview</span><span class="action-desc">A sit-down set-piece — pick your venue, survive the questions.</span></span>
+                </button>` : `
+                <button class="btn action-btn" disabled style="opacity:0.55;">
+                    <span class="action-icon">📺</span>
+                    <span class="action-copy"><span class="action-label">TV Interview</span><span class="action-desc">Bookers need ${window.InterviewSystem ? window.InterviewSystem.weeksUntilAvailable() : 1} more week(s) before the next sit-down.</span></span>
+                </button>`}
             </div>
             <div class="panel-section">
                 <div class="panel-section-title">Strategy</div>
@@ -3240,6 +3245,104 @@ window.GameUI = {
             `${winnerEV} ELECTORAL VOTES — ${winnerName.toUpperCase()} CLAIMS VICTORY`,
             `THE 2028 PRESIDENTIAL RACE IS OVER — ${winnerName.toUpperCase()} WINS`
         ]);
+    },
+
+    // ═══════════════════════════════════════════════
+    // TV INTERVIEW SET-PIECE
+    // ═══════════════════════════════════════════════
+    showInterviewVenues() {
+        if (!window.InterviewSystem.isAvailable()) return;
+        const venues = window.InterviewSystem.getVenues(window.GameEngine.state.playerParty);
+        const cards = venues.map(v => `
+            <div class="interview-venue" onclick="GameUI.startInterview('${v.id}')">
+                <div class="iv-icon">${v.icon}</div>
+                <div class="iv-main">
+                    <div class="iv-network">${v.network} <span class="iv-vibe ${v.id}">${v.vibe}</span></div>
+                    <div class="iv-anchor">with ${v.anchor}</div>
+                    <div class="iv-desc">${v.desc}</div>
+                </div>
+            </div>`).join('');
+        this.showModal('📺 Book the Sit-Down', `
+            <p class="text-muted" style="margin-bottom:12px;">Where you sit determines who's watching — and how sharp the knives are.</p>
+            <div class="interview-venue-list">${cards}</div>`);
+    },
+
+    startInterview(venueId) {
+        const { venue } = window.InterviewSystem.start(venueId);
+        this._interviewQ = 0;
+        this._interviewVenue = venue;
+        this.renderInterviewQuestion();
+    },
+
+    renderInterviewQuestion() {
+        const gs = window.GameEngine.state;
+        const ctx = gs.interviews.active;
+        const venue = this._interviewVenue;
+        const qi = this._interviewQ;
+        const q = ctx.questions[qi];
+        const cand = gs.playerCandidate;
+        const opts = q.options.map((o, i) =>
+            `<button class="btn interview-answer" onclick="GameUI.answerInterview(${qi}, ${i})">${o.text}</button>`).join('');
+        this.showModal(`${venue.icon} ${venue.network} — LIVE`, `
+            <div class="interview-stage">
+                <div class="interview-topbar">
+                    <span class="iv-bug">${venue.network.toUpperCase()} <span class="live-dot-inline"></span>LIVE</span>
+                    <span class="iv-qcount">QUESTION ${qi + 1} / ${ctx.questions.length}</span>
+                </div>
+                <div class="interview-anchor-line">
+                    <span class="speaker-chip moderator-chip">🎙️ ${venue.anchor.toUpperCase()}</span>
+                    <div class="interview-question">${q.q}</div>
+                </div>
+                <div class="interview-you">
+                    ${window.Portraits.html(cand, 'portrait-chip')} <strong>Your answer:</strong>
+                </div>
+                <div class="interview-answers">${opts}</div>
+                <div id="interview-reaction" class="interview-reaction"></div>
+            </div>`);
+    },
+
+    answerInterview(qIndex, optIndex) {
+        const res = window.InterviewSystem.answer(qIndex, optIndex);
+        if (!res) return;
+        // Show the reaction beat, then advance
+        document.querySelectorAll('.interview-answer').forEach(b => b.disabled = true);
+        const box = document.getElementById('interview-reaction');
+        if (box) {
+            box.innerHTML = `
+                <div class="iv-score ${res.crit === 'disaster' ? 'bad' : res.crit === 'viral' ? 'great' : res.score >= 60 ? 'good' : ''}">
+                    ${res.crit === 'viral' ? '🔥 ' : res.crit === 'disaster' ? '💀 ' : ''}${res.reaction}
+                </div>
+                <div style="text-align:center;margin-top:10px;">
+                    <button class="btn btn-primary btn-sm" onclick="GameUI.nextInterviewBeat()">${qIndex + 1 < 3 ? 'NEXT QUESTION →' : 'WRAP THE INTERVIEW →'}</button>
+                </div>`;
+        }
+    },
+
+    nextInterviewBeat() {
+        const gs = window.GameEngine.state;
+        this._interviewQ++;
+        if (this._interviewQ < gs.interviews.active.questions.length) {
+            this.renderInterviewQuestion();
+        } else {
+            this.finishInterview();
+        }
+    },
+
+    finishInterview() {
+        const summary = window.InterviewSystem.finish();
+        if (!summary) return;
+        const tierClass = summary.tier === 'MASTERCLASS' ? 'great' : summary.tier === 'SOLID' ? 'good' : summary.tier === 'ROUGH' ? '' : 'bad';
+        this.showModal('📺 The Verdict', `
+            <div class="interview-verdict">
+                <div class="iv-tier ${tierClass}">${summary.tier}</div>
+                <div class="iv-headline">"${summary.headline}"</div>
+                ${summary.hadViral ? '<div class="iv-clip great">🔥 A clip from this one is going viral — for the right reasons.</div>' : ''}
+                ${summary.hadDisaster ? '<div class="iv-clip bad">💀 The stumble is everywhere. The clip has more views than the interview.</div>' : ''}
+                <ul class="iv-effects">${summary.effects.map(e => `<li>${e}</li>`).join('')}</ul>
+                <div style="text-align:center;margin-top:12px;">
+                    <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.renderActionPanel(); GameUI.updateTopBar();">BACK TO THE TRAIL</button>
+                </div>
+            </div>`);
     },
 
     // ═══════════════════════════════════════════════

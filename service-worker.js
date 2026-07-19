@@ -3,7 +3,7 @@
  * Enables offline play and PWA installation
  */
 
-const CACHE_NAME = 'election2028-v13';
+const CACHE_NAME = 'election2028-v14';
 const ASSETS = [
     './',
     './index.html',
@@ -22,6 +22,7 @@ const ASSETS = [
     './js/legends.js',
     './js/portraits.js',
     './js/cabinet.js',
+    './js/interviews.js',
     './js/election-night-3d.js',
     './js/ui.js',
     './manifest.json',

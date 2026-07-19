@@ -4078,3 +4078,41 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
     .cabinet-option { flex-direction: column; }
     .cab-opt-actions { flex-direction: row; }
 }
+
+/* ═══ TV INTERVIEW SET-PIECE ═══ */
+.interview-venue-list { display: flex; flex-direction: column; gap: 10px; }
+.interview-venue { display: flex; gap: 12px; align-items: center; border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+.interview-venue:hover { border-color: var(--accent-gold, #ffd75e); transform: translateY(-1px); }
+.iv-icon { font-size: 1.6rem; }
+.iv-network { font-weight: 800; letter-spacing: 0.5px; }
+.iv-vibe { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 1px; padding: 2px 6px; border-radius: 4px; vertical-align: 2px; }
+.iv-vibe.friendly { background: #12351c; color: #7fd98f; }
+.iv-vibe.mainstream { background: #14283f; color: #7fb2ff; }
+.iv-vibe.hostile { background: #3a1216; color: #ff8a8a; }
+.iv-anchor { font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); }
+.iv-desc { font-size: 0.82rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+
+.interview-topbar { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 1px; margin-bottom: 12px; color: var(--text-muted); }
+.iv-bug { color: #ff5e5e; font-weight: 700; }
+.live-dot-inline { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ff2a2a; margin: 0 4px 1px 6px; animation: liveBlink 1.2s infinite; }
+@keyframes liveBlink { 50% { opacity: 0.3; } }
+.iv-qcount { color: var(--text-secondary); }
+.interview-question { font-size: 1.02rem; line-height: 1.5; margin: 8px 0 14px; font-weight: 500; }
+.interview-you { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
+.interview-answers { display: flex; flex-direction: column; gap: 8px; }
+.interview-answer { text-align: left; white-space: normal; line-height: 1.4; }
+.interview-reaction { margin-top: 12px; }
+.iv-score { font-size: 0.9rem; font-style: italic; color: var(--text-secondary); border-left: 3px solid var(--border-color); padding: 8px 12px; }
+.iv-score.good { border-color: #7fb2ff; }
+.iv-score.great { border-color: #7fd98f; color: #bfeac7; }
+.iv-score.bad { border-color: #ff8a8a; color: #ffc4c4; }
+
+.interview-verdict { text-align: center; }
+.iv-tier { font-size: 1.6rem; font-weight: 800; letter-spacing: 3px; margin-bottom: 6px; color: var(--text-secondary); }
+.iv-tier.great { color: #7fd98f; } .iv-tier.good { color: #7fb2ff; } .iv-tier.bad { color: #ff8a8a; }
+.iv-headline { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
+.iv-clip { border-radius: 8px; padding: 8px 12px; font-size: 0.85rem; margin: 8px auto; max-width: 420px; }
+.iv-clip.great { background: rgba(47,158,79,0.15); color: #bfeac7; }
+.iv-clip.bad { background: rgba(255,60,60,0.12); color: #ffc4c4; }
+.iv-effects { list-style: none; padding: 0; margin: 10px 0 0; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); }
+.iv-effects li { padding: 2px 0; }

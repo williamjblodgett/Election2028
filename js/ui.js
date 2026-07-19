@@ -3299,6 +3299,16 @@ window.GameUI = {
                         <div class="pres-stat"><div class="pres-stat-val">${p.congress.senateSeats}${p.congress.houseMajority ? ' · H✓' : ' · H✗'}</div><div class="pres-stat-label">SENATE · HOUSE</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${p.capital}⭐</div><div class="pres-stat-label">CAPITAL</div></div>
                     </div>
+                    ${(() => {
+                        const eff = window.PresidencySystem.cabinetEffects();
+                        const chips = [];
+                        if (eff.crisisBonus > 0) chips.push(`🛡️ Security team +${Math.round(eff.crisisBonus * 100)}% crisis odds`);
+                        if (eff.econBias > 0.01) chips.push('💵 Treasury steadies growth');
+                        if (eff.econBias < -0.01) chips.push('💵 Weak Treasury drags on growth');
+                        if (eff.billBonus) chips.push('🗂️ Elite chief of staff: +5% bill odds');
+                        if (eff.leakRisk) chips.push('🕳️ Disloyal cabinet — leak risk');
+                        return chips.length ? `<div class="cab-fx-row">${chips.map(c => `<span class="cab-fx">${c}</span>`).join('')}</div>` : '';
+                    })()}
                 </div>
                 <div class="pres-body">
                     <div class="pres-actions">
@@ -3624,7 +3634,7 @@ window.GameUI = {
         const seatPct = t.senateSeats;
         const filled = window.CabinetData.POSTS.filter(p => t.posts[p.id]).length;
 
-        const postCards = window.CabinetData.POSTS.map(post => {
+        const cardFor = (post) => {
             const pick = t.posts[post.id];
             if (pick) {
                 const vote = pick.votesFor !== null && pick.votesFor !== undefined
@@ -3636,6 +3646,7 @@ window.GameUI = {
                         <div class="cab-post">${post.title}</div>
                         <div class="cab-portrait">${window.Portraits.html({ id: pick.id, portraitEmoji: post.icon })}</div>
                         <div class="cab-name">${pick.name}</div>
+                        <div class="cab-pick-title">${pick.title || ''}</div>
                         ${vote}
                     </div>`;
             }
@@ -3647,6 +3658,12 @@ window.GameUI = {
                     <div class="cab-desc">${post.desc}</div>
                     ${post.confirmable ? '<div class="cab-tag">SENATE CONFIRMATION REQUIRED</div>' : '<div class="cab-tag safe">NO CONFIRMATION NEEDED</div>'}
                 </div>`;
+        };
+        const postCards = window.CabinetData.GROUPS.map(g => {
+            const posts = window.CabinetData.POSTS.filter(p => p.group === g.id);
+            if (!posts.length) return '';
+            return `<div class="cab-group-title">${g.title}</div>
+                    <div class="cabinet-grid">${posts.map(cardFor).join('')}</div>`;
         }).join('');
 
         const finale = t.complete ? this.renderInauguration() : '';
@@ -3672,7 +3689,7 @@ window.GameUI = {
                         <div class="cab-progress">${filled}/${window.CabinetData.POSTS.length} SEATS FILLED</div>
                     </div>
                 </div>
-                <div class="cabinet-grid">${postCards}</div>
+                ${postCards}
                 ${logLines ? `<div class="transition-log">${logLines}</div>` : ''}
             </div>`;
         host.scrollTop = 0;
@@ -3694,14 +3711,14 @@ window.GameUI = {
                 <div class="cab-opt-portrait">${window.Portraits.html({ id: o.id, portraitEmoji: post.icon })}</div>
                 <div class="cab-opt-main">
                     <div class="cab-opt-name">${o.name} ${controversyTag(o.controversy)}</div>
-                    <div class="cab-opt-title">${o.title}</div>
-                    <div class="cab-opt-blurb">${o.blurb}</div>
+                    <div class="cab-opt-title">${o.title}${o.age ? ` · Age ${o.age}` : ''}${o.home ? ` · ${o.home}` : ''}</div>
+                    <div class="cab-opt-blurb">${o.bio || o.blurb || ''}</div>
+                    ${(o.concerns && o.concerns.length) ? `<div class="cab-concerns">${o.concerns.map(c => `<div class="cab-concern">⚠ ${c}</div>`).join('')}</div>` : ''}
                     ${this.createStatBar('Competence', o.competence, 'dem')}
                     ${this.createStatBar('Loyalty', o.loyalty, 'rep')}
                 </div>
                 <div class="cab-opt-actions">
-                    <button class="btn btn-sm btn-primary" onclick="GameUI.confirmNomination('${postId}', ${i}, false)">${post.confirmable ? 'NOMINATE' : 'APPOINT'}</button>
-                    ${post.confirmable ? `<button class="btn btn-sm" ${t.capital >= 2 ? '' : 'disabled'} onclick="GameUI.confirmNomination('${postId}', ${i}, true)" title="Spend 2 political capital whipping votes before the roll call">CUT DEALS FIRST (−2⭐)</button>` : ''}
+                    <button class="btn btn-sm btn-primary" onclick="GameUI.confirmNomination('${postId}', ${i})">${post.confirmable ? 'NOMINATE' : 'APPOINT'}</button>
                 </div>
             </div>`).join('');
         this._pickerOptions = options;
@@ -3710,18 +3727,42 @@ window.GameUI = {
             <div class="cabinet-option-list">${cards}</div>`);
     },
 
-    confirmNomination(postId, optionIndex, cutDeals) {
+    confirmNomination(postId, optionIndex) {
         const option = (this._pickerOptions || [])[optionIndex];
         if (!option) return;
         const post = window.CabinetData.POSTS.find(p => p.id === postId);
-        const result = window.GameEngine.nominate(postId, option, cutDeals);
-        if (!result) return;
-        this.closeModal();
-        if (result.appointed) {
+        if (!post.confirmable) {
+            const result = window.GameEngine.nominate(postId, option, 'floor');
+            if (!result) return;
+            this.closeModal();
             this.showToast(`${option.name} appointed ${post.title}`, 'success');
             this.renderTransition();
             return;
         }
+        // Hearing strategy: how do you play the two weeks before the vote?
+        const t = window.GameEngine.state.transition;
+        this.showModal(`🎯 Hearing Strategy — ${option.name}`, `
+            <p class="text-muted" style="margin-bottom:12px;">${option.name} for ${post.title}. Controversy: <strong>${option.controversy}</strong> · Your Senate: <strong>${t.senateSeats}</strong> · Capital: <strong>${t.capital}⭐</strong></p>
+            <div class="interview-answers">
+                <button class="btn interview-answer" onclick="GameUI.runNomination('${postId}', ${optionIndex}, 'floor')">
+                    Straight to the floor — no prep, no promises, spend nothing
+                    <span class="crisis-tag">FREE · RAW ODDS</span></button>
+                <button class="btn interview-answer" ${t.capital >= 1 ? '' : 'disabled'} onclick="GameUI.runNomination('${postId}', ${optionIndex}, 'murder')">
+                    Murder boards — two weeks of brutal mock hearings blunt the attacks
+                    <span class="crisis-tag">−1⭐ · CONTROVERSY −14</span></button>
+                <button class="btn interview-answer" ${t.capital >= 2 ? '' : 'disabled'} onclick="GameUI.runNomination('${postId}', ${optionIndex}, 'deals')">
+                    Cut deals — trade projects and judgeships for wavering votes
+                    <span class="crisis-tag">−2⭐ · WHIP 2 DEFECTORS, BUY 1 CROSSOVER</span></button>
+            </div>`);
+    },
+
+    runNomination(postId, optionIndex, strategy) {
+        const option = (this._pickerOptions || [])[optionIndex];
+        if (!option) return;
+        const post = window.CabinetData.POSTS.find(p => p.id === postId);
+        const result = window.GameEngine.nominate(postId, option, strategy);
+        if (!result) return;
+        this.closeModal();
         // Animated Senate roll call
         const target = result.votesFor;
         this.showModal('🏛️ THE SENATE VOTES', `
@@ -3749,9 +3790,10 @@ window.GameUI = {
                 clearInterval(timer);
                 const res = document.getElementById('senate-vote-result');
                 res.classList.remove('hidden');
-                res.innerHTML = result.confirmed
+                const detail = `<div class="senate-vote-detail">${result.defections} defection${result.defections === 1 ? '' : 's'} from your side · ${result.crossovers} crossover${result.crossovers === 1 ? '' : 's'} won${result.strategy !== 'floor' ? ` · ${result.strategy === 'murder' ? 'murder boards paid off' : 'deals were cut'}` : ''}</div>`;
+                res.innerHTML = (result.confirmed
                     ? `<span class="confirmed">✅ CONFIRMED ${result.votesFor}–${result.votesAgainst}</span>`
-                    : `<span class="rejected">❌ REJECTED ${result.votesFor}–${result.votesAgainst} — the nomination collapses</span>`;
+                    : `<span class="rejected">❌ REJECTED ${result.votesFor}–${result.votesAgainst} — the nomination collapses</span>`) + detail;
                 document.getElementById('senate-vote-done').classList.remove('hidden');
             }
         }, 60);

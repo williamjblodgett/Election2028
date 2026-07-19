@@ -4155,3 +4155,12 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .legacy-grade { font-size: 3.4rem; font-weight: 800; color: var(--accent-gold, #ffd75e); }
 .legacy-title { font-size: 1.2rem; font-weight: 800; letter-spacing: 2px; }
 @media (max-width: 768px) { .pres-body { grid-template-columns: 1fr; } }
+
+/* ═══ CABINET DEPTH ═══ */
+.cab-group-title { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 3px; color: var(--accent-gold, #ffd75e); margin: 18px 0 10px; text-align: left; }
+.cab-pick-title { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+.cab-concerns { margin: 6px 0 8px; }
+.cab-concern { font-size: 0.74rem; color: #ffab8a; padding: 1px 0; line-height: 1.35; }
+.senate-vote-detail { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; letter-spacing: 0.5px; }
+.cab-fx-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.cab-fx { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.5px; background: rgba(255,215,94,0.08); border: 1px solid rgba(255,215,94,0.25); color: var(--text-secondary); border-radius: 20px; padding: 3px 10px; }

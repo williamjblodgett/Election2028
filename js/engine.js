@@ -2212,9 +2212,11 @@ window.GameEngine = {
             const oc = gs.opponentCandidate;
             options.unshift({
                 id: oc.id, name: oc.name, title: oc.title || 'Defeated nominee',
+                age: oc.age, home: oc.homeState,
                 competence: Math.round(((oc.debate || 60) + (oc.mediaHandling || 60)) / 2),
                 loyalty: 25, controversy: 60, rival: true,
-                blurb: 'The boldest play in politics: hand your defeated opponent the world stage. History remembers a Team of Rivals — if it doesn\'t blow up.',
+                bio: 'The boldest play in politics: hand your defeated opponent the world stage. History remembers a Team of Rivals — if it doesn\'t blow up.',
+                concerns: ['Just spent a year campaigning against everything you stand for', 'Loyalty is a bet, not a fact'],
             });
         }
         // Party unity: defeated primary rivals for Chief of Staff / Treasury
@@ -2222,9 +2224,11 @@ window.GameEngine = {
             for (const r of gs.primary.rivals) {
                 options.push({
                     id: r.id, name: r.name, title: r.title || 'Former primary rival',
+                    age: r.age, home: r.homeState,
                     competence: Math.round(((r.charisma || 60) + (r.debate || 60)) / 2),
                     loyalty: 55, controversy: postId === 'chief' ? 0 : 35, rival: true,
-                    blurb: 'Party unity made flesh — a primary rival brought inside the tent.',
+                    bio: 'Party unity made flesh — a primary rival brought inside the tent.',
+                    concerns: postId === 'chief' ? [] : ['Primary-season attack lines get quoted back at the hearing'],
                 });
             }
         }
@@ -2237,7 +2241,7 @@ window.GameEngine = {
         return options.filter(o => o.id && !taken.has(o.id));
     },
 
-    nominate(postId, option, cutDeals) {
+    nominate(postId, option, strategy) {
         const t = this.state.transition;
         const post = window.CabinetData.POSTS.find(p => p.id === postId);
         if (!t || !post || t.posts[postId]) return null;
@@ -2247,15 +2251,22 @@ window.GameEngine = {
             this.checkTransitionComplete();
             return { confirmed: true, appointed: true, votesFor: null, votesAgainst: null };
         }
-        // Confirmation: your Senate seats minus defections plus crossovers.
-        // Deal-cutting spends 2 political capital to whip wavering votes.
-        let defections = Math.max(0, Math.round((option.controversy - 40) / 12)) + Math.floor(Math.random() * 3);
-        let crossovers = Math.max(0, Math.round((60 - option.controversy) / 15));
-        if (cutDeals && t.capital >= 2) {
+        // Hearing strategy shapes the math before the roll call:
+        //   'floor'  — straight to the vote, spend nothing
+        //   'murder' — murder boards, 1 capital: prep drops effective controversy
+        //   'deals'  — cut deals, 2 capital: whip defectors and buy a crossover
+        if (strategy === true) strategy = 'deals'; // legacy boolean form
+        let controversy = option.controversy;
+        let whipped = 0, bought = 0;
+        if (strategy === 'murder' && t.capital >= 1) {
+            t.capital -= 1;
+            controversy = Math.max(0, controversy - 14);
+        } else if (strategy === 'deals' && t.capital >= 2) {
             t.capital -= 2;
-            defections = Math.max(0, defections - 2);
-            crossovers += 1;
+            whipped = 2; bought = 1;
         }
+        const defections = Math.max(0, Math.max(0, Math.round((controversy - 40) / 12)) + Math.floor(Math.random() * 3) - whipped);
+        const crossovers = Math.max(0, Math.round((60 - controversy) / 15)) + bought;
         const votesFor = Math.max(0, Math.min(100, t.senateSeats - defections + crossovers));
         const votesAgainst = 100 - votesFor;
         const confirmed = votesFor >= 50; // the VP breaks a 50-50 tie
@@ -2268,7 +2279,7 @@ window.GameEngine = {
             t.log.push(`${option.name} rejected by the Senate, ${votesFor}–${votesAgainst}. The nomination collapses.`);
         }
         this.checkTransitionComplete();
-        return { confirmed, votesFor, votesAgainst };
+        return { confirmed, votesFor, votesAgainst, defections, crossovers, strategy: strategy || 'floor' };
     },
 
     checkTransitionComplete() {

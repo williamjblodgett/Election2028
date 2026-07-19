@@ -77,6 +77,11 @@ window.PresidencySystem = {
             { text: 'Special operations rescue', good: { approval: 6 }, bad: { approval: -6 }, odds: 0.55, tag: 'All or nothing' },
             { text: 'Quiet ransom through intermediaries', good: { approval: 2 }, bad: { approval: -3 }, odds: 0.75, tag: 'Deniable' },
             { text: 'Public ultimatum + sanctions', good: { approval: 3 }, bad: { approval: -2 }, odds: 0.6, tag: 'Pressure' } ] },
+        { id: 'leaks',     title: '🕳️ West Wing Leaks', text: 'Your own cabinet is talking. A devastating tell-all excerpt quotes three "senior administration officials" mocking your decision-making. (A more loyal cabinet would never have let this fire start.)',
+          choices: [
+            { text: 'Hunt the leakers — polygraphs and firings', good: { approval: 2, capital: 1 }, bad: { approval: -4 }, odds: 0.55, tag: 'Purge' },
+            { text: 'Laugh it off in public, tighten the circle in private', good: { approval: 3 }, bad: { approval: -2 }, odds: 0.7, tag: 'Above the fray' },
+            { text: 'Reshuffle the cabinet on your own terms', good: { approval: 2, capital: -1 }, bad: { approval: -3, capital: -1 }, odds: 0.6, tag: 'Shake-up' } ] },
     ],
 
     OPPORTUNITIES: [
@@ -85,6 +90,32 @@ window.PresidencySystem = {
         { id: 'boom',   title: '🚀 Tech Investment Wave', text: 'Three trillion-dollar companies announce U.S. mega-factories.', effects: { approval: 2, gdp: 0.3 } },
         { id: 'anthem', title: '🏅 A National Moment', text: 'An Olympic sweep and a returning space crew put the country in a rare good mood.', effects: { approval: 2 } },
     ],
+
+    // Your cabinet is not set dressing: who you hired changes the odds
+    cabinetEffects() {
+        const gs = window.GameEngine.state;
+        const posts = (gs.transition && gs.transition.posts) || {};
+        const avg = (ids, key) => {
+            const vals = ids.map(id => posts[id] && posts[id][key]).filter(v => typeof v === 'number');
+            return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+        };
+        const security = avg(['state', 'defense', 'cia', 'homeland', 'nsa'], 'competence');
+        const treasury = posts.treasury ? posts.treasury.competence : null;
+        const chief = posts.chief ? posts.chief.competence : null;
+        const loyalty = avg(Object.keys(posts), 'loyalty');
+        return {
+            // Security team competence shifts crisis success odds (up to +10%)
+            crisisBonus: security !== null ? Math.max(0, Math.min(0.10, (security - 70) / 200)) : 0,
+            // Treasury competence biases the economy's drift (±0.05 GDP/qtr)
+            econBias: treasury !== null ? Math.max(-0.05, Math.min(0.05, (treasury - 75) / 400)) : 0,
+            // A top-tier chief of staff runs a cleaner whip operation
+            billBonus: chief !== null && chief >= 85 ? 5 : 0,
+            // A disloyal cabinet leaks
+            leakRisk: loyalty !== null && loyalty < 65,
+            security: security && Math.round(security),
+            loyalty: loyalty && Math.round(loyalty),
+        };
+    },
 
     // ── Lifecycle ──────────────────────────────────
 
@@ -134,7 +165,8 @@ window.PresidencySystem = {
         const p = window.GameEngine.state.presidency;
         let odds = 40 + (p.congress.senateSeats - 50) * 4 + (p.congress.houseMajority ? 15 : -20)
             + (extraCapital || 0) * 8 + (bill.bipartisan ? 15 : 0)
-            + (p.approval >= 55 ? 8 : p.approval < 45 ? -8 : 0);
+            + (p.approval >= 55 ? 8 : p.approval < 45 ? -8 : 0)
+            + this.cabinetEffects().billBonus;
         return Math.max(5, Math.min(95, Math.round(odds)));
     },
 
@@ -199,7 +231,9 @@ window.PresidencySystem = {
         }
         const roll = Math.random();
         if (roll < 0.5) {
-            const pool = this.CRISES.filter(c => !p.crisisLog.some(l => l.id === c.id));
+            const eff = this.cabinetEffects();
+            const pool = this.CRISES.filter(c => !p.crisisLog.some(l => l.id === c.id))
+                .filter(c => c.id !== 'leaks' || eff.leakRisk);
             const crisis = pool[Math.floor(Math.random() * pool.length)] || this.CRISES[Math.floor(Math.random() * this.CRISES.length)];
             p.pendingEvent = { kind: 'crisis', id: crisis.id };
             return p.pendingEvent;
@@ -221,7 +255,7 @@ window.PresidencySystem = {
         if (!p.pendingEvent || p.pendingEvent.kind !== 'crisis') return null;
         const crisis = this.CRISES.find(c => c.id === p.pendingEvent.id);
         const choice = crisis.choices[choiceIndex];
-        let odds = choice.odds + (p.crisisShield ? 0.12 : 0);
+        let odds = choice.odds + (p.crisisShield ? 0.12 : 0) + this.cabinetEffects().crisisBonus;
         p.crisisShield = false;
         const success = Math.random() < odds;
         this._applyEffects(success ? choice.good : choice.bad);
@@ -281,9 +315,9 @@ window.PresidencySystem = {
             }
         }
 
-        // Economy random walk
+        // Economy random walk (a strong Treasury secretary tilts the drift)
         const e = p.economy;
-        e.gdp = Math.round((e.gdp + (Math.random() - 0.48) * 0.6) * 10) / 10;
+        e.gdp = Math.round((e.gdp + (Math.random() - 0.48) * 0.6 + this.cabinetEffects().econBias) * 10) / 10;
         e.unemployment = Math.max(2.5, Math.round((e.unemployment + (Math.random() - 0.5) * 0.4 - (e.gdp > 2.5 ? 0.1 : -0.1)) * 10) / 10);
         e.inflation = Math.max(0.5, Math.round((e.inflation + (Math.random() - 0.5) * 0.5) * 10) / 10);
 

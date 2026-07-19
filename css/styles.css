@@ -4116,3 +4116,42 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .iv-clip.bad { background: rgba(255,60,60,0.12); color: #ffc4c4; }
 .iv-effects { list-style: none; padding: 0; margin: 10px 0 0; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); }
 .iv-effects li { padding: 2px 0; }
+
+/* ═══ THE FIRST TERM (presidency) ═══ */
+#screen-presidency { overflow-y: auto; }
+.pres-shell { max-width: 1100px; margin: 0 auto; padding: 1.2rem 1rem 3rem; }
+.pres-header { border: 1px solid var(--border-color); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent); }
+.pres-header.dem { border-color: #2166d4; } .pres-header.rep { border-color: #d42121; }
+.pres-title-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.pres-seal { font-size: 2.2rem; }
+.pres-kicker { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 2px; color: var(--accent-gold, #ffd75e); }
+.pres-title-row h2 { font-size: 1.4rem; }
+.pres-portrait { margin-left: auto; }
+.pres-portrait .portrait { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; border: 2px solid var(--accent-gold, #ffd75e); background: #0a0e17; font-size: 1.7rem; }
+.pres-portrait .portrait.no-photo { border: none; background: none; overflow: visible; }
+.pres-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+.pres-stat { flex: 1; min-width: 100px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; text-align: center; }
+.pres-stat.approval { border-color: var(--accent-gold, #ffd75e); }
+.pres-stat-val { font-family: var(--font-mono); font-weight: 700; font-size: 1.15rem; }
+.pres-stat.approval .pres-stat-val { font-size: 1.5rem; color: var(--accent-gold, #ffd75e); }
+.pres-stat-label { font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 1px; color: var(--text-muted); margin-top: 2px; }
+.pres-body { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+.pres-actions .action-btn { width: 100%; margin-bottom: 8px; }
+.pres-end-quarter { width: 100%; margin-top: 10px; }
+.pres-agenda { background: var(--bg-panel, #101726); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; }
+.agenda-row { font-size: 0.85rem; padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.06); }
+.agenda-row.struck { color: var(--text-muted); text-decoration: line-through; }
+.pres-log-line { font-size: 0.78rem; color: var(--text-secondary); padding: 3px 0; font-family: var(--font-mono); }
+.bill-list { display: flex; flex-direction: column; gap: 10px; }
+.bill-card { border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; }
+.bill-name { font-weight: 700; }
+.bill-issue { font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 1px; color: var(--accent-gold, #ffd75e); margin-left: 6px; }
+.bill-desc { font-size: 0.82rem; color: var(--text-secondary); margin: 4px 0 8px; }
+.bill-odds { font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-muted); margin-bottom: 8px; }
+.bill-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.crisis-stage .crisis-text { font-size: 0.95rem; line-height: 1.55; margin-bottom: 14px; }
+.crisis-tag { display: block; font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 1px; color: var(--text-muted); margin-top: 4px; }
+.legacy-grade-row { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 12px 0; }
+.legacy-grade { font-size: 3.4rem; font-weight: 800; color: var(--accent-gold, #ffd75e); }
+.legacy-title { font-size: 1.2rem; font-weight: 800; letter-spacing: 2px; }
+@media (max-width: 768px) { .pres-body { grid-template-columns: 1fr; } }

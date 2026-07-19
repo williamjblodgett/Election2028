@@ -118,6 +118,12 @@ window.GameUI = {
             this.playerParty = gs.playerParty;
             this.selectedDemocrat = gs.playerParty === 'democrat' ? gs.playerCandidate : gs.opponentCandidate;
             this.selectedRepublican = gs.playerParty === 'republican' ? gs.playerCandidate : gs.opponentCandidate;
+            if (gs.presidency && !gs.presidency.over) {
+                this.showScreen('presidency');
+                this.renderPresidency();
+                this.showToast(`Presidency resumed — ${window.PresidencySystem.quarterLabel(gs.presidency.quarter)}`, 'success');
+                return;
+            }
             this.showScreen('game');
             this.renderGameScreen();
             this.showToast(`Campaign resumed — ${window.GameEngine.getWeekLabel()}`, 'success');
@@ -3248,6 +3254,260 @@ window.GameUI = {
     },
 
     // ═══════════════════════════════════════════════
+    // THE FIRST TERM (presidency mode)
+    // ═══════════════════════════════════════════════
+    startPresidency() {
+        window.PresidencySystem.begin();
+        this.showScreen('presidency');
+        this.renderPresidency();
+        this.autoSave();
+    },
+
+    renderPresidency() {
+        const gs = window.GameEngine.state;
+        const p = gs.presidency;
+        const host = document.getElementById('presidency-content');
+        if (!p || !host) return;
+        if (p.over) { host.innerHTML = this.renderLegacyReport(); return; }
+
+        const PS = window.PresidencySystem;
+        const partyClass = gs.playerCandidate.party === 'Democrat' ? 'dem' : 'rep';
+        const e = p.economy;
+        const acted = p.acted;
+
+        const agendaRows = p.enacted.map(b => `<div class="agenda-row law">📜 ${b.name}</div>`).join('')
+            + p.eos.map(o => `<div class="agenda-row eo ${o.struck ? 'struck' : ''}">${o.struck ? '⚖️' : '🖋️'} ${o.name}${o.struck ? ' — STRUCK DOWN' : ''}</div>`).join('')
+            + p.scotus.map(s => `<div class="agenda-row scotus">🏛️ Supreme Court: ${s.pick}</div>`).join('');
+        const logRows = p.log.slice(-4).reverse().map(l => `<div class="pres-log-line">${l}</div>`).join('');
+
+        host.innerHTML = `
+            <div class="pres-shell">
+                <div class="pres-header ${partyClass}">
+                    <div class="pres-title-row">
+                        <div class="pres-seal">🦅</div>
+                        <div>
+                            <div class="pres-kicker">${PS.quarterLabel(p.quarter)} · QUARTER ${p.quarter} OF 16</div>
+                            <h2>PRESIDENT ${gs.playerCandidate.name.toUpperCase()}</h2>
+                        </div>
+                        <div class="pres-portrait">${window.Portraits.html(gs.playerCandidate)}</div>
+                    </div>
+                    <div class="pres-stats">
+                        <div class="pres-stat approval"><div class="pres-stat-val">${p.approval}%</div><div class="pres-stat-label">APPROVAL</div></div>
+                        <div class="pres-stat"><div class="pres-stat-val">${e.gdp.toFixed(1)}%</div><div class="pres-stat-label">GDP</div></div>
+                        <div class="pres-stat"><div class="pres-stat-val">${e.unemployment.toFixed(1)}%</div><div class="pres-stat-label">UNEMPLOYMENT</div></div>
+                        <div class="pres-stat"><div class="pres-stat-val">${e.inflation.toFixed(1)}%</div><div class="pres-stat-label">INFLATION</div></div>
+                        <div class="pres-stat"><div class="pres-stat-val">${p.congress.senateSeats}${p.congress.houseMajority ? ' · H✓' : ' · H✗'}</div><div class="pres-stat-label">SENATE · HOUSE</div></div>
+                        <div class="pres-stat"><div class="pres-stat-val">${p.capital}⭐</div><div class="pres-stat-label">CAPITAL</div></div>
+                    </div>
+                </div>
+                <div class="pres-body">
+                    <div class="pres-actions">
+                        <div class="panel-section-title">${acted ? 'THE QUARTER\'S MOVE IS MADE' : 'CHOOSE THIS QUARTER\'S BIG MOVE'}</div>
+                        <button class="btn action-btn" ${acted ? 'disabled' : ''} onclick="GameUI.showBillPicker()">
+                            <span class="action-icon">📜</span>
+                            <span class="action-copy"><span class="action-label">Push Legislation</span><span class="action-desc">Spend capital to move a bill through Congress. Legacy lives here.</span></span>
+                        </button>
+                        <button class="btn action-btn" ${acted ? 'disabled' : ''} onclick="GameUI.showEOPicker()">
+                            <span class="action-icon">🖋️</span>
+                            <span class="action-copy"><span class="action-label">Executive Order</span><span class="action-desc">Instant action, no Congress — but the courts get a vote later.</span></span>
+                        </button>
+                        <button class="btn action-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('barnstorm')">
+                            <span class="action-icon">📢</span>
+                            <span class="action-copy"><span class="action-label">Barnstorm the Country</span><span class="action-desc">Sell the agenda at home. Approval and capital tick up.</span></span>
+                        </button>
+                        <button class="btn action-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('diplomacy')">
+                            <span class="action-icon">🌍</span>
+                            <span class="action-copy"><span class="action-label">Foreign Tour</span><span class="action-desc">Warm the alliances — softens the next crisis you face.</span></span>
+                        </button>
+                        <button class="btn btn-primary btn-lg pres-end-quarter" ${acted ? '' : 'disabled'} onclick="GameUI.endPresidencyQuarter()">END QUARTER →</button>
+                    </div>
+                    <div class="pres-agenda">
+                        <div class="panel-section-title">YOUR RECORD</div>
+                        ${agendaRows || '<div class="text-muted" style="font-size:0.85rem;">Nothing signed yet. The clock is running.</div>'}
+                        <div class="panel-section-title" style="margin-top:14px;">THE LOG</div>
+                        ${logRows}
+                    </div>
+                </div>
+            </div>`;
+    },
+
+    doPresidencyAct(type, payload) {
+        const result = window.PresidencySystem.act(type, payload || {});
+        if (!result) return;
+        if (result.type === 'bill') {
+            this.closeModal();
+            this.showModal(result.passed ? '📜 SIGNED INTO LAW' : '🚫 DEAD ON THE FLOOR', `
+                <div style="text-align:center;">
+                    <div class="iv-tier ${result.passed ? 'great' : 'bad'}">${result.bill.name}</div>
+                    <p class="text-muted">The whip count gave it ${result.odds}%. ${result.passed
+                        ? 'The gavel falls — it passes. Signing ceremony on the South Lawn.'
+                        : 'It falls short. The capital is spent and the headlines are brutal.'}</p>
+                    <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.renderPresidency();">CONTINUE</button>
+                </div>`);
+        } else if (result.type === 'eo') {
+            this.closeModal();
+            this.showToast(`Executive order signed: ${result.eo.name}`, 'success');
+            this.renderPresidency();
+        } else {
+            this.showToast(type === 'barnstorm' ? `Barnstorm complete — approval +${result.gain}` : `Foreign tour complete — approval +${result.gain}`, 'success');
+            this.renderPresidency();
+        }
+    },
+
+    showBillPicker() {
+        const PS = window.PresidencySystem;
+        const p = window.GameEngine.state.presidency;
+        const bills = PS.availableBills();
+        if (!bills.length) { this.showToast('No bills left on the shelf', 'info'); return; }
+        const cards = bills.map(b => `
+            <div class="bill-card">
+                <div class="bill-name">${b.name} <span class="bill-issue">${b.issue.toUpperCase()}</span></div>
+                <div class="bill-desc">${b.desc}</div>
+                <div class="bill-odds">Base odds: <strong>${PS.billOdds(b, 0)}%</strong> · Cost ${b.cost}⭐ base</div>
+                <div class="bill-actions">
+                    <button class="btn btn-sm btn-primary" onclick="GameUI.doPresidencyAct('bill', { billId: '${b.id}', extraCapital: 0 })">PUSH IT</button>
+                    <button class="btn btn-sm" ${p.capital >= 2 ? '' : 'disabled'} onclick="GameUI.doPresidencyAct('bill', { billId: '${b.id}', extraCapital: 2 })" title="+16% odds">TWIST ARMS (+2⭐ → ${PS.billOdds(b, 2)}%)</button>
+                </div>
+            </div>`).join('');
+        this.showModal('📜 The Legislative Calendar', `
+            <p class="text-muted" style="margin-bottom:10px;">Senate: <strong>${p.congress.senateSeats}</strong> seats · House: <strong>${p.congress.houseMajority ? 'MAJORITY' : 'MINORITY'}</strong> · Capital: <strong>${p.capital}⭐</strong></p>
+            <div class="bill-list">${cards}</div>`);
+    },
+
+    showEOPicker() {
+        const eos = window.PresidencySystem.availableEOs();
+        if (!eos.length) { this.showToast('You\'ve signed every order on the desk', 'info'); return; }
+        const cards = eos.map(e => `
+            <div class="bill-card">
+                <div class="bill-name">${e.name}</div>
+                <div class="bill-desc">${e.desc}</div>
+                <div class="bill-actions"><button class="btn btn-sm btn-primary" onclick="GameUI.doPresidencyAct('eo', { eoId: '${e.id}' })">SIGN IT</button></div>
+            </div>`).join('');
+        this.showModal('🖋️ Executive Orders', `
+            <p class="text-muted" style="margin-bottom:10px;">No Congress required — but every standing order risks a court strike-down each quarter.</p>
+            <div class="bill-list">${cards}</div>`);
+    },
+
+    endPresidencyQuarter() {
+        const event = window.PresidencySystem.endQuarter();
+        if (!event) return;
+        const p = window.GameEngine.state.presidency;
+        if (event.kind === 'crisis') {
+            const crisis = window.PresidencySystem.CRISES.find(c => c.id === event.id);
+            const choices = crisis.choices.map((c, i) =>
+                `<button class="btn interview-answer" onclick="GameUI.resolvePresidencyCrisis(${i})">${c.text} <span class="crisis-tag">${c.tag}</span></button>`).join('');
+            this.showModal(`🚨 ${crisis.title}`, `
+                <div class="crisis-stage">
+                    <p class="crisis-text">${crisis.text}</p>
+                    <div class="interview-answers">${choices}</div>
+                </div>`);
+        } else if (event.kind === 'scotus') {
+            this.showModal('🏛️ A SUPREME COURT SEAT OPENS', `
+                <div class="crisis-stage">
+                    <p class="crisis-text">A justice announces retirement. This appointment outlives everything else you do. Your counsel brings three shortlists:</p>
+                    <div class="interview-answers">
+                        <button class="btn interview-answer" onclick="GameUI.appointPresidencyJustice(0)">The young ideologue — the base is euphoric, the hearing is war</button>
+                        <button class="btn interview-answer" onclick="GameUI.appointPresidencyJustice(1)">The consensus moderate — confirmed comfortably, remembered mildly</button>
+                        <button class="btn interview-answer" onclick="GameUI.appointPresidencyJustice(2)">The historic first — the country remembers, moderate fight</button>
+                    </div>
+                </div>`);
+        } else if (event.kind === 'opportunity') {
+            const opp = window.PresidencySystem.OPPORTUNITIES.find(o => o.id === event.id);
+            this.showModal(opp.title, `
+                <div style="text-align:center;">
+                    <p class="text-muted">${opp.text}</p>
+                    <button class="btn btn-primary" onclick="GameUI.acknowledgePresidencyEvent()">TAKE THE WIN</button>
+                </div>`);
+        } else {
+            this.showModal('🗓️ A Quiet Quarter', `
+                <div style="text-align:center;">
+                    <p class="text-muted">No fires this quarter. In this job, that counts as a gift.</p>
+                    <button class="btn btn-primary" onclick="GameUI.acknowledgePresidencyEvent()">CONTINUE</button>
+                </div>`);
+        }
+    },
+
+    resolvePresidencyCrisis(choiceIndex) {
+        const res = window.PresidencySystem.resolveCrisis(choiceIndex);
+        if (!res) return;
+        this.closeModal();
+        this.showModal(res.success ? '✅ CRISIS HANDLED' : '❌ IT GOT AWAY FROM YOU', `
+            <div style="text-align:center;">
+                <div class="iv-tier ${res.success ? 'great' : 'bad'}">${res.crisis.title}</div>
+                <p class="text-muted">${res.success
+                    ? `The ${res.choice.tag.toLowerCase()} play works. The country notices when it goes right.`
+                    : `The ${res.choice.tag.toLowerCase()} play backfires. The clips are rough and the numbers follow.`}</p>
+                <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.afterPresidencyEvent();">CONTINUE</button>
+            </div>`);
+    },
+
+    appointPresidencyJustice(pickIndex) {
+        const res = window.PresidencySystem.appointJustice(pickIndex);
+        if (!res) return;
+        this.closeModal();
+        this.showModal(res.confirmed ? '🏛️ CONFIRMED TO THE COURT' : '🏛️ NOMINATION REJECTED', `
+            <div style="text-align:center;">
+                <div class="iv-tier ${res.confirmed ? 'great' : 'bad'}">${res.votesFor}–${res.votesAgainst}</div>
+                <p class="text-muted">${res.confirmed
+                    ? `Your pick — ${res.pick.name} — takes the bench for life. Few things you sign will matter longer.`
+                    : 'The Senate votes it down. The seat sits open and the loss stings.'}</p>
+                <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.afterPresidencyEvent();">CONTINUE</button>
+            </div>`);
+    },
+
+    acknowledgePresidencyEvent() {
+        window.PresidencySystem.acknowledgeEvent();
+        this.closeModal();
+        this.afterPresidencyEvent();
+    },
+
+    afterPresidencyEvent() {
+        const p = window.GameEngine.state.presidency;
+        if (p.midtermVerdict && !p.midtermShown) {
+            p.midtermShown = true;
+            const v = p.midtermVerdict;
+            this.showModal('🗳️ MIDTERM ELECTION NIGHT', `
+                <div style="text-align:center;">
+                    <div class="iv-tier ${v.tier === 'HELD THE LINE' ? 'great' : v.tier === 'SHELLACKING' ? 'bad' : ''}">${v.tier}</div>
+                    <p class="text-muted">${v.text}</p>
+                    <div class="iv-headline">${v.seats}</div>
+                    <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.renderPresidency();">CONTINUE</button>
+                </div>`);
+            return;
+        }
+        this.renderPresidency();
+    },
+
+    renderLegacyReport() {
+        const gs = window.GameEngine.state;
+        const p = gs.presidency;
+        const L = p.legacy || window.PresidencySystem.computeLegacy();
+        const partyClass = gs.playerCandidate.party === 'Democrat' ? 'dem' : 'rep';
+        return `
+            <div class="pres-shell">
+                <div class="inauguration-panel ${partyClass}" style="margin-top:2rem;">
+                    <div class="inaug-kicker">JANUARY 2033 · THE HISTORIANS WEIGH IN</div>
+                    <h2>THE ${gs.playerCandidate.name.split(' ').pop().toUpperCase()} PRESIDENCY</h2>
+                    <div class="legacy-grade-row">
+                        <div class="legacy-grade">${L.grade}</div>
+                        <div class="legacy-title">${L.title}</div>
+                    </div>
+                    <div class="inaug-scorecard" style="flex-wrap:wrap;">
+                        <div class="inaug-stat"><div class="retro-val">${L.laws}</div><div class="retro-label">Laws Signed</div></div>
+                        <div class="inaug-stat"><div class="retro-val">${L.scotus}</div><div class="retro-label">Justices Seated</div></div>
+                        <div class="inaug-stat"><div class="retro-val">${L.crisesWon}/${L.crisesWon + L.crisesLost}</div><div class="retro-label">Crises Handled</div></div>
+                        <div class="inaug-stat"><div class="retro-val">${L.approval}%</div><div class="retro-label">Final Approval</div></div>
+                    </div>
+                    <div class="iv-headline" style="margin:10px 0;">${L.outlook}</div>
+                    <div class="mt-2 btn-group" style="justify-content:center;">
+                        <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">RUN FOR RE-ELECTION (NEW CAMPAIGN)</button>
+                        <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
+                    </div>
+                </div>
+            </div>`;
+    },
+
+    // ═══════════════════════════════════════════════
     // TV INTERVIEW SET-PIECE
     // ═══════════════════════════════════════════════
     showInterviewVenues() {
@@ -3521,9 +3781,9 @@ window.GameUI = {
                     <div class="inaug-stat"><div class="retro-val">${t.senateSeats}</div><div class="retro-label">Senate Seats</div></div>
                     <div class="inaug-stat"><div class="retro-val">${t.capital}⭐</div><div class="retro-label">Capital Remaining</div></div>
                 </div>
-                <div class="inaug-tease">THE FIRST TERM — COMING SOON</div>
                 <div class="mt-2 btn-group" style="justify-content:center;">
-                    <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">PLAY AGAIN</button>
+                    <button class="btn btn-primary btn-lg" onclick="GameUI.startPresidency()">🦅 BEGIN YOUR PRESIDENCY →</button>
+                    <button class="btn btn-lg" onclick="GameUI.startNewGame()">PLAY AGAIN</button>
                     <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
                 </div>
             </div>`;

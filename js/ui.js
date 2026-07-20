@@ -4024,16 +4024,20 @@ window.GameUI = {
     // ═══════════════════════════════════════════════
     showToast(message, type) {
         const container = document.getElementById('toast-container');
+        // Keep the stack short so notifications never pile up over the UI
+        while (container.children.length >= 3) container.firstChild.remove();
         const toast = document.createElement('div');
         toast.className = `toast toast-${type || 'info'}`;
         toast.textContent = message;
-        container.appendChild(toast);
-        setTimeout(() => {
+        const dismiss = () => {
             toast.style.opacity = '0';
-            toast.style.transform = 'translateX(20px)';
+            toast.style.transform = 'translateY(16px)';
             toast.style.transition = 'all 0.3s ease';
             setTimeout(() => toast.remove(), 300);
-        }, 4000);
+        };
+        toast.onclick = dismiss;          // tap to clear immediately
+        container.appendChild(toast);
+        setTimeout(dismiss, 4000);
     },
 
     // ═══════════════════════════════════════════════

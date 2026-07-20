@@ -12,21 +12,21 @@
     --bg-modal: #0d1220;
     --border-color: #2a3550;
     --border-highlight: #3b4f73;
-    --text-primary: #e8ecf4;
-    --text-secondary: #8899b3;
-    --text-muted: #556680;
-    --accent-blue: #2d7ff9;
+    --text-primary: #eef2f9;
+    --text-secondary: #a4b5d0;
+    --text-muted: #7688a4;
+    --accent-blue: #4f97ff;
     --accent-blue-dim: #1a5cc7;
-    --accent-red: #e63946;
+    --accent-red: #ff5864;
     --accent-red-dim: #b82d38;
-    --accent-green: #2ecc71;
-    --accent-yellow: #f1c40f;
+    --accent-green: #35d67e;
+    --accent-yellow: #f5cc2b;
     --accent-orange: #e67e22;
-    --accent-purple: #9b59b6;
+    --accent-purple: #b06fd0;
     --dem-blue: #2166d4;
-    --dem-blue-light: #4d8fea;
+    --dem-blue-light: #79b0ff;
     --rep-red: #d42121;
-    --rep-red-light: #ea4d4d;
+    --rep-red-light: #ff7070;
     --gold: #ffd700;
     --breaking-red: #ff1a1a;
     --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
@@ -2496,12 +2496,15 @@ h3 { font-size: 1.25rem; }
    ══════════════════════════════════ */
 .toast-container {
     position: fixed;
-    top: 48px;
+    bottom: 24px;
     right: 16px;
-    z-index: 900;
+    top: auto;
+    z-index: 450; /* below the modal overlay (500) so it never covers modal buttons */
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* pinned at bottom → newest sits lowest, older push up */
     gap: 8px;
+    pointer-events: none; /* clicks pass through the empty container to the UI beneath */
+    max-width: min(360px, 90vw);
 }
 .toast {
     background: var(--bg-card);
@@ -2511,11 +2514,17 @@ h3 { font-size: 1.25rem; }
     font-size: 0.85rem;
     box-shadow: var(--shadow-md);
     animation: toastIn 0.3s ease;
-    max-width: 350px;
+    max-width: 360px;
+    pointer-events: auto; /* the toast itself stays interactive (click to dismiss) */
+    cursor: pointer;
 }
 @keyframes toastIn {
-    from { opacity: 0; transform: translateX(20px); }
-    to { opacity: 1; transform: translateX(0); }
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 768px) {
+    .toast-container { bottom: 84px; left: 12px; right: 12px; max-width: none; } /* clear the mobile bottom nav */
+    .toast { max-width: none; }
 }
 .toast.toast-success { border-left: 3px solid var(--accent-green); }
 .toast.toast-warning { border-left: 3px solid var(--accent-yellow); }

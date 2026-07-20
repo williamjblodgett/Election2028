@@ -91,6 +91,24 @@ window.PresidencySystem = {
         { id: 'anthem', title: '🏅 A National Moment', text: 'An Olympic sweep and a returning space crew put the country in a rare good mood.', effects: { approval: 2 } },
     ],
 
+    // A defining goal chosen at inauguration and chased across the whole term.
+    // Progress comes from the "Advance the Initiative" action and thematically
+    // matched bills; completing it is legacy-defining.
+    SIGNATURES: [
+        { id: 'moonshot', name: 'The Cancer Moonshot', icon: '🔬', target: 100,
+          blurb: 'End cancer as we know it. Fund the labs, fast-track the trials, chase the cure of the century.',
+          boostIssues: ['Healthcare', 'Technology'], legacyTitle: 'THE PRESIDENT WHO CURED CANCER' },
+        { id: 'peacedeal', name: 'A Grand Peace', icon: '🕊️', target: 100,
+          blurb: 'Broker the treaty that ends a generational conflict and redraws the map for the better.',
+          boostIssues: [], legacyTitle: 'THE GREAT PEACEMAKER' },
+        { id: 'balance', name: 'Balance the Budget', icon: '⚖️', target: 100,
+          blurb: 'Erase the deficit and hand your successor a surplus. The hardest arithmetic in Washington.',
+          boostIssues: ['Taxes'], legacyTitle: 'THE PRESIDENT WHO BALANCED THE BOOKS' },
+        { id: 'frontier', name: 'Return to the Moon', icon: '🚀', target: 100,
+          blurb: 'Plant the flag again and build the launchpad for Mars. Inspire a whole generation to look up.',
+          boostIssues: ['Technology', 'Infrastructure'], legacyTitle: 'THE PRESIDENT WHO REACHED THE STARS' },
+    ],
+
     // Your cabinet is not set dressing: who you hired changes the odds
     cabinetEffects() {
         const gs = window.GameEngine.state;
@@ -117,6 +135,82 @@ window.PresidencySystem = {
         };
     },
 
+    // ── Signature initiative ───────────────────────
+    chooseSignature(id) {
+        const p = window.GameEngine.state.presidency;
+        const sig = this.SIGNATURES.find(s => s.id === id);
+        if (!p || !sig || p.signature) return null;
+        p.signature = { id: sig.id, name: sig.name, icon: sig.icon, target: sig.target,
+                        boostIssues: sig.boostIssues, legacyTitle: sig.legacyTitle, progress: 0, done: false };
+        p.log.push(`Signature initiative set: ${sig.name}.`);
+        return p.signature;
+    },
+
+    _addInitiative(amount, sourceLabel) {
+        const p = window.GameEngine.state.presidency;
+        if (!p.signature || p.signature.done) return false;
+        p.signature.progress = Math.min(p.signature.target, p.signature.progress + amount);
+        if (p.signature.progress >= p.signature.target) {
+            p.signature.done = true;
+            p.signature.doneQuarter = p.quarter;
+            p.legacyPoints += 28;
+            p.approval = Math.min(80, p.approval + 5);
+            p.log.push(`🏆 ${p.signature.name} — ACHIEVED. A defining accomplishment.`);
+        } else if (sourceLabel) {
+            p.log.push(`${p.signature.name}: progress through ${sourceLabel} (${p.signature.progress}/${p.signature.target}).`);
+        }
+        return p.signature.done;
+    },
+
+    // ── State of the Union ─────────────────────────
+    SOTU_THEMES: [
+        { id: 'economy',  label: 'The Economy',        desc: 'Jobs, growth, the cost of living.' },
+        { id: 'security', label: 'National Security',   desc: 'Strength abroad, safety at home.' },
+        { id: 'domestic', label: 'The Domestic Agenda', desc: 'Your laws and what comes next.' },
+        { id: 'unity',    label: 'National Unity',      desc: 'One country, above the noise.' },
+    ],
+    SOTU_TONES: [
+        { id: 'optimistic', label: 'Optimistic', desc: 'Sell the morning-in-America story.' },
+        { id: 'combative',  label: 'Combative',  desc: 'Name the enemies, rally the base.' },
+        { id: 'sober',      label: 'Sober',      desc: 'Level with the country. Low risk.' },
+    ],
+
+    // How well does a theme match reality right now? 0..1
+    _sotuThemeFit(theme) {
+        const p = window.GameEngine.state.presidency;
+        const e = p.economy;
+        if (theme === 'economy') return (e.gdp >= 2.5 ? 0.7 : e.gdp >= 1.5 ? 0.4 : 0.15) + (e.inflation <= 3 ? 0.2 : 0) + (e.unemployment <= 4.5 ? 0.1 : 0);
+        if (theme === 'security') {
+            if (this.atWar()) { const w = p.war; return w.momentum >= 60 ? 0.85 : w.momentum <= 40 ? 0.15 : 0.4; }
+            const wonWars = (p.warLog || []).filter(w => w.outcome === 'victory').length;
+            return 0.55 + Math.min(0.3, wonWars * 0.15);
+        }
+        if (theme === 'domestic') return Math.min(0.95, 0.25 + p.enacted.length * 0.14);
+        if (theme === 'unity') return p.approval >= 46 && p.approval <= 58 ? 0.8 : 0.4; // reaching across lands when you're near the middle
+        return 0.4;
+    },
+
+    deliverSotu(theme, tone) {
+        const p = window.GameEngine.state.presidency;
+        const fit = this._sotuThemeFit(theme);
+        let score = 40 + fit * 45 + (Math.random() - 0.5) * 16;
+        if (tone === 'optimistic') score += (fit - 0.5) * 30;   // amplifies: great when true, hollow when not
+        else if (tone === 'combative') score = Math.max(score, 52) - (fit > 0.6 ? 8 : 0); // base floor, caps a genuine win
+        // 'sober' is the steady middle — no modifier
+        score = Math.max(5, Math.min(98, Math.round(score)));
+        const tier = score >= 75 ? 'A TRIUMPH' : score >= 58 ? 'WELL RECEIVED' : score >= 42 ? 'FORGETTABLE' : 'A MISFIRE';
+        const approvalDelta = score >= 75 ? 4 : score >= 58 ? 2 : score >= 42 ? 0 : -3;
+        p.approval = Math.max(15, Math.min(80, p.approval + approvalDelta));
+        if (score >= 58) p.capital = Math.min(12, p.capital + 1);
+        // Touting your initiative on the biggest stage nudges it forward
+        if (p.signature && !p.signature.done && (theme === 'domestic' || (theme === 'economy' && p.signature.id === 'balance'))) {
+            this._addInitiative(6, 'the State of the Union');
+        }
+        p.sotuHistory.push({ quarter: p.quarter, theme, tone, score, tier });
+        p.log.push(`State of the Union (${this.SOTU_THEMES.find(t => t.id === theme).label}, ${tone}): ${tier}.`);
+        return { score, tier, approvalDelta, theme, tone };
+    },
+
     // ── Lifecycle ──────────────────────────────────
 
     begin() {
@@ -135,6 +229,7 @@ window.PresidencySystem = {
             enacted: [], eos: [], scotus: [],
             crisisLog: [],
             war: null, warLog: [], surpriseWarDone: false,
+            signature: null, sotuHistory: [],
             acted: false,
             pendingEvent: null,
             midtermsDone: false,
@@ -191,6 +286,11 @@ window.PresidencySystem = {
                 p.legacyPoints += bill.legacy;
                 this._applyEffects(bill.effects);
                 p.log.push(`Signed the ${bill.name}.`);
+                // Thematically matched bills push your signature initiative along
+                if (p.signature && !p.signature.done && (p.signature.boostIssues || []).includes(bill.issue)) {
+                    this._addInitiative(12, `the ${bill.name}`);
+                    result.initiativeBoost = true;
+                }
             } else {
                 p.failedBills = p.failedBills || [];
                 p.failedBills.push(bill.id);
@@ -222,6 +322,12 @@ window.PresidencySystem = {
             if (!war) return null;
             p.log.push(`War declared on ${war.adversary.name}.`);
             result = { type, war };
+        } else if (type === 'initiative') {
+            if (!p.signature || p.signature.done) return null;
+            const gain = 18 + Math.floor(Math.random() * 8);
+            p.capital = Math.max(0, p.capital - 1);
+            const done = this._addInitiative(gain, 'a dedicated national push');
+            result = { type, gain, done, signature: p.signature };
         } else if (type === 'warposture') {
             // Handled through endQuarter's battle round; just stash intent
             p.pendingPosture = payload.posture;
@@ -250,6 +356,12 @@ window.PresidencySystem = {
         // SCOTUS vacancies land in fixed windows
         if ((p.quarter === 5 || p.quarter === 11) && p.scotus.length < 2) {
             p.pendingEvent = { kind: 'scotus' };
+            return p.pendingEvent;
+        }
+
+        // Annual State of the Union addresses (year-in-review)
+        if ((p.quarter === 4 || p.quarter === 8 || p.quarter === 12) && !p.sotuHistory.some(s => s.quarter === p.quarter)) {
+            p.pendingEvent = { kind: 'sotu' };
             return p.pendingEvent;
         }
 
@@ -330,7 +442,7 @@ window.PresidencySystem = {
 
     acknowledgeEvent() {
         const p = window.GameEngine.state.presidency;
-        if (!p.pendingEvent || (p.pendingEvent.kind !== 'opportunity' && p.pendingEvent.kind !== 'quiet')) return null;
+        if (!p.pendingEvent || !['opportunity', 'quiet', 'sotu'].includes(p.pendingEvent.kind)) return null;
         p.pendingEvent = null;
         this._advance();
         return true;
@@ -432,8 +544,10 @@ window.PresidencySystem = {
             + p.economy.gdp * 3
             - Math.max(0, p.economy.inflation - 3) * 2
         );
+        const sigDone = p.signature && p.signature.done;
         let tier;
         if (nuked) tier = { grade: 'F', title: 'THE PRESIDENT WHO ENDED THE WORLD' };
+        else if (sigDone && score >= 40) tier = { grade: 'A', title: p.signature.legacyTitle };
         else tier = score >= 60 ? { grade: 'A', title: 'TRANSFORMATIONAL' }
             : score >= 42 ? { grade: 'B', title: 'CONSEQUENTIAL' }
             : score >= 26 ? { grade: 'C', title: 'STEADY HAND' }
@@ -445,6 +559,8 @@ window.PresidencySystem = {
             : 'UNDERDOG heading into re-election';
         return { score, grade: tier.grade, title: tier.title, outlook, crisesWon, crisesLost,
                  warsWon, warsLost, wars: wars.length,
-                 laws: p.enacted.length, eos: p.eos.length, scotus: p.scotus.length, approval: p.approval };
+                 laws: p.enacted.length, eos: p.eos.length, scotus: p.scotus.length, approval: p.approval,
+                 signatureDone: sigDone, signatureName: p.signature ? p.signature.name : null,
+                 sotus: (p.sotuHistory || []).length };
     },
 };

@@ -4216,3 +4216,21 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .war-declare-summary { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-secondary); margin: 12px 0; line-height: 1.8; }
 .war-battle-mom { font-size: 1.6rem; font-weight: 800; letter-spacing: 2px; margin-bottom: 8px; color: var(--text-secondary); }
 .war-battle-mom.great { color: #7fd98f; } .war-battle-mom.bad { color: #ff8a8a; }
+
+/* ═══ SIGNATURE INITIATIVE + STATE OF THE UNION ═══ */
+.signature-list { display: flex; flex-direction: column; gap: 10px; }
+.signature-option { display: flex; gap: 14px; align-items: center; border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+.signature-option:hover { border-color: var(--gold, #ffd700); transform: translateY(-1px); }
+.sig-icon { font-size: 2rem; }
+.sig-name { font-weight: 700; margin-bottom: 3px; }
+.sig-blurb { font-size: 0.83rem; color: var(--text-secondary); line-height: 1.4; }
+.sig-progress-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-family: var(--font-mono); font-size: 0.72rem; }
+.sig-progress-label { color: var(--gold, #ffd700); white-space: nowrap; font-weight: 700; }
+.sig-progress-bar { flex: 1; height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; }
+.sig-progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold, #ffd700), #ffe98a); border-radius: 5px; transition: width 0.4s ease; }
+.sig-progress-row.done .sig-progress-fill { background: linear-gradient(90deg, #35d67e, #7fe0a5); }
+.sig-progress-pct { color: var(--text-muted); white-space: nowrap; }
+.initiative-btn { border-color: rgba(255,215,0,0.4) !important; }
+.legacy-signature { font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 1px; margin: 6px 0; padding: 6px 12px; border-radius: 8px; display: inline-block; }
+.legacy-signature.achieved { background: rgba(53,214,126,0.15); color: #7fe0a5; }
+.legacy-signature.unfinished { background: rgba(255,255,255,0.05); color: var(--text-muted); }

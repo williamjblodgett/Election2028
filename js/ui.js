@@ -3257,8 +3257,31 @@ window.GameUI = {
     // THE FIRST TERM (presidency mode)
     // ═══════════════════════════════════════════════
     startPresidency() {
-        window.PresidencySystem.begin();
+        const p = window.PresidencySystem.begin();
         this.showScreen('presidency');
+        // First order of business: choose the term's defining goal
+        if (!p.signature) { this.showSignaturePicker(); return; }
+        this.renderPresidency();
+        this.autoSave();
+    },
+
+    showSignaturePicker() {
+        const cards = window.PresidencySystem.SIGNATURES.map(s => `
+            <div class="signature-option" onclick="GameUI.chooseSignature('${s.id}')">
+                <div class="sig-icon">${s.icon}</div>
+                <div class="sig-main">
+                    <div class="sig-name">${s.name}</div>
+                    <div class="sig-blurb">${s.blurb}</div>
+                </div>
+            </div>`).join('');
+        this.showModal('🏛️ YOUR SIGNATURE INITIATIVE', `
+            <p class="text-muted" style="margin-bottom:12px;">Every presidency is remembered for one thing. Choose the goal you'll chase for four years — matched bills and a dedicated national push move it forward, and finishing it defines your legacy.</p>
+            <div class="signature-list">${cards}</div>`);
+    },
+
+    chooseSignature(id) {
+        window.PresidencySystem.chooseSignature(id);
+        this.closeModal();
         this.renderPresidency();
         this.autoSave();
     },
@@ -3310,6 +3333,12 @@ window.GameUI = {
                         if (eff.leakRisk) chips.push('🕳️ Disloyal cabinet — leak risk');
                         return chips.length ? `<div class="cab-fx-row">${chips.map(c => `<span class="cab-fx">${c}</span>`).join('')}</div>` : '';
                     })()}
+                    ${p.signature ? `
+                    <div class="sig-progress-row ${p.signature.done ? 'done' : ''}">
+                        <span class="sig-progress-label">${p.signature.icon} ${p.signature.name}${p.signature.done ? ' — ACHIEVED 🏆' : ''}</span>
+                        <div class="sig-progress-bar"><div class="sig-progress-fill" style="width:${Math.round(p.signature.progress / p.signature.target * 100)}%"></div></div>
+                        <span class="sig-progress-pct">${p.signature.progress}/${p.signature.target}</span>
+                    </div>` : ''}
                 </div>
                 ${this.renderWarBanner(p)}
                 <div class="pres-body">
@@ -3332,6 +3361,11 @@ window.GameUI = {
                             <span class="action-icon">🌍</span>
                             <span class="action-copy"><span class="action-label">Foreign Tour</span><span class="action-desc">Warm alliances (+8 diplomacy) — softens the next crisis and widens any wartime coalition.</span></span>
                         </button>
+                        ${p.signature && !p.signature.done ? `
+                        <button class="btn action-btn initiative-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('initiative')">
+                            <span class="action-icon">${p.signature.icon}</span>
+                            <span class="action-copy"><span class="action-label">Advance: ${p.signature.name}</span><span class="action-desc">Spend a quarter and 1⭐ driving your signature goal toward the finish line.</span></span>
+                        </button>` : ''}
                         <button class="btn action-btn war-declare-btn" ${acted ? 'disabled' : ''} onclick="GameUI.showWarRoom()">
                             <span class="action-icon">⚔️</span>
                             <span class="action-copy"><span class="action-label">War Powers</span><span class="action-desc">Take the nation to war. History is made and unmade here.</span></span>
@@ -3365,6 +3399,18 @@ window.GameUI = {
             this.closeModal();
             this.showToast(`Executive order signed: ${result.eo.name}`, 'success');
             this.renderPresidency();
+        } else if (result.type === 'initiative') {
+            if (result.done) {
+                this.showModal('🏆 A DEFINING ACHIEVEMENT', `
+                    <div style="text-align:center;">
+                        <div class="iv-tier great">${result.signature.icon} ${result.signature.name}</div>
+                        <p class="text-muted">You did it. This is what your presidency will be remembered for — history books, textbooks, the works.</p>
+                        <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.renderPresidency();">CONTINUE</button>
+                    </div>`);
+            } else {
+                this.showToast(`${result.signature.name}: +${result.gain} progress (${result.signature.progress}/${result.signature.target})`, 'success');
+                this.renderPresidency();
+            }
         } else {
             this.showToast(type === 'barnstorm' ? `Barnstorm complete — approval +${result.gain}` : `Foreign tour complete — approval +${result.gain}`, 'success');
             this.renderPresidency();
@@ -3443,6 +3489,8 @@ window.GameUI = {
                         <button class="btn interview-answer" onclick="GameUI.appointPresidencyJustice(2)">The historic first — the country remembers, moderate fight</button>
                     </div>
                 </div>`);
+        } else if (event.kind === 'sotu') {
+            this.showSotu();
         } else if (event.kind === 'opportunity') {
             const opp = window.PresidencySystem.OPPORTUNITIES.find(o => o.id === event.id);
             this.showModal(opp.title, `
@@ -3457,6 +3505,43 @@ window.GameUI = {
                     <button class="btn btn-primary" onclick="GameUI.acknowledgePresidencyEvent()">CONTINUE</button>
                 </div>`);
         }
+    },
+
+    showSotu() {
+        const PS = window.PresidencySystem;
+        const p = window.GameEngine.state.presidency;
+        const year = Math.floor((p.quarter - 1) / 4) + 1;
+        const themes = PS.SOTU_THEMES.map(t =>
+            `<button class="btn interview-answer" onclick="GameUI.pickSotuTheme('${t.id}')"><strong>${t.label}</strong> — ${t.desc}</button>`).join('');
+        this.showModal('🎙️ THE STATE OF THE UNION', `
+            <div class="crisis-stage">
+                <p class="crisis-text">Year ${year}. The chamber is packed, the cameras are live, and the whole country is watching. What is the address about?</p>
+                <div class="interview-answers">${themes}</div>
+            </div>`);
+    },
+
+    pickSotuTheme(theme) {
+        this._sotuTheme = theme;
+        const PS = window.PresidencySystem;
+        const tones = PS.SOTU_TONES.map(t =>
+            `<button class="btn interview-answer" onclick="GameUI.deliverSotu('${t.id}')"><strong>${t.label}</strong> — ${t.desc}</button>`).join('');
+        const label = PS.SOTU_THEMES.find(t => t.id === theme).label;
+        this.showModal('🎙️ STRIKE THE TONE', `
+            <div class="crisis-stage">
+                <p class="crisis-text">Your address on <strong>${label}</strong>. How do you deliver it?</p>
+                <div class="interview-answers">${tones}</div>
+            </div>`);
+    },
+
+    deliverSotu(tone) {
+        const res = window.PresidencySystem.deliverSotu(this._sotuTheme, tone);
+        const cls = res.score >= 75 ? 'great' : res.score >= 42 ? '' : 'bad';
+        this.showModal('🎙️ THE VERDICT', `
+            <div style="text-align:center;">
+                <div class="iv-tier ${cls}">${res.tier}</div>
+                <p class="text-muted">The reviews are in. ${res.approvalDelta >= 0 ? `Approval ${res.approvalDelta > 0 ? '+' + res.approvalDelta : 'unchanged'}.` : `Approval ${res.approvalDelta}.`} ${res.score >= 58 ? 'A speech that gives you room to govern.' : res.score >= 42 ? 'It filled an hour of airtime and little else.' : 'The pundits are merciless. That one hurt.'}</p>
+                <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.acknowledgePresidencyEvent();">CONTINUE</button>
+            </div>`);
     },
 
     resolvePresidencyCrisis(choiceIndex) {
@@ -3531,6 +3616,7 @@ window.GameUI = {
                         ${L.wars ? `<div class="inaug-stat"><div class="retro-val">${L.warsWon}W · ${L.warsLost}L</div><div class="retro-label">Wars</div></div>` : ''}
                         <div class="inaug-stat"><div class="retro-val">${L.approval}%</div><div class="retro-label">Final Approval</div></div>
                     </div>
+                    ${L.signatureName ? `<div class="legacy-signature ${L.signatureDone ? 'achieved' : 'unfinished'}">${L.signatureDone ? '🏆 ACHIEVED' : '✗ UNFINISHED'} — ${L.signatureName}</div>` : ''}
                     <div class="iv-headline" style="margin:10px 0;">${L.outlook}</div>
                     <div class="mt-2 btn-group" style="justify-content:center;">
                         <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">RUN FOR RE-ELECTION (NEW CAMPAIGN)</button>

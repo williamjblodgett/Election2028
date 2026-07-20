@@ -7,16 +7,17 @@
 window.PresidencySystem = {
 
     BILLS: [
-        { id: 'rebuild',   name: 'American Rebuild Act',            issue: 'Infrastructure', cost: 3, legacy: 12, bipartisan: true,  effects: { approval: 4, gdp: 0.3 },  desc: 'Roads, bridges, grid, broadband. Shovels photograph well.' },
-        { id: 'care',      name: 'Affordable Care Expansion',       issue: 'Healthcare',     cost: 4, legacy: 14, bipartisan: false, effects: { approval: 3 },            desc: 'The fight of a generation, again. Passing it is legacy-grade.' },
-        { id: 'taxrelief', name: 'Middle-Class Tax Relief Act',     issue: 'Taxes',          cost: 3, legacy: 10, bipartisan: false, effects: { approval: 4, gdp: 0.2, inflation: 0.3 }, desc: 'Everyone loves a cut. The bond market has questions.' },
-        { id: 'border',    name: 'Border Security & Citizenship Act', issue: 'Immigration',  cost: 5, legacy: 16, bipartisan: false, effects: { approval: 2 },            desc: 'The white whale of modern politics. Enormous if it lands.' },
-        { id: 'energy',    name: 'Clean Energy Moonshot',           issue: 'Climate',        cost: 4, legacy: 14, bipartisan: false, effects: { approval: 2, gdp: 0.1 }, desc: 'A decade-defining industrial bet.' },
-        { id: 'streets',   name: 'Safe Streets Act',                issue: 'Crime',          cost: 2, legacy: 8,  bipartisan: true,  effects: { approval: 3 },            desc: 'Cops, courts, and community programs. Broadly popular.' },
-        { id: 'schools',   name: 'Public Education Modernization',  issue: 'Education',      cost: 3, legacy: 10, bipartisan: false, effects: { approval: 2 },            desc: 'Teachers, tutoring, and trade tracks.' },
-        { id: 'ai',        name: 'AI & Digital Rights Act',         issue: 'Technology',     cost: 2, legacy: 9,  bipartisan: true,  effects: { approval: 1 },            desc: 'First real rules of the road for the machines.' },
-        { id: 'housing',   name: 'Housing Affordability Act',       issue: 'Housing',        cost: 3, legacy: 10, bipartisan: false, effects: { approval: 3, inflation: -0.2 }, desc: 'Build, baby, build. Renters notice fast.' },
-        { id: 'vets',      name: 'Veterans Promise Act',            issue: 'Veterans',       cost: 1, legacy: 7,  bipartisan: true,  effects: { approval: 3 },            desc: 'The easiest yes in Washington. Bank it early.' },
+        { id: 'rebuild',   name: 'American Rebuild Act',            issue: 'Infrastructure', cost: 3, spend: 8, legacy: 12, bipartisan: true,  effects: { approval: 4, gdp: 0.3 },  desc: 'Roads, bridges, grid, broadband. Shovels photograph well.' },
+        { id: 'care',      name: 'Affordable Care Expansion',       issue: 'Healthcare',     cost: 4, spend: 7, legacy: 14, bipartisan: false, effects: { approval: 3 },            desc: 'The fight of a generation, again. Passing it is legacy-grade.' },
+        { id: 'taxrelief', name: 'Middle-Class Tax Relief Act',     issue: 'Taxes',          cost: 3, spend: 6, legacy: 10, bipartisan: false, effects: { approval: 4, gdp: 0.2, inflation: 0.3 }, desc: 'Everyone loves a cut. The bond market has questions.' },
+        { id: 'border',    name: 'Border Security & Citizenship Act', issue: 'Immigration',  cost: 5, spend: 5, legacy: 16, bipartisan: false, effects: { approval: 2 },            desc: 'The white whale of modern politics. Enormous if it lands.' },
+        { id: 'energy',    name: 'Clean Energy Moonshot',           issue: 'Climate',        cost: 4, spend: 6, legacy: 14, bipartisan: false, effects: { approval: 2, gdp: 0.1 }, desc: 'A decade-defining industrial bet.' },
+        { id: 'streets',   name: 'Safe Streets Act',                issue: 'Crime',          cost: 2, spend: 3, legacy: 8,  bipartisan: true,  effects: { approval: 3 },            desc: 'Cops, courts, and community programs. Broadly popular.' },
+        { id: 'schools',   name: 'Public Education Modernization',  issue: 'Education',      cost: 3, spend: 4, legacy: 10, bipartisan: false, effects: { approval: 2 },            desc: 'Teachers, tutoring, and trade tracks.' },
+        { id: 'ai',        name: 'AI & Digital Rights Act',         issue: 'Technology',     cost: 2, spend: 2, legacy: 9,  bipartisan: true,  effects: { approval: 1 },            desc: 'First real rules of the road for the machines.' },
+        { id: 'housing',   name: 'Housing Affordability Act',       issue: 'Housing',        cost: 3, spend: 4, legacy: 10, bipartisan: false, effects: { approval: 3, inflation: -0.2 }, desc: 'Build, baby, build. Renters notice fast.' },
+        { id: 'vets',      name: 'Veterans Promise Act',            issue: 'Veterans',       cost: 1, spend: 2, legacy: 7,  bipartisan: true,  effects: { approval: 3 },            desc: 'The easiest yes in Washington. Bank it early.' },
+        { id: 'austerity', name: 'Deficit Reduction Act',          issue: 'Taxes',          cost: 4, spend: -14, legacy: 11, bipartisan: false, effects: { approval: -3, gdp: -0.2 }, desc: 'Spending cuts and closed loopholes. Nobody thanks you now — the bond market does.' },
     ],
 
     EOS: [
@@ -230,6 +231,7 @@ window.PresidencySystem = {
             crisisLog: [],
             war: null, warLog: [], surpriseWarDone: false,
             signature: null, sotuHistory: [],
+            fiscal: { debt: 100, deficit: 4, shutdown: false, shutdownQuarters: 0 },
             acted: false,
             pendingEvent: null,
             midtermsDone: false,
@@ -285,6 +287,13 @@ window.PresidencySystem = {
                 p.enacted.push({ id: bill.id, name: bill.name, legacy: bill.legacy, quarter: p.quarter });
                 p.legacyPoints += bill.legacy;
                 this._applyEffects(bill.effects);
+                // Bills cost money — the spend lands on the national debt
+                if (p.fiscal && typeof bill.spend === 'number') {
+                    p.fiscal.debt = Math.max(40, p.fiscal.debt + bill.spend);
+                    if (bill.spend < 0 && p.signature && !p.signature.done && p.signature.id === 'balance') {
+                        this._addInitiative(16, 'deficit reduction');
+                    }
+                }
                 p.log.push(`Signed the ${bill.name}.`);
                 // Thematically matched bills push your signature initiative along
                 if (p.signature && !p.signature.done && (p.signature.boostIssues || []).includes(bill.issue)) {
@@ -328,6 +337,14 @@ window.PresidencySystem = {
             p.capital = Math.max(0, p.capital - 1);
             const done = this._addInitiative(gain, 'a dedicated national push');
             result = { type, gain, done, signature: p.signature };
+        } else if (type === 'reopen') {
+            if (!p.fiscal || !p.fiscal.shutdown) return null;
+            p.fiscal.shutdown = false;
+            p.capital = Math.max(0, p.capital - 2);
+            p.approval = Math.min(80, p.approval + 2);
+            p.fiscal.debt = Math.max(40, p.fiscal.debt + 3); // the deal to reopen isn't free
+            p.log.push('Government reopened. The standoff ends — at a price.');
+            result = { type };
         } else if (type === 'warposture') {
             // Handled through endQuarter's battle round; just stash intent
             p.pendingPosture = payload.posture;
@@ -362,6 +379,13 @@ window.PresidencySystem = {
         // Annual State of the Union addresses (year-in-review)
         if ((p.quarter === 4 || p.quarter === 8 || p.quarter === 12) && !p.sotuHistory.some(s => s.quarter === p.quarter)) {
             p.pendingEvent = { kind: 'sotu' };
+            return p.pendingEvent;
+        }
+
+        // Appropriations / debt-ceiling fights (only when not already shut down)
+        if (p.fiscal && !p.fiscal.shutdown && [2, 6, 10, 14].includes(p.quarter) && !(p.budgetYears || []).includes(p.quarter)) {
+            p.budgetYears = (p.budgetYears || []).concat(p.quarter);
+            p.pendingEvent = { kind: 'budget' };
             return p.pendingEvent;
         }
 
@@ -440,6 +464,34 @@ window.PresidencySystem = {
         return { pick, confirmed, votesFor, votesAgainst: 100 - votesFor };
     },
 
+    BUDGET_CHOICES: [
+        { id: 'clean', label: 'Pass a clean budget', tag: 'NEEDS THE HOUSE', desc: 'Fund the government on time. Easy with your majority — a coin flip without it.' },
+        { id: 'concede', label: 'Raise the ceiling with concessions', tag: '−2⭐ · DEBT +6', desc: 'Cut the deal, avoid the cliff. Safe, but the other side extracts its pound of flesh.' },
+        { id: 'brink', label: 'Brinkmanship — refuse to blink', tag: 'HIGH RISK / HIGH REWARD', desc: 'Dare them to shut it down. Win the staredown for a boost — or trigger the shutdown yourself.' },
+    ],
+
+    resolveBudget(choiceIndex) {
+        const p = window.GameEngine.state.presidency;
+        if (!p.pendingEvent || p.pendingEvent.kind !== 'budget') return null;
+        const choice = this.BUDGET_CHOICES[choiceIndex];
+        let outcome;
+        if (choice.id === 'clean') {
+            const base = (p.congress.houseMajority ? 0.85 : 0.4) + (p.congress.senateSeats - 50) * 0.01;
+            if (Math.random() < base) { p.approval = Math.min(80, p.approval + 1); p.fiscal.debt += 2; outcome = { label: 'CLEAN BUDGET PASSED', shutdown: false, good: true }; }
+            else { p.fiscal.shutdown = true; p.approval = Math.max(15, p.approval - 3); outcome = { label: 'THE BUDGET FAILS — GOVERNMENT SHUTS DOWN', shutdown: true, good: false }; }
+        } else if (choice.id === 'concede') {
+            p.capital = Math.max(0, p.capital - 2); p.approval = Math.max(15, p.approval - 2); p.fiscal.debt += 6;
+            outcome = { label: 'CEILING RAISED — WITH CONCESSIONS', shutdown: false, good: true };
+        } else {
+            if (Math.random() < 0.55) { p.approval = Math.min(80, p.approval + 4); p.capital = Math.min(12, p.capital + 1); p.fiscal.debt = Math.max(40, p.fiscal.debt - 2); outcome = { label: 'YOU WON THE STAREDOWN', shutdown: false, good: true }; }
+            else { p.fiscal.shutdown = true; p.approval = Math.max(15, p.approval - 4); outcome = { label: 'BRINKMANSHIP BACKFIRES — GOVERNMENT SHUTS DOWN', shutdown: true, good: false }; }
+        }
+        p.log.push(`Budget fight: ${outcome.label}.`);
+        p.pendingEvent = null;
+        this._advance();
+        return outcome;
+    },
+
     acknowledgeEvent() {
         const p = window.GameEngine.state.presidency;
         if (!p.pendingEvent || !['opportunity', 'quiet', 'sotu'].includes(p.pendingEvent.kind)) return null;
@@ -482,6 +534,18 @@ window.PresidencySystem = {
         e.gdp = Math.round((e.gdp + (Math.random() - 0.48) * 0.6 + this.cabinetEffects().econBias) * 10) / 10;
         e.unemployment = Math.max(2.5, Math.round((e.unemployment + (Math.random() - 0.5) * 0.4 - (e.gdp > 2.5 ? 0.1 : -0.1)) * 10) / 10);
         e.inflation = Math.max(0.5, Math.round((e.inflation + (Math.random() - 0.5) * 0.5) * 10) / 10);
+
+        // Debt servicing: strong growth shrinks the debt, weak growth grows it,
+        // and a big debt load feeds inflation and drags output. A shutdown bleeds
+        // approval every quarter until it is reopened.
+        if (p.fiscal) {
+            const drift = 1.2 - (e.gdp - 2) * 0.5;
+            p.fiscal.debt = Math.max(40, Math.round((p.fiscal.debt + drift) * 10) / 10);
+            p.fiscal.deficit = Math.round(drift * 10) / 10;
+            if (p.fiscal.debt > 125) e.inflation = Math.round((e.inflation + 0.15) * 10) / 10;
+            if (p.fiscal.debt > 150) e.gdp = Math.round((e.gdp - 0.15) * 10) / 10;
+            if (p.fiscal.shutdown) { p.approval = Math.max(15, p.approval - 3); p.fiscal.shutdownQuarters = (p.fiscal.shutdownQuarters || 0) + 1; }
+        }
 
         // Approval gravitates toward economy-driven fundamentals
         const target = 47 + e.gdp * 3 - Math.max(0, e.inflation - 2.5) * 3 - Math.max(0, e.unemployment - 4) * 2;
@@ -538,11 +602,14 @@ window.PresidencySystem = {
         const warsWon = wars.filter(w => w.outcome === 'victory').length;
         const warsLost = wars.filter(w => w.outcome === 'defeat').length;
         const nuked = p.war && p.war.outcome === 'nuclear';
+        const debt = p.fiscal ? p.fiscal.debt : 100;
         const score = Math.round(
             p.legacyPoints
             + (p.approval - 45) * 0.8
             + p.economy.gdp * 3
             - Math.max(0, p.economy.inflation - 3) * 2
+            - Math.max(0, debt - 110) * 0.25   // ballooning debt drags the legacy
+            + Math.max(0, 110 - debt) * 0.2    // fiscal discipline burnishes it
         );
         const sigDone = p.signature && p.signature.done;
         let tier;

@@ -4234,3 +4234,11 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .legacy-signature { font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 1px; margin: 6px 0; padding: 6px 12px; border-radius: 8px; display: inline-block; }
 .legacy-signature.achieved { background: rgba(53,214,126,0.15); color: #7fe0a5; }
 .legacy-signature.unfinished { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+
+/* ═══ BUDGET · DEBT · SHUTDOWN ═══ */
+.pres-stat.debt-high { border-color: #b3402e; }
+.pres-stat.debt-high .pres-stat-val { color: #ff8a8a; }
+.shutdown-banner { margin-top: 10px; padding: 8px 14px; border-radius: 8px; background: rgba(230,126,34,0.15); border: 1px solid rgba(230,126,34,0.4); color: #ffc07a; font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.5px; }
+.reopen-btn { border-color: rgba(230,126,34,0.5) !important; }
+.bill-cost-debt { color: #ff9a8a; }
+.bill-savings { color: #7fe0a5; }

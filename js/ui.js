@@ -3322,7 +3322,9 @@ window.GameUI = {
                         <div class="pres-stat"><div class="pres-stat-val">${p.congress.senateSeats}${p.congress.houseMajority ? ' · H✓' : ' · H✗'}</div><div class="pres-stat-label">SENATE · HOUSE</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${p.capital}⭐</div><div class="pres-stat-label">CAPITAL</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${p.diplomaticStanding || 55}</div><div class="pres-stat-label">DIPLOMACY</div></div>
+                        ${p.fiscal ? `<div class="pres-stat ${p.fiscal.debt > 130 ? 'debt-high' : ''}"><div class="pres-stat-val">${Math.round(p.fiscal.debt)}%</div><div class="pres-stat-label">NAT'L DEBT</div></div>` : ''}
                     </div>
+                    ${p.fiscal && p.fiscal.shutdown ? `<div class="shutdown-banner">🚧 GOVERNMENT SHUTDOWN — approval bleeds every quarter until you reopen it (quarter ${p.fiscal.shutdownQuarters || 1}).</div>` : ''}
                     ${(() => {
                         const eff = window.PresidencySystem.cabinetEffects();
                         const chips = [];
@@ -3365,6 +3367,11 @@ window.GameUI = {
                         <button class="btn action-btn initiative-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('initiative')">
                             <span class="action-icon">${p.signature.icon}</span>
                             <span class="action-copy"><span class="action-label">Advance: ${p.signature.name}</span><span class="action-desc">Spend a quarter and 1⭐ driving your signature goal toward the finish line.</span></span>
+                        </button>` : ''}
+                        ${p.fiscal && p.fiscal.shutdown ? `
+                        <button class="btn action-btn reopen-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('reopen')">
+                            <span class="action-icon">🔑</span>
+                            <span class="action-copy"><span class="action-label">Reopen the Government</span><span class="action-desc">End the shutdown — costs 2⭐ and a small debt bump, but stops the approval bleed.</span></span>
                         </button>` : ''}
                         <button class="btn action-btn war-declare-btn" ${acted ? 'disabled' : ''} onclick="GameUI.showWarRoom()">
                             <span class="action-icon">⚔️</span>
@@ -3411,6 +3418,9 @@ window.GameUI = {
                 this.showToast(`${result.signature.name}: +${result.gain} progress (${result.signature.progress}/${result.signature.target})`, 'success');
                 this.renderPresidency();
             }
+        } else if (result.type === 'reopen') {
+            this.showToast('Government reopened — the shutdown ends.', 'success');
+            this.renderPresidency();
         } else {
             this.showToast(type === 'barnstorm' ? `Barnstorm complete — approval +${result.gain}` : `Foreign tour complete — approval +${result.gain}`, 'success');
             this.renderPresidency();
@@ -3426,7 +3436,7 @@ window.GameUI = {
             <div class="bill-card">
                 <div class="bill-name">${b.name} <span class="bill-issue">${b.issue.toUpperCase()}</span></div>
                 <div class="bill-desc">${b.desc}</div>
-                <div class="bill-odds">Base odds: <strong>${PS.billOdds(b, 0)}%</strong> · Cost ${b.cost}⭐ base</div>
+                <div class="bill-odds">Base odds: <strong>${PS.billOdds(b, 0)}%</strong> · Cost ${b.cost}⭐ · ${b.spend < 0 ? `<span class="bill-savings">cuts debt ${Math.abs(b.spend)}</span>` : `<span class="bill-cost-debt">debt +${b.spend}</span>`}</div>
                 <div class="bill-actions">
                     <button class="btn btn-sm btn-primary" onclick="GameUI.doPresidencyAct('bill', { billId: '${b.id}', extraCapital: 0 })">PUSH IT</button>
                     <button class="btn btn-sm" ${p.capital >= 2 ? '' : 'disabled'} onclick="GameUI.doPresidencyAct('bill', { billId: '${b.id}', extraCapital: 2 })" title="+16% odds">TWIST ARMS (+2⭐ → ${PS.billOdds(b, 2)}%)</button>
@@ -3491,6 +3501,15 @@ window.GameUI = {
                 </div>`);
         } else if (event.kind === 'sotu') {
             this.showSotu();
+        } else if (event.kind === 'budget') {
+            const p2 = window.GameEngine.state.presidency;
+            const choices = window.PresidencySystem.BUDGET_CHOICES.map((c, i) =>
+                `<button class="btn interview-answer" onclick="GameUI.resolveBudget(${i})">${c.label} <span class="crisis-tag">${c.tag}</span></button>`).join('');
+            this.showModal('💰 THE BUDGET DEADLINE', `
+                <div class="crisis-stage">
+                    <p class="crisis-text">Appropriations expire at midnight and the debt ceiling is looming. Debt stands at <strong>${Math.round(p2.fiscal.debt)}% of GDP</strong>, the House is <strong>${p2.congress.houseMajority ? 'yours' : 'against you'}</strong>. How do you handle it?</p>
+                    <div class="interview-answers">${choices}</div>
+                </div>`);
         } else if (event.kind === 'opportunity') {
             const opp = window.PresidencySystem.OPPORTUNITIES.find(o => o.id === event.id);
             this.showModal(opp.title, `
@@ -3541,6 +3560,20 @@ window.GameUI = {
                 <div class="iv-tier ${cls}">${res.tier}</div>
                 <p class="text-muted">The reviews are in. ${res.approvalDelta >= 0 ? `Approval ${res.approvalDelta > 0 ? '+' + res.approvalDelta : 'unchanged'}.` : `Approval ${res.approvalDelta}.`} ${res.score >= 58 ? 'A speech that gives you room to govern.' : res.score >= 42 ? 'It filled an hour of airtime and little else.' : 'The pundits are merciless. That one hurt.'}</p>
                 <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.acknowledgePresidencyEvent();">CONTINUE</button>
+            </div>`);
+    },
+
+    resolveBudget(choiceIndex) {
+        const res = window.PresidencySystem.resolveBudget(choiceIndex);
+        if (!res) return;
+        this.closeModal();
+        this.showModal(res.shutdown ? '🚧 SHUTDOWN' : '💰 BUDGET RESOLVED', `
+            <div style="text-align:center;">
+                <div class="iv-tier ${res.good ? 'great' : 'bad'}">${res.label}</div>
+                <p class="text-muted">${res.shutdown
+                    ? 'The lights go out across the federal government. Your approval will bleed every quarter until you reopen it.'
+                    : 'The government is funded and the cliff is behind you — for now.'}</p>
+                <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.afterPresidencyEvent();">CONTINUE</button>
             </div>`);
     },
 
@@ -3616,6 +3649,7 @@ window.GameUI = {
                         ${L.wars ? `<div class="inaug-stat"><div class="retro-val">${L.warsWon}W · ${L.warsLost}L</div><div class="retro-label">Wars</div></div>` : ''}
                         <div class="inaug-stat"><div class="retro-val">${L.approval}%</div><div class="retro-label">Final Approval</div></div>
                     </div>
+                    ${p.fiscal ? `<div class="legacy-signature ${p.fiscal.debt <= 100 ? 'achieved' : p.fiscal.debt > 135 ? 'unfinished' : ''}">🏛️ NATIONAL DEBT LEFT AT ${Math.round(p.fiscal.debt)}% OF GDP</div>` : ''}
                     ${L.signatureName ? `<div class="legacy-signature ${L.signatureDone ? 'achieved' : 'unfinished'}">${L.signatureDone ? '🏆 ACHIEVED' : '✗ UNFINISHED'} — ${L.signatureName}</div>` : ''}
                     <div class="iv-headline" style="margin:10px 0;">${L.outlook}</div>
                     <div class="mt-2 btn-group" style="justify-content:center;">

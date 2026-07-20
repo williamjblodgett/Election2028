@@ -245,7 +245,9 @@ window.PresidencySystem = {
         const results = (window.GameUI && window.GameUI._lastResults) || { nationalPopularVote: { player: 51, opponent: 47 }, playerEV: 290 };
         const margin = results.nationalPopularVote.player - results.nationalPopularVote.opponent;
         const t = gs.transition || { senateSeats: 51, capital: 5 };
+        const term = gs.incumbentSeed ? (gs.incumbentSeed.term || 1) + 1 : 1;
         gs.presidency = {
+            term,
             quarter: 1,
             approval: Math.max(44, Math.min(60, Math.round(50 + margin))),
             economy: { gdp: 2.2, unemployment: 4.1, inflation: 2.6 },
@@ -269,7 +271,9 @@ window.PresidencySystem = {
     },
 
     quarterLabel(q) {
-        const year = 2029 + Math.floor((q - 1) / 4);
+        const p = window.GameEngine.state.presidency;
+        const baseYear = 2029 + ((p && p.term ? p.term : 1) - 1) * 4;
+        const year = baseYear + Math.floor((q - 1) / 4);
         const season = ['WINTER', 'SPRING', 'SUMMER', 'FALL'][(q - 1) % 4];
         return `YEAR ${Math.floor((q - 1) / 4) + 1} · ${season} ${year}`;
     },

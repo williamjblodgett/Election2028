@@ -101,6 +101,7 @@ window.GameEngine = {
             transition: null,
             interviews: { lastWeek: -99, history: [], active: null },
             presidency: null,
+            incumbentSeed: null,
         };
     },
 
@@ -148,6 +149,51 @@ window.GameEngine = {
         this.initStatePolling();
         window.EventSystem.ScenarioEngine.reset();
         return this.state;
+    },
+
+    /**
+     * Launch a re-election campaign as the sitting president. Skips the primary
+     * (incumbents are renominated), keeps the VP ticket, and applies the record
+     * from the last term as a head start or a handicap.
+     */
+    startReelection(incumbent, opponent, difficulty, seed, vp) {
+        this.initGame(incumbent, opponent, 'campaign', difficulty);
+        const gs = this.state;
+        gs.incumbentSeed = seed;
+        gs.isIncumbentRun = true;
+
+        // Renominated without a fight — jump straight to the general election
+        if (gs.primary) { gs.primary.decided = true; gs.primary.lostNomination = false; }
+        gs.week = gs.primaryWeeks + 1;
+        this.transitionToGeneral();
+        gs.conventionDone = true;
+
+        // Keep the ticket you governed with
+        if (vp) {
+            gs.vpChoice = vp; gs.vpPicked = true;
+            gs.playerTicket = { nominee: incumbent, vp };
+        }
+
+        // The record becomes the campaign's starting conditions
+        const c = gs.campaign;
+        c.approval = seed.approval;
+        c.nationalPolling = Math.max(38, Math.min(60, seed.approval));
+        if (seed.gdp >= 2.6) { c.nationalPolling += 2; c.donorConfidence += 10; c.momentum += 8; }
+        else if (seed.gdp < 1.5) { c.nationalPolling -= 3; c.momentum -= 8; }
+        if (seed.inflation > 4) c.nationalPolling -= 2;
+        c.scandalVulnerability = Math.min(100, c.scandalVulnerability + (seed.scandals || 0) * 6);
+        c.nationalPolling -= (seed.warsLost || 0) * 3;
+        c.momentum += (seed.warsWon || 0) * 4 - (seed.warsLost || 0) * 5;
+        if (seed.signatureDone) { c.nationalPolling += 3; c.donorConfidence += 8; }
+        if ((seed.debt || 100) > 140) c.donorConfidence -= 8;
+        c.nationalPolling = Math.max(34, Math.min(64, c.nationalPolling));
+
+        // Shift the map toward the incumbent's standing
+        const shift = (c.nationalPolling - 50) * 0.3;
+        for (const poll of Object.values(gs.statePolling)) {
+            poll.player += shift; poll.opponent -= shift;
+        }
+        return gs;
     },
 
     initStatePolling() {
@@ -2309,7 +2355,7 @@ window.GameEngine = {
                            'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias',
                            'publicAnger', 'securityDetail', 'hospitalized', 'assassinationAttempts',
                            'platform', 'opponentPlatform', 'flipFlops', 'platformShiftedWeek',
-                           'primary', 'opponentPlaybook', 'activeScandals', 'transition', 'interviews', 'presidency']) {
+                           'primary', 'opponentPlaybook', 'activeScandals', 'transition', 'interviews', 'presidency', 'incumbentSeed']) {
             if (this.state[key] === undefined) this.state[key] = fresh[key];
         }
         // Old saves: seed platforms from the candidates so drift math works

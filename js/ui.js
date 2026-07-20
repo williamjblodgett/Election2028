@@ -3309,7 +3309,7 @@ window.GameUI = {
                     <div class="pres-title-row">
                         <div class="pres-seal">🦅</div>
                         <div>
-                            <div class="pres-kicker">${PS.quarterLabel(p.quarter)} · QUARTER ${p.quarter} OF 16</div>
+                            <div class="pres-kicker">${(p.term || 1) >= 2 ? 'SECOND TERM · ' : ''}${PS.quarterLabel(p.quarter)} · QUARTER ${p.quarter} OF 16</div>
                             <h2>PRESIDENT ${gs.playerCandidate.name.toUpperCase()}</h2>
                         </div>
                         <div class="pres-portrait">${window.Portraits.html(gs.playerCandidate)}</div>
@@ -3737,12 +3737,57 @@ window.GameUI = {
                     ${p.fiscal ? `<div class="legacy-signature ${p.fiscal.debt <= 100 ? 'achieved' : p.fiscal.debt > 135 ? 'unfinished' : ''}">🏛️ NATIONAL DEBT LEFT AT ${Math.round(p.fiscal.debt)}% OF GDP</div>` : ''}
                     ${L.signatureName ? `<div class="legacy-signature ${L.signatureDone ? 'achieved' : 'unfinished'}">${L.signatureDone ? '🏆 ACHIEVED' : '✗ UNFINISHED'} — ${L.signatureName}</div>` : ''}
                     <div class="iv-headline" style="margin:10px 0;">${L.outlook}</div>
+                    ${(p.term || 1) >= 2 ? '<div class="legacy-signature achieved">🇺🇸 TWO TERMS SERVED — your place in history is settled</div>' : ''}
                     <div class="mt-2 btn-group" style="justify-content:center;">
-                        <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">RUN FOR RE-ELECTION (NEW CAMPAIGN)</button>
+                        ${this._canRunAgain(p, L) ? `<button class="btn btn-primary btn-lg" onclick="GameUI.runForReelection()">🇺🇸 RUN FOR RE-ELECTION (2032)</button>` : ''}
+                        <button class="btn ${this._canRunAgain(p, L) ? '' : 'btn-primary'} btn-lg" onclick="GameUI.startNewGame()">NEW CAMPAIGN</button>
                         <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
                     </div>
                 </div>
             </div>`;
+    },
+
+    // Eligible for re-election: not removed/apocalyptic, and not term-limited
+    _canRunAgain(p, L) {
+        return !L.removed && !(p.war && p.war.outcome === 'nuclear') && (p.term || 1) < 2;
+    },
+
+    runForReelection() {
+        const gs = window.GameEngine.state;
+        const p = gs.presidency;
+        const L = p.legacy || window.PresidencySystem.computeLegacy();
+        const seed = {
+            term: p.term || 1,
+            approval: p.approval,
+            gdp: p.economy.gdp, inflation: p.economy.inflation,
+            scandals: (p.scandals || []).length,
+            warsWon: L.warsWon || 0, warsLost: L.warsLost || 0,
+            signatureDone: !!L.signatureDone, signatureName: L.signatureName,
+            debt: p.fiscal ? p.fiscal.debt : 100,
+            playerName: gs.playerCandidate.name,
+        };
+        try { localStorage.setItem('election2028_incumbent', JSON.stringify(seed)); } catch (e) {}
+
+        const incumbent = gs.playerCandidate;
+        const party = gs.playerParty;
+        const oppPool = party === 'democrat' ? window.CandidateData.republicans : window.CandidateData.democrats;
+        const opponent = oppPool[Math.floor(Math.random() * oppPool.length)];
+        const vp = gs.vpChoice || null;
+        window.GameEngine.startReelection(incumbent, opponent, gs.difficulty || 'realistic', seed, vp);
+
+        // Restore UI candidate references and drop into the war room
+        this.playerParty = party;
+        this.selectedDemocrat = party === 'democrat' ? incumbent : opponent;
+        this.selectedRepublican = party === 'republican' ? incumbent : opponent;
+        this.showScreen('game');
+        this.renderGameScreen();
+        this.autoSave();
+        this.showModal('🇺🇸 THE 2032 CAMPAIGN', `
+            <div style="text-align:center;">
+                <div class="iv-tier">RUNNING AS THE INCUMBENT</div>
+                <p class="text-muted">You skip the primary and face ${opponent.name} in the general election. Your record is your platform: ${seed.approval}% approval, ${seed.gdp.toFixed(1)}% growth${seed.signatureDone ? `, and ${seed.signatureName} delivered` : ''}${seed.warsLost ? `, but ${seed.warsLost} war${seed.warsLost === 1 ? '' : 's'} lost` : ''}${seed.scandals ? `, and ${seed.scandals} scandal${seed.scandals === 1 ? '' : 's'} to answer for` : ''}. Win, and you serve your second and final term.</p>
+                <button class="btn btn-primary" onclick="GameUI.closeModal();">TO THE WAR ROOM</button>
+            </div>`);
     },
 
     // ═══════════════════════════════════════════════

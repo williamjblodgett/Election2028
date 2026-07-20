@@ -4164,3 +4164,46 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .senate-vote-detail { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; letter-spacing: 0.5px; }
 .cab-fx-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .cab-fx { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.5px; background: rgba(255,215,94,0.08); border: 1px solid rgba(255,215,94,0.25); color: var(--text-secondary); border-radius: 20px; padding: 3px 10px; }
+
+/* ═══ WAR POWERS ═══ */
+.war-declare-btn { border-color: #b3402e !important; }
+.war-banner { border: 1px solid #b3402e; border-radius: 12px; background: linear-gradient(180deg, rgba(179,64,46,0.14), rgba(179,64,46,0.04)); padding: 14px 16px; margin-bottom: 16px; }
+.war-banner-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.war-live { font-family: var(--font-mono); font-weight: 800; letter-spacing: 1px; color: #ff5e4a; }
+.war-vs { font-weight: 700; letter-spacing: 0.5px; }
+.war-nuke { color: #ffd75e; font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 1px; }
+.war-round { margin-left: auto; font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); letter-spacing: 1px; }
+.war-momentum-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.war-side-label { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.war-side-label.enemy { color: #ff8a8a; } .war-side-label.us { color: #7fb2ff; }
+.war-momentum { position: relative; flex: 1; height: 26px; background: #3a1f26; border-radius: 13px; overflow: hidden; }
+.war-momentum-fill { height: 100%; transition: width 0.4s ease; }
+.war-momentum-fill.winning { background: linear-gradient(90deg, #2166d4, #2f9e4f); }
+.war-momentum-fill.losing { background: linear-gradient(90deg, #8a1414, #d42121); }
+.war-momentum-fill.even { background: linear-gradient(90deg, #6a4a1a, #b38a2e); }
+.war-momentum-mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: rgba(255,255,255,0.5); }
+.war-momentum-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 0.66rem; font-weight: 800; letter-spacing: 1px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.war-coalitions { display: flex; gap: 20px; flex-wrap: wrap; }
+.war-coalition { font-size: 0.85rem; }
+.war-col-label { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 1px; padding: 2px 6px; border-radius: 4px; margin-right: 6px; }
+.war-col-label.us { background: #14283f; color: #7fb2ff; } .war-col-label.enemy { background: #3a1216; color: #ff8a8a; }
+.war-flag { font-size: 1.1rem; margin-right: 2px; }
+.war-none { color: var(--text-muted); font-style: italic; font-size: 0.8rem; }
+.war-order { border-color: rgba(179,64,46,0.4) !important; }
+
+.war-target-list { display: flex; flex-direction: column; gap: 12px; }
+.war-target { border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; }
+.war-target-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.war-target-flag { font-size: 2rem; }
+.war-target-name { font-weight: 700; }
+.war-size { font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 1px; padding: 2px 6px; border-radius: 4px; }
+.war-size.safe { background: #12351c; color: #7fd98f; } .war-size.mid { background: #333012; color: #ffd75e; }
+.war-size.hard { background: #3a2412; color: #ffab5e; } .war-size.extreme { background: #3a1216; color: #ff8a8a; }
+.war-target-pop { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); }
+.war-target-scenario { font-size: 0.85rem; color: var(--text-secondary); font-style: italic; margin-bottom: 8px; line-height: 1.4; }
+.war-target-preview { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.78rem; margin-bottom: 10px; }
+.war-prev.us { color: #7fb2ff; } .war-prev.enemy { color: #ff8a8a; }
+.war-declare-confirm { width: 100%; background: #8a1414; border-color: #b3402e; }
+.war-declare-summary { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-secondary); margin: 12px 0; line-height: 1.8; }
+.war-battle-mom { font-size: 1.6rem; font-weight: 800; letter-spacing: 2px; margin-bottom: 8px; color: var(--text-secondary); }
+.war-battle-mom.great { color: #7fd98f; } .war-battle-mom.bad { color: #ff8a8a; }

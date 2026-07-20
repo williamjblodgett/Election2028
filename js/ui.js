@@ -3298,6 +3298,7 @@ window.GameUI = {
                         <div class="pres-stat"><div class="pres-stat-val">${e.inflation.toFixed(1)}%</div><div class="pres-stat-label">INFLATION</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${p.congress.senateSeats}${p.congress.houseMajority ? ' · H✓' : ' · H✗'}</div><div class="pres-stat-label">SENATE · HOUSE</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${p.capital}⭐</div><div class="pres-stat-label">CAPITAL</div></div>
+                        <div class="pres-stat"><div class="pres-stat-val">${p.diplomaticStanding || 55}</div><div class="pres-stat-label">DIPLOMACY</div></div>
                     </div>
                     ${(() => {
                         const eff = window.PresidencySystem.cabinetEffects();
@@ -3310,8 +3311,10 @@ window.GameUI = {
                         return chips.length ? `<div class="cab-fx-row">${chips.map(c => `<span class="cab-fx">${c}</span>`).join('')}</div>` : '';
                     })()}
                 </div>
+                ${this.renderWarBanner(p)}
                 <div class="pres-body">
                     <div class="pres-actions">
+                        ${PS.atWar() ? this.renderWarActions(p, acted) : `
                         <div class="panel-section-title">${acted ? 'THE QUARTER\'S MOVE IS MADE' : 'CHOOSE THIS QUARTER\'S BIG MOVE'}</div>
                         <button class="btn action-btn" ${acted ? 'disabled' : ''} onclick="GameUI.showBillPicker()">
                             <span class="action-icon">📜</span>
@@ -3327,9 +3330,13 @@ window.GameUI = {
                         </button>
                         <button class="btn action-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('diplomacy')">
                             <span class="action-icon">🌍</span>
-                            <span class="action-copy"><span class="action-label">Foreign Tour</span><span class="action-desc">Warm the alliances — softens the next crisis you face.</span></span>
+                            <span class="action-copy"><span class="action-label">Foreign Tour</span><span class="action-desc">Warm alliances (+8 diplomacy) — softens the next crisis and widens any wartime coalition.</span></span>
                         </button>
-                        <button class="btn btn-primary btn-lg pres-end-quarter" ${acted ? '' : 'disabled'} onclick="GameUI.endPresidencyQuarter()">END QUARTER →</button>
+                        <button class="btn action-btn war-declare-btn" ${acted ? 'disabled' : ''} onclick="GameUI.showWarRoom()">
+                            <span class="action-icon">⚔️</span>
+                            <span class="action-copy"><span class="action-label">War Powers</span><span class="action-desc">Take the nation to war. History is made and unmade here.</span></span>
+                        </button>`}
+                        <button class="btn btn-primary btn-lg pres-end-quarter" ${acted ? '' : 'disabled'} onclick="GameUI.endPresidencyQuarter()">${PS.atWar() ? 'FIGHT THE QUARTER →' : 'END QUARTER →'}</button>
                     </div>
                     <div class="pres-agenda">
                         <div class="panel-section-title">YOUR RECORD</div>
@@ -3402,7 +3409,22 @@ window.GameUI = {
         const event = window.PresidencySystem.endQuarter();
         if (!event) return;
         const p = window.GameEngine.state.presidency;
-        if (event.kind === 'crisis') {
+        if (event.kind === 'warbattle') {
+            this.showWarBattle(event.result);
+        } else if (event.kind === 'surprisewar') {
+            const w = p.war;
+            this.showModal('🚨 THE NATION IS ATTACKED', `
+                <div style="text-align:center;">
+                    <div class="iv-tier bad">${w.adversary.flag} DECLARES WAR</div>
+                    <p class="text-muted">${window.WarSystem.getAdversary(w.adversaryId).scenario} You had no choice in this war — but you will choose how it ends.</p>
+                    <div class="war-declare-summary">
+                        <div>🇺🇸 Your bloc strength: <strong>${w.ourStrength}</strong> (${w.withUs.length} ${w.withUs.length === 1 ? 'ally' : 'allies'})</div>
+                        <div>${w.adversary.flag} Enemy bloc strength: <strong>${w.enemyStrength}</strong></div>
+                        <div>Opening momentum: <strong>${w.momentum}/100</strong></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.finishWarThenAdvance();">TO THE SITUATION ROOM</button>
+                </div>`);
+        } else if (event.kind === 'crisis') {
             const crisis = window.PresidencySystem.CRISES.find(c => c.id === event.id);
             const choices = crisis.choices.map((c, i) =>
                 `<button class="btn interview-answer" onclick="GameUI.resolvePresidencyCrisis(${i})">${c.text} <span class="crisis-tag">${c.tag}</span></button>`).join('');
@@ -3506,6 +3528,7 @@ window.GameUI = {
                         <div class="inaug-stat"><div class="retro-val">${L.laws}</div><div class="retro-label">Laws Signed</div></div>
                         <div class="inaug-stat"><div class="retro-val">${L.scotus}</div><div class="retro-label">Justices Seated</div></div>
                         <div class="inaug-stat"><div class="retro-val">${L.crisesWon}/${L.crisesWon + L.crisesLost}</div><div class="retro-label">Crises Handled</div></div>
+                        ${L.wars ? `<div class="inaug-stat"><div class="retro-val">${L.warsWon}W · ${L.warsLost}L</div><div class="retro-label">Wars</div></div>` : ''}
                         <div class="inaug-stat"><div class="retro-val">${L.approval}%</div><div class="retro-label">Final Approval</div></div>
                     </div>
                     <div class="iv-headline" style="margin:10px 0;">${L.outlook}</div>
@@ -3515,6 +3538,161 @@ window.GameUI = {
                     </div>
                 </div>
             </div>`;
+    },
+
+    // ═══════════════════════════════════════════════
+    // WAR POWERS
+    // ═══════════════════════════════════════════════
+    renderWarBanner(p) {
+        if (!p.war || p.war.resolved) return '';
+        const w = p.war;
+        const momClass = w.momentum >= 60 ? 'winning' : w.momentum <= 40 ? 'losing' : 'even';
+        const ally = w.withUs.map(n => `<span class="war-flag" title="${n.name}">${n.flag}</span>`).join('') || '<span class="war-none">— you fight alone —</span>';
+        const enemy = w.against.map(n => `<span class="war-flag" title="${n.name}">${n.flag}</span>`).join('') || '<span class="war-none">— no allies —</span>';
+        return `
+            <div class="war-banner">
+                <div class="war-banner-head">
+                    <span class="war-live">⚔️ AT WAR</span>
+                    <span class="war-vs">UNITED STATES vs ${w.adversary.flag} ${w.adversary.name.toUpperCase()} ${w.adversary.nuclear ? '<span class="war-nuke">☢ NUCLEAR</span>' : ''}</span>
+                    <span class="war-round">QUARTER ${w.round} · ${w.casualties}k CASUALTIES</span>
+                </div>
+                <div class="war-momentum-wrap">
+                    <span class="war-side-label enemy">${w.adversary.flag} ${w.enemyStrength}</span>
+                    <div class="war-momentum">
+                        <div class="war-momentum-fill ${momClass}" style="width:${w.momentum}%"></div>
+                        <div class="war-momentum-mid"></div>
+                        <div class="war-momentum-text">${w.momentum >= 55 ? 'YOU ARE WINNING' : w.momentum <= 45 ? 'YOU ARE LOSING' : 'THE FRONT IS FROZEN'}</div>
+                    </div>
+                    <span class="war-side-label us">🇺🇸 ${w.ourStrength}</span>
+                </div>
+                <div class="war-coalitions">
+                    <div class="war-coalition"><span class="war-col-label us">WITH YOU</span> ${ally}</div>
+                    <div class="war-coalition"><span class="war-col-label enemy">AGAINST YOU</span> ${enemy}</div>
+                </div>
+            </div>`;
+    },
+
+    renderWarActions(p, acted) {
+        const w = p.war;
+        const nuke = w.adversary.nuclear;
+        return `
+            <div class="panel-section-title">${acted ? 'ORDERS ARE GIVEN' : 'YOUR WAR ORDERS THIS QUARTER'}</div>
+            <button class="btn action-btn war-order" ${acted ? 'disabled' : ''} onclick="GameUI.doWarPosture('escalate')">
+                <span class="action-icon">💥</span>
+                <span class="action-copy"><span class="action-label">Escalate — Surge</span><span class="action-desc">Throw everything forward. Best chance to swing the front — highest casualties${nuke ? ', and against a nuclear foe, real risk of the unthinkable' : ''}.</span></span>
+            </button>
+            <button class="btn action-btn war-order" ${acted ? 'disabled' : ''} onclick="GameUI.doWarPosture('hold')">
+                <span class="action-icon">🛡️</span>
+                <span class="action-copy"><span class="action-label">Hold the Line</span><span class="action-desc">Consolidate and let your material advantage grind. Steady, lower cost.</span></span>
+            </button>
+            <button class="btn action-btn war-order" ${acted ? 'disabled' : ''} onclick="GameUI.doWarPosture('negotiate')">
+                <span class="action-icon">🕊️</span>
+                <span class="action-copy"><span class="action-label">Sue for Peace</span><span class="action-desc">End it now. The deal you get depends entirely on who's winning today.</span></span>
+            </button>`;
+    },
+
+    showWarRoom() {
+        const p = window.GameEngine.state.presidency;
+        if (p.acted || window.PresidencySystem.atWar()) return;
+        const standing = (p.diplomaticStanding || 55) + window.WarSystem._cabinetDiplomacy();
+        const cards = window.WarSystem.ADVERSARIES.map(a => {
+            const preview = window.WarSystem.formCoalition(a, p.diplomaticStanding || 55, window.WarSystem._cabinetDiplomacy());
+            const allyFlags = preview.withUs.map(n => n.flag).join('') || '—';
+            const enemyFlags = [...(a.bloc || []).map(id => (window.WarSystem.WORLD.find(w => w.id === id) || {}).flag || '').filter(Boolean), ...preview.against.map(n => n.flag)];
+            const enemyStr = [...new Set(enemyFlags)].join('') || '—';
+            const sizeClass = a.strength <= 25 ? 'safe' : a.strength <= 45 ? 'mid' : a.strength <= 75 ? 'hard' : 'extreme';
+            return `
+                <div class="war-target">
+                    <div class="war-target-head">
+                        <span class="war-target-flag">${a.flag}</span>
+                        <div>
+                            <div class="war-target-name">${a.name} <span class="war-size ${sizeClass}">${a.size}</span> ${a.nuclear ? '<span class="war-nuke">☢</span>' : ''}</div>
+                            <div class="war-target-pop">Population ${a.population} · Military strength ${a.strength}/100</div>
+                        </div>
+                    </div>
+                    <div class="war-target-scenario">${a.scenario}</div>
+                    <div class="war-target-preview">
+                        <span class="war-prev us">Likely with you: ${allyFlags}</span>
+                        <span class="war-prev enemy">Likely against: ${enemyStr}</span>
+                    </div>
+                    <button class="btn btn-sm war-declare-confirm" onclick="GameUI.declareWar('${a.id}')">DECLARE WAR ON ${a.name.toUpperCase()}</button>
+                </div>`;
+        }).join('');
+        this.showModal('⚔️ THE WAR ROOM', `
+            <p class="text-muted" style="margin-bottom:10px;">Your diplomatic standing is <strong>${Math.round(standing)}/100</strong> — it decides how many allies rally to you. A small aggressor is winnable; a nuclear superpower has ended presidencies. Choose carefully.</p>
+            <div class="war-target-list">${cards}</div>`);
+    },
+
+    declareWar(adversaryId) {
+        window.PresidencySystem.act('declarewar', { adversaryId });
+        this.closeModal();
+        const w = window.GameEngine.state.presidency.war;
+        this.showModal('⚔️ THE UNITED STATES IS AT WAR', `
+            <div style="text-align:center;">
+                <div class="iv-tier">${w.adversary.flag} vs 🇺🇸</div>
+                <p class="text-muted">War is declared on ${w.adversary.name}. The coalitions have formed. Your generals await orders — end the quarter to begin the fight.</p>
+                <div class="war-declare-summary">
+                    <div>🇺🇸 Your bloc strength: <strong>${w.ourStrength}</strong> (${w.withUs.length} ${w.withUs.length === 1 ? 'ally' : 'allies'})</div>
+                    <div>${w.adversary.flag} Enemy bloc strength: <strong>${w.enemyStrength}</strong> (${w.against.length} against you)</div>
+                    <div>Opening momentum: <strong>${w.momentum}/100</strong></div>
+                </div>
+                <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.renderPresidency();">TO THE SITUATION ROOM</button>
+            </div>`);
+    },
+
+    doWarPosture(posture) {
+        window.PresidencySystem.act('warposture', { posture });
+        this.renderPresidency();
+    },
+
+    // Called from endPresidencyQuarter when the pending event is a war battle
+    showWarBattle(result) {
+        const p = window.GameEngine.state.presidency;
+        const w = p.war;
+        if (result && result.nuclear) {
+            this.showModal('☢️ NUCLEAR EXCHANGE', `
+                <div style="text-align:center;">
+                    <div class="iv-tier bad">THE UNTHINKABLE</div>
+                    <p class="text-muted">Escalation crossed the last line. Missiles are in the air and cannot be recalled. There is no press conference for this.</p>
+                    <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.finishWarThenAdvance();">…</button>
+                </div>`);
+            return;
+        }
+        if (w.resolved) { this.showWarOutcome(w); return; }
+        const swing = result && result.swing;
+        const dir = swing >= 0 ? 'gains ground' : 'gives ground';
+        this.showModal(`⚔️ QUARTER ${w.round} — THE FRONT`, `
+            <div style="text-align:center;">
+                <div class="war-battle-mom ${w.momentum >= 55 ? 'great' : w.momentum <= 45 ? 'bad' : ''}">MOMENTUM ${w.momentum}/100</div>
+                <p class="text-muted">Under a <strong>${w.posture}</strong> posture, the front ${dir}. ${w.casualties}k total casualties. ${w.momentum >= 75 ? 'Victory is within reach.' : w.momentum <= 25 ? 'The war is slipping away.' : 'The fighting grinds on.'}</p>
+                <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.finishWarThenAdvance();">CONTINUE</button>
+            </div>`);
+    },
+
+    showWarOutcome(w) {
+        const good = w.outcome === 'victory' || w.outcome === 'peace';
+        const cls = w.outcome === 'victory' ? 'great' : w.outcome === 'defeat' || w.outcome === 'nuclear' ? 'bad' : '';
+        const blurb = {
+            victory: `Total victory over ${w.adversary.name}. The nation is triumphant and history will remember who led it.`,
+            peace: `A negotiated peace with ${w.adversary.name} — not a parade, but an honorable end on your terms.`,
+            quagmire: `The war with ${w.adversary.name} ends in a bloody stalemate. Nobody won, and the country knows it.`,
+            defeat: `Defeat. ${w.adversary.name} has beaten the United States. The cost — in lives, in standing, in your presidency — is severe.`,
+        }[w.outcome] || '';
+        this.showModal(`⚔️ THE WAR IS OVER`, `
+            <div style="text-align:center;">
+                <div class="iv-tier ${cls}">${w.resultLabel}</div>
+                <p class="text-muted">${blurb}</p>
+                <div class="war-declare-summary">
+                    <div>Approval ${w.resultApproval >= 0 ? '+' : ''}${w.resultApproval}</div>
+                    <div>${w.round} quarters of war · ${w.casualties}k casualties</div>
+                </div>
+                <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.finishWarThenAdvance();">CONTINUE</button>
+            </div>`);
+    },
+
+    finishWarThenAdvance() {
+        window.PresidencySystem.resolveWarEvent();
+        this.afterPresidencyEvent();
     },
 
     // ═══════════════════════════════════════════════

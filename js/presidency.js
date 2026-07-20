@@ -131,8 +131,10 @@ window.PresidencySystem = {
             economy: { gdp: 2.2, unemployment: 4.1, inflation: 2.6 },
             congress: { senateSeats: t.senateSeats, houseMajority: margin >= 1 },
             capital: Math.min(12, (t.capital || 5) + 3),
+            diplomaticStanding: 55,
             enacted: [], eos: [], scotus: [],
             crisisLog: [],
+            war: null, warLog: [], surpriseWarDone: false,
             acted: false,
             pendingEvent: null,
             midtermsDone: false,
@@ -212,8 +214,18 @@ window.PresidencySystem = {
             const gain = 1 + Math.floor(Math.random() * 3);
             p.approval = Math.min(75, p.approval + gain);
             p.crisisShield = true;
-            p.log.push(`World tour — approval +${gain}, alliances warmed.`);
+            p.diplomaticStanding = Math.min(100, (p.diplomaticStanding || 55) + 8);
+            p.log.push(`World tour — approval +${gain}, standing with allies up.`);
             result = { type, gain };
+        } else if (type === 'declarewar') {
+            const war = window.WarSystem.declare(payload.adversaryId, false);
+            if (!war) return null;
+            p.log.push(`War declared on ${war.adversary.name}.`);
+            result = { type, war };
+        } else if (type === 'warposture') {
+            // Handled through endQuarter's battle round; just stash intent
+            p.pendingPosture = payload.posture;
+            result = { type, posture: payload.posture };
         }
         p.acted = true;
         return result;
@@ -224,11 +236,33 @@ window.PresidencySystem = {
         const p = window.GameEngine.state.presidency;
         if (!p || !p.acted || p.over || p.pendingEvent) return null;
 
+        // Active war dominates the quarter — fight a round or seal the peace
+        if (p.war && !p.war.resolved) {
+            const posture = p.pendingPosture || 'hold';
+            p.pendingPosture = null;
+            const res = posture === 'negotiate'
+                ? window.WarSystem.negotiate()
+                : window.WarSystem.fightRound(posture);
+            p.pendingEvent = { kind: 'warbattle', result: res };
+            return p.pendingEvent;
+        }
+
         // SCOTUS vacancies land in fixed windows
         if ((p.quarter === 5 || p.quarter === 11) && p.scotus.length < 2) {
             p.pendingEvent = { kind: 'scotus' };
             return p.pendingEvent;
         }
+
+        // Surprise attack: once per term, an adversary may declare war on YOU
+        if (!p.surpriseWarDone && !p.war && p.quarter >= 3 && p.quarter <= 13 && Math.random() < 0.14) {
+            p.surpriseWarDone = true;
+            const pool = window.WarSystem.ADVERSARIES.filter(a => a.strength <= 40);
+            const foe = pool[Math.floor(Math.random() * pool.length)];
+            window.WarSystem.declare(foe.id, true);
+            p.pendingEvent = { kind: 'surprisewar', adversaryId: foe.id };
+            return p.pendingEvent;
+        }
+
         const roll = Math.random();
         if (roll < 0.5) {
             const eff = this.cabinetEffects();
@@ -302,8 +336,24 @@ window.PresidencySystem = {
         return true;
     },
 
+    // Clear a war-battle or surprise-attack event and move the term forward.
+    // A nuclear apocalypse ends the term; _advance() no-ops once p.over is set.
+    resolveWarEvent() {
+        const p = window.GameEngine.state.presidency;
+        if (!p.pendingEvent || (p.pendingEvent.kind !== 'warbattle' && p.pendingEvent.kind !== 'surprisewar')) return null;
+        p.pendingEvent = null;
+        this._advance();
+        return true;
+    },
+
+    atWar() {
+        const p = window.GameEngine.state.presidency;
+        return !!(p && p.war && !p.war.resolved);
+    },
+
     _advance() {
         const p = window.GameEngine.state.presidency;
+        if (p.over) { if (window.GameUI) window.GameUI.autoSave(); return; }
 
         // EO court challenges: each standing order has a small strike chance per quarter
         for (const eo of p.eos) {
@@ -372,21 +422,29 @@ window.PresidencySystem = {
         const p = window.GameEngine.state.presidency;
         const crisesWon = p.crisisLog.filter(c => c.success).length;
         const crisesLost = p.crisisLog.length - crisesWon;
+        const wars = p.warLog || [];
+        const warsWon = wars.filter(w => w.outcome === 'victory').length;
+        const warsLost = wars.filter(w => w.outcome === 'defeat').length;
+        const nuked = p.war && p.war.outcome === 'nuclear';
         const score = Math.round(
             p.legacyPoints
             + (p.approval - 45) * 0.8
             + p.economy.gdp * 3
             - Math.max(0, p.economy.inflation - 3) * 2
         );
-        const tier = score >= 60 ? { grade: 'A', title: 'TRANSFORMATIONAL' }
+        let tier;
+        if (nuked) tier = { grade: 'F', title: 'THE PRESIDENT WHO ENDED THE WORLD' };
+        else tier = score >= 60 ? { grade: 'A', title: 'TRANSFORMATIONAL' }
             : score >= 42 ? { grade: 'B', title: 'CONSEQUENTIAL' }
             : score >= 26 ? { grade: 'C', title: 'STEADY HAND' }
             : score >= 12 ? { grade: 'D', title: 'EMBATTLED' }
             : { grade: 'F', title: 'FAILED PRESIDENCY' };
-        const outlook = p.approval >= 53 ? 'STRONG FAVORITE for re-election'
+        const outlook = nuked ? 'THERE WILL BE NO RE-ELECTION'
+            : p.approval >= 53 ? 'STRONG FAVORITE for re-election'
             : p.approval >= 47 ? 'TOSS-UP re-election fight ahead'
             : 'UNDERDOG heading into re-election';
         return { score, grade: tier.grade, title: tier.title, outlook, crisesWon, crisesLost,
+                 warsWon, warsLost, wars: wars.length,
                  laws: p.enacted.length, eos: p.eos.length, scotus: p.scotus.length, approval: p.approval };
     },
 };

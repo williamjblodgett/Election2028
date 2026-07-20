@@ -92,6 +92,31 @@ window.PresidencySystem = {
         { id: 'anthem', title: '🏅 A National Moment', text: 'An Olympic sweep and a returning space crew put the country in a rare good mood.', effects: { approval: 2 } },
     ],
 
+    // Domestic scandals that can fester into impeachment. "heat" is severity
+    // (0–100). Responses trade short-term approval against long-term heat, and a
+    // failed denial becomes a cover-up that escalates.
+    PRES_SCANDALS: [
+        { id: 'trust',    type: 'FINANCIAL',      title: 'The Blind Trust Wasn\'t Blind', base: 62,
+          text: 'Reporting shows your "blind" trust traded on decisions you personally made. The paper trail is ugly.' },
+        { id: 'pardon',   type: 'ABUSE OF POWER', title: 'The Pardon-for-Cash Story', base: 74,
+          text: 'A donor who wired millions to your library fund walked out of prison the next week. Prosecutors are circling.' },
+        { id: 'affair',   type: 'PERSONAL',       title: 'The Hush-Money Allegation', base: 55,
+          text: 'A tabloid has receipts alleging a payment to bury a personal indiscretion before the election.' },
+        { id: 'records',  type: 'ABUSE OF POWER', title: 'Classified Docs in the Residence', base: 68,
+          text: 'Boxes of classified material turn up in a private study. A special counsel is appointed within days.' },
+        { id: 'cronyism', type: 'FINANCIAL',      title: 'The No-Bid Contract', base: 58,
+          text: 'A billion-dollar federal contract went to a firm run by your college roommate. Inspectors general are asking why.' },
+        { id: 'election', type: 'ABUSE OF POWER', title: 'The Pressure Call Leaks', base: 80,
+          text: 'A recording surfaces of you leaning on a state official to "find the votes." The clip plays on a loop.' },
+    ],
+
+    SCANDAL_RESPONSES: [
+        { id: 'deny',         label: 'Deny it flatly — "fake news"',              tag: 'HIGH VARIANCE · COVER-UP RISK' },
+        { id: 'apologize',    label: 'Apologize and turn the page',               tag: 'APPROVAL −3 · CAPS THE DAMAGE' },
+        { id: 'cooperate',    label: 'Cooperate fully with investigators',        tag: 'LOOKS WEAK NOW · LOWEST HEAT' },
+        { id: 'counterattack',label: 'Counterattack the press and prosecutors',   tag: 'RALLIES THE BASE · HEAT LINGERS' },
+    ],
+
     // A defining goal chosen at inauguration and chased across the whole term.
     // Progress comes from the "Advance the Initiative" action and thematically
     // matched bills; completing it is legacy-defining.
@@ -232,6 +257,7 @@ window.PresidencySystem = {
             war: null, warLog: [], surpriseWarDone: false,
             signature: null, sotuHistory: [],
             fiscal: { debt: 100, deficit: 4, shutdown: false, shutdownQuarters: 0 },
+            scandals: [], impeached: false,
             acted: false,
             pendingEvent: null,
             midtermsDone: false,
@@ -370,6 +396,12 @@ window.PresidencySystem = {
             return p.pendingEvent;
         }
 
+        // Impeachment: House lost + a festering scandal → the trial comes first
+        if (!p.impeached && p.congress && !p.congress.houseMajority && this._impeachmentTriggered()) {
+            p.pendingEvent = { kind: 'impeachment' };
+            return p.pendingEvent;
+        }
+
         // SCOTUS vacancies land in fixed windows
         if ((p.quarter === 5 || p.quarter === 11) && p.scotus.length < 2) {
             p.pendingEvent = { kind: 'scotus' };
@@ -396,6 +428,15 @@ window.PresidencySystem = {
             const foe = pool[Math.floor(Math.random() * pool.length)];
             window.WarSystem.declare(foe.id, true);
             p.pendingEvent = { kind: 'surprisewar', adversaryId: foe.id };
+            return p.pendingEvent;
+        }
+
+        // A scandal may break — how loyal your cabinet is and how you've governed
+        // drive the odds
+        const scandalPool = this.PRES_SCANDALS.filter(s => !(p.scandals || []).some(x => x.id === s.id));
+        if (scandalPool.length && Math.random() < this._scandalRisk()) {
+            const s = scandalPool[Math.floor(Math.random() * scandalPool.length)];
+            p.pendingEvent = { kind: 'scandal', id: s.id };
             return p.pendingEvent;
         }
 
@@ -492,6 +533,84 @@ window.PresidencySystem = {
         return outcome;
     },
 
+    // ── Scandal & impeachment ──────────────────────
+    _scandalRisk() {
+        const p = window.GameEngine.state.presidency;
+        let risk = 0.09;
+        if (this.cabinetEffects().leakRisk) risk += 0.10;      // a disloyal cabinet talks
+        risk += Math.min(0.10, p.eos.length * 0.02);           // aggressive executive action draws fire
+        if (p.approval < 40) risk += 0.08;                     // weakness invites the knives
+        if (p.war && p.war.resolved && p.war.outcome === 'quagmire') risk += 0.06;
+        return Math.min(0.42, risk);
+    },
+
+    _liveScandals() {
+        const p = window.GameEngine.state.presidency;
+        return (p.scandals || []).filter(s => s.heat > 12);
+    },
+
+    _impeachmentTriggered() {
+        const live = this._liveScandals();
+        return live.some(s => s.heat >= 70) || live.length >= 2;
+    },
+
+    resolveScandal(responseIndex) {
+        const p = window.GameEngine.state.presidency;
+        if (!p.pendingEvent || p.pendingEvent.kind !== 'scandal') return null;
+        const def = this.PRES_SCANDALS.find(s => s.id === p.pendingEvent.id);
+        const resp = this.SCANDAL_RESPONSES[responseIndex];
+        let heat = def.base, coverup = false, note;
+        if (resp.id === 'deny') {
+            if (Math.random() < 0.5) { heat = Math.round(def.base * 0.4); note = 'The denial holds — the story dies for now.'; }
+            else { heat = Math.min(100, Math.round(def.base * 1.6)); coverup = true; note = 'The denial unravels. Now it\'s a cover-up, and it grows.'; p.approval = Math.max(15, p.approval - 3); }
+        } else if (resp.id === 'apologize') {
+            heat = Math.round(def.base * 0.7); p.approval = Math.max(15, p.approval - 3);
+            note = 'You take the hit and move on. It caps the damage.';
+        } else if (resp.id === 'cooperate') {
+            heat = Math.round(def.base * 0.55); p.approval = Math.max(15, p.approval - 2);
+            note = 'Full cooperation looks weak today but starves the story of oxygen.';
+        } else {
+            heat = Math.round(def.base * 0.95); p.approval = Math.min(80, p.approval + 2);
+            note = 'The base roars, but the heat lingers and the middle recoils.';
+        }
+        p.scandals.push({ id: def.id, type: def.type, title: def.title, heat, coverup, quarter: p.quarter });
+        p.legacyPoints -= Math.round(heat / 12);
+        p.log.push(`Scandal: ${def.title} — ${resp.label.split(' —')[0]} (heat ${heat}).`);
+        p.pendingEvent = null;
+        this._advance();
+        return { def, resp, heat, coverup, note };
+    },
+
+    resolveImpeachment(defend) {
+        const p = window.GameEngine.state.presidency;
+        if (!p.pendingEvent || p.pendingEvent.kind !== 'impeachment') return null;
+        p.impeached = true;
+        const maxHeat = Math.max(...this._liveScandals().map(s => s.heat), 40);
+        const oppSeats = 100 - p.congress.senateSeats;
+        // A mounted legal defense peels back a few would-be defectors
+        const defenseShield = defend ? 4 : 0;
+        const defectors = Math.max(0, Math.round((maxHeat - 60) / 3) + Math.floor(Math.random() * 5) - defenseShield);
+        const convict = Math.max(0, Math.min(100, oppSeats + defectors));
+        const removed = convict >= 67;
+        if (removed) {
+            p.over = true;
+            p.approval = Math.max(10, p.approval - 10);
+            p.legacyPoints -= 40;
+            p.removedFromOffice = true;
+            p.log.push(`Convicted by the Senate, ${convict}–${100 - convict}. Removed from office.`);
+            p.legacy = this.computeLegacy();
+        } else {
+            p.approval = Math.max(15, p.approval - 4);
+            p.legacyPoints -= 8;
+            // Surviving lances the boil — heat drops
+            this._liveScandals().forEach(s => s.heat = Math.round(s.heat * 0.5));
+            p.log.push(`Acquitted by the Senate, ${convict}–${100 - convict}. You survive — scarred.`);
+        }
+        p.pendingEvent = null;
+        if (!removed) this._advance();
+        return { convict, acquit: 100 - convict, removed, threshold: 67 };
+    },
+
     acknowledgeEvent() {
         const p = window.GameEngine.state.presidency;
         if (!p.pendingEvent || !['opportunity', 'quiet', 'sotu'].includes(p.pendingEvent.kind)) return null;
@@ -545,6 +664,14 @@ window.PresidencySystem = {
             if (p.fiscal.debt > 125) e.inflation = Math.round((e.inflation + 0.15) * 10) / 10;
             if (p.fiscal.debt > 150) e.gdp = Math.round((e.gdp - 0.15) * 10) / 10;
             if (p.fiscal.shutdown) { p.approval = Math.max(15, p.approval - 3); p.fiscal.shutdownQuarters = (p.fiscal.shutdownQuarters || 0) + 1; }
+        }
+
+        // Scandal heat cools over time — unless it's a cover-up, which grows.
+        // Hot scandals drag approval every quarter they stay in the headlines.
+        for (const s of (p.scandals || [])) {
+            if (s.coverup && s.heat > 12) s.heat = Math.min(100, s.heat + 8);
+            else s.heat = Math.max(0, s.heat - 14);
+            if (s.heat >= 50) p.approval = Math.max(15, p.approval - 2);
         }
 
         // Approval gravitates toward economy-driven fundamentals
@@ -613,14 +740,15 @@ window.PresidencySystem = {
         );
         const sigDone = p.signature && p.signature.done;
         let tier;
-        if (nuked) tier = { grade: 'F', title: 'THE PRESIDENT WHO ENDED THE WORLD' };
+        if (p.removedFromOffice) tier = { grade: 'F', title: 'REMOVED FROM OFFICE' };
+        else if (nuked) tier = { grade: 'F', title: 'THE PRESIDENT WHO ENDED THE WORLD' };
         else if (sigDone && score >= 40) tier = { grade: 'A', title: p.signature.legacyTitle };
         else tier = score >= 60 ? { grade: 'A', title: 'TRANSFORMATIONAL' }
             : score >= 42 ? { grade: 'B', title: 'CONSEQUENTIAL' }
             : score >= 26 ? { grade: 'C', title: 'STEADY HAND' }
             : score >= 12 ? { grade: 'D', title: 'EMBATTLED' }
             : { grade: 'F', title: 'FAILED PRESIDENCY' };
-        const outlook = nuked ? 'THERE WILL BE NO RE-ELECTION'
+        const outlook = (nuked || p.removedFromOffice) ? 'THERE WILL BE NO RE-ELECTION'
             : p.approval >= 53 ? 'STRONG FAVORITE for re-election'
             : p.approval >= 47 ? 'TOSS-UP re-election fight ahead'
             : 'UNDERDOG heading into re-election';
@@ -628,6 +756,7 @@ window.PresidencySystem = {
                  warsWon, warsLost, wars: wars.length,
                  laws: p.enacted.length, eos: p.eos.length, scotus: p.scotus.length, approval: p.approval,
                  signatureDone: sigDone, signatureName: p.signature ? p.signature.name : null,
-                 sotus: (p.sotuHistory || []).length };
+                 sotus: (p.sotuHistory || []).length,
+                 scandals: (p.scandals || []).length, impeached: p.impeached, removed: p.removedFromOffice };
     },
 };

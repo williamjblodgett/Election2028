@@ -3333,6 +3333,9 @@ window.GameUI = {
                         if (eff.econBias < -0.01) chips.push('💵 Weak Treasury drags on growth');
                         if (eff.billBonus) chips.push('🗂️ Elite chief of staff: +5% bill odds');
                         if (eff.leakRisk) chips.push('🕳️ Disloyal cabinet — leak risk');
+                        const hot = window.PresidencySystem._liveScandals().sort((a, b) => b.heat - a.heat)[0];
+                        if (hot) chips.push(`<span class="scandal-chip">🚨 ${hot.title} — heat ${hot.heat}${hot.coverup ? ' ↑ COVER-UP' : ''}</span>`);
+                        if (p.impeached) chips.push('⚖️ Impeached — acquitted');
                         return chips.length ? `<div class="cab-fx-row">${chips.map(c => `<span class="cab-fx">${c}</span>`).join('')}</div>` : '';
                     })()}
                     ${p.signature ? `
@@ -3501,6 +3504,18 @@ window.GameUI = {
                 </div>`);
         } else if (event.kind === 'sotu') {
             this.showSotu();
+        } else if (event.kind === 'scandal') {
+            const def = window.PresidencySystem.PRES_SCANDALS.find(s => s.id === event.id);
+            const choices = window.PresidencySystem.SCANDAL_RESPONSES.map((r, i) =>
+                `<button class="btn interview-answer" onclick="GameUI.resolvePresidencyScandal(${i})">${r.label} <span class="crisis-tag">${r.tag}</span></button>`).join('');
+            this.showModal(`🚨 SCANDAL: ${def.title}`, `
+                <div class="crisis-stage">
+                    <div class="scandal-type">${def.type}</div>
+                    <p class="crisis-text">${def.text}</p>
+                    <div class="interview-answers">${choices}</div>
+                </div>`);
+        } else if (event.kind === 'impeachment') {
+            this.showImpeachment();
         } else if (event.kind === 'budget') {
             const p2 = window.GameEngine.state.presidency;
             const choices = window.PresidencySystem.BUDGET_CHOICES.map((c, i) =>
@@ -3577,6 +3592,74 @@ window.GameUI = {
             </div>`);
     },
 
+    resolvePresidencyScandal(responseIndex) {
+        const res = window.PresidencySystem.resolveScandal(responseIndex);
+        if (!res) return;
+        this.closeModal();
+        const cls = res.coverup ? 'bad' : res.heat < 30 ? 'great' : '';
+        this.showModal(res.coverup ? '🕳️ NOW IT\'S A COVER-UP' : '🗞️ THE STORY PLAYS OUT', `
+            <div style="text-align:center;">
+                <div class="iv-tier ${cls}">HEAT ${res.heat}/100</div>
+                <p class="text-muted">${res.note}${res.heat >= 70 ? ' At this heat — and with the House against you — impeachment is on the table.' : ''}</p>
+                <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.afterPresidencyEvent();">CONTINUE</button>
+            </div>`);
+    },
+
+    showImpeachment() {
+        const p = window.GameEngine.state.presidency;
+        const hot = window.PresidencySystem._liveScandals().sort((a, b) => b.heat - a.heat)[0];
+        this.showModal('⚖️ THE HOUSE IMPEACHES', `
+            <div class="crisis-stage">
+                <p class="crisis-text">The House has voted articles of impeachment over <strong>${hot ? hot.title : 'the scandals engulfing your presidency'}</strong>. It now goes to the Senate for trial — where <strong>67 votes</strong> convict and remove you from office. How do you fight it?</p>
+                <div class="interview-answers">
+                    <button class="btn interview-answer" onclick="GameUI.runImpeachment(true)">Mount a vigorous legal defense <span class="crisis-tag">PEELS BACK DEFECTORS</span></button>
+                    <button class="btn interview-answer" onclick="GameUI.runImpeachment(false)">Stay above it and let the facts speak <span class="crisis-tag">PRESIDENTIAL — RISKIER</span></button>
+                </div>
+            </div>`);
+    },
+
+    runImpeachment(defend) {
+        const res = window.PresidencySystem.resolveImpeachment(defend);
+        if (!res) return;
+        this.closeModal();
+        this.showModal('⚖️ THE SENATE SITS AS A COURT', `
+            <div class="senate-vote-stage">
+                <div class="senate-vote-sub">ON THE CONVICTION OF THE PRESIDENT</div>
+                <div class="senate-vote-name">67 VOTES TO CONVICT AND REMOVE</div>
+                <div class="senate-tally"><span id="imp-guilty">0</span> GUILTY · <span id="imp-notguilty">0</span> NOT GUILTY</div>
+                <div class="senate-vote-bar"><div class="senate-vote-fill" id="imp-fill" style="width:0%;background:#d42121;"></div><div class="senate-bar-mid" style="left:67%;"></div></div>
+                <div class="senate-vote-result hidden" id="imp-result"></div>
+                <div class="mt-2 hidden" id="imp-done" style="text-align:center;">
+                    <button class="btn btn-primary" onclick="GameUI.finishImpeachment(${res.removed});">CONTINUE</button>
+                </div>
+            </div>`);
+        let shown = 0;
+        const timer = setInterval(() => {
+            shown = Math.min(100, shown + 3 + Math.floor(Math.random() * 4));
+            const g = Math.round(res.convict * shown / 100);
+            const el = document.getElementById('imp-guilty');
+            if (!el) { clearInterval(timer); return; }
+            el.textContent = g;
+            document.getElementById('imp-notguilty').textContent = Math.round(res.acquit * shown / 100);
+            document.getElementById('imp-fill').style.width = g + '%';
+            if (shown >= 100) {
+                clearInterval(timer);
+                const r = document.getElementById('imp-result');
+                r.classList.remove('hidden');
+                r.innerHTML = res.removed
+                    ? `<span class="rejected">⚖️ CONVICTED ${res.convict}–${res.acquit} — REMOVED FROM OFFICE</span>`
+                    : `<span class="confirmed">✅ ACQUITTED ${res.acquit}–${res.convict} — YOU SURVIVE</span>`;
+                document.getElementById('imp-done').classList.remove('hidden');
+            }
+        }, 55);
+    },
+
+    finishImpeachment(removed) {
+        this.closeModal();
+        if (removed) { this.renderPresidency(); return; } // p.over → legacy report
+        this.afterPresidencyEvent();
+    },
+
     resolvePresidencyCrisis(choiceIndex) {
         const res = window.PresidencySystem.resolveCrisis(choiceIndex);
         if (!res) return;
@@ -3649,6 +3732,8 @@ window.GameUI = {
                         ${L.wars ? `<div class="inaug-stat"><div class="retro-val">${L.warsWon}W · ${L.warsLost}L</div><div class="retro-label">Wars</div></div>` : ''}
                         <div class="inaug-stat"><div class="retro-val">${L.approval}%</div><div class="retro-label">Final Approval</div></div>
                     </div>
+                    ${L.removed ? `<div class="legacy-signature unfinished">⚖️ CONVICTED AND REMOVED FROM OFFICE</div>` : L.impeached ? `<div class="legacy-signature">⚖️ IMPEACHED — ACQUITTED BY THE SENATE</div>` : ''}
+                    ${L.scandals ? `<div class="legacy-signature ${L.scandals >= 3 ? 'unfinished' : ''}">🗞️ ${L.scandals} SCANDAL${L.scandals === 1 ? '' : 'S'} WEATHERED</div>` : ''}
                     ${p.fiscal ? `<div class="legacy-signature ${p.fiscal.debt <= 100 ? 'achieved' : p.fiscal.debt > 135 ? 'unfinished' : ''}">🏛️ NATIONAL DEBT LEFT AT ${Math.round(p.fiscal.debt)}% OF GDP</div>` : ''}
                     ${L.signatureName ? `<div class="legacy-signature ${L.signatureDone ? 'achieved' : 'unfinished'}">${L.signatureDone ? '🏆 ACHIEVED' : '✗ UNFINISHED'} — ${L.signatureName}</div>` : ''}
                     <div class="iv-headline" style="margin:10px 0;">${L.outlook}</div>

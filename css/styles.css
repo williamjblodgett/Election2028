@@ -4242,3 +4242,8 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .reopen-btn { border-color: rgba(230,126,34,0.5) !important; }
 .bill-cost-debt { color: #ff9a8a; }
 .bill-savings { color: #7fe0a5; }
+
+/* ═══ SCANDAL · IMPEACHMENT ═══ */
+.scandal-type { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 2px; color: #ff8a8a; margin-bottom: 6px; }
+.scandal-chip { color: #ffc4c4 !important; }
+.cab-fx .scandal-chip { color: #ffc4c4; }

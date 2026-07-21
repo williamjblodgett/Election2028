@@ -121,7 +121,8 @@ window.GameUI = {
             if (gs.presidency && !gs.presidency.over) {
                 this.showScreen('presidency');
                 this.renderPresidency();
-                this.showToast(`Presidency resumed — ${window.PresidencySystem.quarterLabel(gs.presidency.quarter)}`, 'success');
+                window.PresidencySystem.normalize();
+                this.showToast(`Presidency resumed — ${window.PresidencySystem.monthLabel(gs.presidency.month)}`, 'success');
                 return;
             }
             this.showScreen('game');
@@ -3286,17 +3287,27 @@ window.GameUI = {
         this.autoSave();
     },
 
+    stabilityTier(s) {
+        if (s >= 65) return { label: 'STABLE', cls: 'stab-ok' };
+        if (s >= 45) return { label: 'STRAINED', cls: 'stab-mid' };
+        if (s >= 25) return { label: 'FRACTURING', cls: 'stab-bad' };
+        if (s > 0) return { label: 'COLLAPSE', cls: 'stab-crit' };
+        return { label: 'ANARCHY', cls: 'stab-crit' };
+    },
+
     renderPresidency() {
         const gs = window.GameEngine.state;
         const p = gs.presidency;
         const host = document.getElementById('presidency-content');
         if (!p || !host) return;
+        window.PresidencySystem.normalize();
         if (p.over) { host.innerHTML = this.renderLegacyReport(); return; }
 
         const PS = window.PresidencySystem;
         const partyClass = gs.playerCandidate.party === 'Democrat' ? 'dem' : 'rep';
         const e = p.economy;
         const acted = p.acted;
+        const stabTier = this.stabilityTier(p.stability !== undefined ? p.stability : 80);
 
         const agendaRows = p.enacted.map(b => `<div class="agenda-row law">📜 ${b.name}</div>`).join('')
             + p.eos.map(o => `<div class="agenda-row eo ${o.struck ? 'struck' : ''}">${o.struck ? '⚖️' : '🖋️'} ${o.name}${o.struck ? ' — STRUCK DOWN' : ''}</div>`).join('')
@@ -3309,7 +3320,7 @@ window.GameUI = {
                     <div class="pres-title-row">
                         <div class="pres-seal">🦅</div>
                         <div>
-                            <div class="pres-kicker">${(p.term || 1) >= 2 ? 'SECOND TERM · ' : ''}${PS.quarterLabel(p.quarter)} · QUARTER ${p.quarter} OF 16</div>
+                            <div class="pres-kicker">${(p.term || 1) >= 2 ? 'SECOND TERM · ' : ''}${PS.monthLabel(p.month)} · MONTH ${p.month} OF ${PS.TERM_MONTHS}</div>
                             <h2>PRESIDENT ${gs.playerCandidate.name.toUpperCase()}</h2>
                         </div>
                         <div class="pres-portrait">${window.Portraits.html(gs.playerCandidate)}</div>
@@ -3319,12 +3330,14 @@ window.GameUI = {
                         <div class="pres-stat"><div class="pres-stat-val">${e.gdp.toFixed(1)}%</div><div class="pres-stat-label">GDP</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${e.unemployment.toFixed(1)}%</div><div class="pres-stat-label">UNEMPLOYMENT</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${e.inflation.toFixed(1)}%</div><div class="pres-stat-label">INFLATION</div></div>
+                        ${p.stability !== undefined ? `<div class="pres-stat ${stabTier.cls}"><div class="pres-stat-val">${stabTier.label}</div><div class="pres-stat-label">STABILITY ${p.stability}</div></div>` : ''}
+                        ${p.population !== undefined ? `<div class="pres-stat"><div class="pres-stat-val">${(p.population / 1000000).toFixed(1)}M</div><div class="pres-stat-label">POPULATION</div></div>` : ''}
                         <div class="pres-stat"><div class="pres-stat-val">${p.congress.senateSeats}${p.congress.houseMajority ? ' · H✓' : ' · H✗'}</div><div class="pres-stat-label">SENATE · HOUSE</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${p.capital}⭐</div><div class="pres-stat-label">CAPITAL</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${p.diplomaticStanding || 55}</div><div class="pres-stat-label">DIPLOMACY</div></div>
                         ${p.fiscal ? `<div class="pres-stat ${p.fiscal.debt > 130 ? 'debt-high' : ''}"><div class="pres-stat-val">${Math.round(p.fiscal.debt)}%</div><div class="pres-stat-label">NAT'L DEBT</div></div>` : ''}
                     </div>
-                    ${p.fiscal && p.fiscal.shutdown ? `<div class="shutdown-banner">🚧 GOVERNMENT SHUTDOWN — approval bleeds every quarter until you reopen it (quarter ${p.fiscal.shutdownQuarters || 1}).</div>` : ''}
+                    ${p.fiscal && p.fiscal.shutdown ? `<div class="shutdown-banner">🚧 GOVERNMENT SHUTDOWN — approval bleeds every month until you reopen it (month ${p.fiscal.shutdownQuarters || 1}).</div>` : ''}
                     ${(() => {
                         const eff = window.PresidencySystem.cabinetEffects();
                         const chips = [];
@@ -3349,7 +3362,7 @@ window.GameUI = {
                 <div class="pres-body">
                     <div class="pres-actions">
                         ${PS.atWar() ? this.renderWarActions(p, acted) : `
-                        <div class="panel-section-title">${acted ? 'THE QUARTER\'S MOVE IS MADE' : 'CHOOSE THIS QUARTER\'S BIG MOVE'}</div>
+                        <div class="panel-section-title">${acted ? 'THIS MONTH\'S MOVE IS MADE' : 'YOUR MOVE THIS MONTH (OPTIONAL)'}</div>
                         <button class="btn action-btn" ${acted ? 'disabled' : ''} onclick="GameUI.showBillPicker()">
                             <span class="action-icon">📜</span>
                             <span class="action-copy"><span class="action-label">Push Legislation</span><span class="action-desc">Spend capital to move a bill through Congress. Legacy lives here.</span></span>
@@ -3369,7 +3382,7 @@ window.GameUI = {
                         ${p.signature && !p.signature.done ? `
                         <button class="btn action-btn initiative-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('initiative')">
                             <span class="action-icon">${p.signature.icon}</span>
-                            <span class="action-copy"><span class="action-label">Advance: ${p.signature.name}</span><span class="action-desc">Spend a quarter and 1⭐ driving your signature goal toward the finish line.</span></span>
+                            <span class="action-copy"><span class="action-label">Advance: ${p.signature.name}</span><span class="action-desc">Spend a month and 1⭐ driving your signature goal toward the finish line.</span></span>
                         </button>` : ''}
                         ${p.fiscal && p.fiscal.shutdown ? `
                         <button class="btn action-btn reopen-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('reopen')">
@@ -3380,7 +3393,7 @@ window.GameUI = {
                             <span class="action-icon">⚔️</span>
                             <span class="action-copy"><span class="action-label">War Powers</span><span class="action-desc">Take the nation to war. History is made and unmade here.</span></span>
                         </button>`}
-                        <button class="btn btn-primary btn-lg pres-end-quarter" ${acted ? '' : 'disabled'} onclick="GameUI.endPresidencyQuarter()">${PS.atWar() ? 'FIGHT THE QUARTER →' : 'END QUARTER →'}</button>
+                        <button class="btn btn-primary btn-lg pres-end-quarter" onclick="GameUI.endPresidencyQuarter()">${PS.atWar() ? 'FIGHT THIS MONTH →' : acted ? 'END MONTH →' : 'ADVANCE THE MONTH →'}</button>
                     </div>
                     <div class="pres-agenda">
                         <div class="panel-section-title">YOUR RECORD</div>
@@ -3460,12 +3473,12 @@ window.GameUI = {
                 <div class="bill-actions"><button class="btn btn-sm btn-primary" onclick="GameUI.doPresidencyAct('eo', { eoId: '${e.id}' })">SIGN IT</button></div>
             </div>`).join('');
         this.showModal('🖋️ Executive Orders', `
-            <p class="text-muted" style="margin-bottom:10px;">No Congress required — but every standing order risks a court strike-down each quarter.</p>
+            <p class="text-muted" style="margin-bottom:10px;">No Congress required — but every standing order risks a court strike-down over time.</p>
             <div class="bill-list">${cards}</div>`);
     },
 
     endPresidencyQuarter() {
-        const event = window.PresidencySystem.endQuarter();
+        const event = window.PresidencySystem.endMonth();
         if (!event) return;
         const p = window.GameEngine.state.presidency;
         if (event.kind === 'warbattle') {
@@ -3533,18 +3546,16 @@ window.GameUI = {
                     <button class="btn btn-primary" onclick="GameUI.acknowledgePresidencyEvent()">TAKE THE WIN</button>
                 </div>`);
         } else {
-            this.showModal('🗓️ A Quiet Quarter', `
-                <div style="text-align:center;">
-                    <p class="text-muted">No fires this quarter. In this job, that counts as a gift.</p>
-                    <button class="btn btn-primary" onclick="GameUI.acknowledgePresidencyEvent()">CONTINUE</button>
-                </div>`);
+            // Quiet month — resolve instantly and advance, no modal
+            window.PresidencySystem.acknowledgeEvent();
+            this.afterPresidencyEvent();
         }
     },
 
     showSotu() {
         const PS = window.PresidencySystem;
         const p = window.GameEngine.state.presidency;
-        const year = Math.floor((p.quarter - 1) / 4) + 1;
+        const year = Math.floor((p.month - 1) / 12) + 1;
         const themes = PS.SOTU_THEMES.map(t =>
             `<button class="btn interview-answer" onclick="GameUI.pickSotuTheme('${t.id}')"><strong>${t.label}</strong> — ${t.desc}</button>`).join('');
         this.showModal('🎙️ THE STATE OF THE UNION', `
@@ -3586,7 +3597,7 @@ window.GameUI = {
             <div style="text-align:center;">
                 <div class="iv-tier ${res.good ? 'great' : 'bad'}">${res.label}</div>
                 <p class="text-muted">${res.shutdown
-                    ? 'The lights go out across the federal government. Your approval will bleed every quarter until you reopen it.'
+                    ? 'The lights go out across the federal government. Your approval will bleed every month until you reopen it.'
                     : 'The government is funded and the cliff is behind you — for now.'}</p>
                 <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.afterPresidencyEvent();">CONTINUE</button>
             </div>`);
@@ -3715,11 +3726,12 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const p = gs.presidency;
         const L = p.legacy || window.PresidencySystem.computeLegacy();
+        const grim = L.ending === 'annihilation' || (L.popLossPct >= 25) || L.stability < 25;
         const partyClass = gs.playerCandidate.party === 'Democrat' ? 'dem' : 'rep';
         return `
             <div class="pres-shell">
-                <div class="inauguration-panel ${partyClass}" style="margin-top:2rem;">
-                    <div class="inaug-kicker">JANUARY 2033 · THE HISTORIANS WEIGH IN</div>
+                <div class="inauguration-panel ${grim ? 'grim' : partyClass}" style="margin-top:2rem;">
+                    <div class="inaug-kicker">JANUARY ${2029 + (p.term || 1) * 4} · THE HISTORIANS WEIGH IN</div>
                     <h2>THE ${gs.playerCandidate.name.split(' ').pop().toUpperCase()} PRESIDENCY</h2>
                     <div class="legacy-grade-row">
                         <div class="legacy-grade">${L.grade}</div>
@@ -3731,7 +3743,9 @@ window.GameUI = {
                         <div class="inaug-stat"><div class="retro-val">${L.crisesWon}/${L.crisesWon + L.crisesLost}</div><div class="retro-label">Crises Handled</div></div>
                         ${L.wars ? `<div class="inaug-stat"><div class="retro-val">${L.warsWon}W · ${L.warsLost}L</div><div class="retro-label">Wars</div></div>` : ''}
                         <div class="inaug-stat"><div class="retro-val">${L.approval}%</div><div class="retro-label">Final Approval</div></div>
+                        ${L.populationM !== undefined ? `<div class="inaug-stat"><div class="retro-val">${L.populationM}M</div><div class="retro-label">Population Left</div></div>` : ''}
                     </div>
+                    ${L.popLossPct >= 5 ? `<div class="legacy-signature unfinished">☢️ ${L.popLossPct}% OF THE POPULATION LOST</div>` : ''}
                     ${L.removed ? `<div class="legacy-signature unfinished">⚖️ CONVICTED AND REMOVED FROM OFFICE</div>` : L.impeached ? `<div class="legacy-signature">⚖️ IMPEACHED — ACQUITTED BY THE SENATE</div>` : ''}
                     ${L.scandals ? `<div class="legacy-signature ${L.scandals >= 3 ? 'unfinished' : ''}">🗞️ ${L.scandals} SCANDAL${L.scandals === 1 ? '' : 'S'} WEATHERED</div>` : ''}
                     ${p.fiscal ? `<div class="legacy-signature ${p.fiscal.debt <= 100 ? 'achieved' : p.fiscal.debt > 135 ? 'unfinished' : ''}">🏛️ NATIONAL DEBT LEFT AT ${Math.round(p.fiscal.debt)}% OF GDP</div>` : ''}

@@ -1,10 +1,19 @@
 /**
  * Election 2028 — The First Term (presidency mode, phase 1)
- * Sixteen quarters in the Oval Office: push an agenda through Congress,
+ * A monthly loop across up to two four-year terms: push an agenda through Congress,
  * sign executive orders the courts may claw back, absorb crises, survive
  * the midterms, and walk out with a legacy history will grade.
  */
 window.PresidencySystem = {
+
+    // Monthly cadence: each term runs 48 months (4 years). Winning re-election
+    // starts a fresh second-term instance. Set-piece months below.
+    TERM_MONTHS: 48,
+    START_POP: 335000000,
+    SCOTUS_MONTHS: [15, 33],
+    SOTU_MONTHS: [12, 24, 36],
+    BUDGET_MONTHS: [10, 22, 34, 46],
+    MIDTERM_MONTH: 22,
 
     BILLS: [
         { id: 'rebuild',   name: 'American Rebuild Act',            issue: 'Infrastructure', cost: 3, spend: 8, legacy: 12, bipartisan: true,  effects: { approval: 4, gdp: 0.3 },  desc: 'Roads, bridges, grid, broadband. Shovels photograph well.' },
@@ -178,7 +187,7 @@ window.PresidencySystem = {
         p.signature.progress = Math.min(p.signature.target, p.signature.progress + amount);
         if (p.signature.progress >= p.signature.target) {
             p.signature.done = true;
-            p.signature.doneQuarter = p.quarter;
+            p.signature.doneQuarter = p.month;
             p.legacyPoints += 28;
             p.approval = Math.min(80, p.approval + 5);
             p.log.push(`🏆 ${p.signature.name} — ACHIEVED. A defining accomplishment.`);
@@ -232,7 +241,7 @@ window.PresidencySystem = {
         if (p.signature && !p.signature.done && (theme === 'domestic' || (theme === 'economy' && p.signature.id === 'balance'))) {
             this._addInitiative(6, 'the State of the Union');
         }
-        p.sotuHistory.push({ quarter: p.quarter, theme, tone, score, tier });
+        p.sotuHistory.push({ quarter: p.month, theme, tone, score, tier });
         p.log.push(`State of the Union (${this.SOTU_THEMES.find(t => t.id === theme).label}, ${tone}): ${tier}.`);
         return { score, tier, approvalDelta, theme, tone };
     },
@@ -248,12 +257,17 @@ window.PresidencySystem = {
         const term = gs.incumbentSeed ? (gs.incumbentSeed.term || 1) + 1 : 1;
         gs.presidency = {
             term,
-            quarter: 1,
+            month: 1,
             approval: Math.max(44, Math.min(60, Math.round(50 + margin))),
             economy: { gdp: 2.2, unemployment: 4.1, inflation: 2.6 },
             congress: { senateSeats: t.senateSeats, houseMajority: margin >= 1 },
             capital: Math.min(12, (t.capital || 5) + 3),
             diplomaticStanding: 55,
+            // Core national state (world war / nuclear / collapse waves build on these)
+            population: this.START_POP,
+            stability: 80,
+            defcon: 5,
+            world: null,
             enacted: [], eos: [], scotus: [],
             crisisLog: [],
             war: null, warLog: [], surpriseWarDone: false,
@@ -266,17 +280,33 @@ window.PresidencySystem = {
             legacyPoints: 0,
             log: [`Sworn in with ${Math.round(results.nationalPopularVote.player)}% of the vote.`],
             over: false,
+            ending: null,
         };
         return gs.presidency;
     },
 
-    quarterLabel(q) {
-        const p = window.GameEngine.state.presidency;
-        const baseYear = 2029 + ((p && p.term ? p.term : 1) - 1) * 4;
-        const year = baseYear + Math.floor((q - 1) / 4);
-        const season = ['WINTER', 'SPRING', 'SUMMER', 'FALL'][(q - 1) % 4];
-        return `YEAR ${Math.floor((q - 1) / 4) + 1} · ${season} ${year}`;
+    // Bring pre-monthly / pre-population saves up to date
+    normalize() {
+        const p = window.GameEngine.state && window.GameEngine.state.presidency;
+        if (!p) return;
+        if (p.month === undefined && p.quarter !== undefined) { p.month = Math.min(this.TERM_MONTHS, (p.quarter - 1) * 3 + 1); delete p.quarter; }
+        if (p.month === undefined) p.month = 1;
+        if (p.population === undefined) p.population = this.START_POP;
+        if (p.stability === undefined) p.stability = 80;
+        if (p.defcon === undefined) p.defcon = 5;
+        if (p.world === undefined) p.world = null;
+        if (p.ending === undefined) p.ending = null;
     },
+
+    monthLabel(m) {
+        const p = window.GameEngine.state.presidency;
+        const months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+        const baseYear = 2029 + ((p && p.term ? p.term : 1) - 1) * 4;
+        const year = baseYear + Math.floor((m - 1) / 12);
+        return `${months[(m - 1) % 12]} ${year} · YEAR ${Math.floor((m - 1) / 12) + 1}`;
+    },
+    quarterLabel(m) { return this.monthLabel(m); },
+    yearOf(m) { return Math.floor((m - 1) / 12) + 1; },
 
     availableBills() {
         const p = window.GameEngine.state.presidency;
@@ -299,7 +329,7 @@ window.PresidencySystem = {
         return Math.max(5, Math.min(95, Math.round(odds)));
     },
 
-    // One major action per quarter
+    // One major action per month (optional)
     act(type, payload) {
         const gs = window.GameEngine.state;
         const p = gs.presidency;
@@ -314,7 +344,7 @@ window.PresidencySystem = {
             const passed = Math.random() * 100 < odds;
             result = { type, bill, odds, passed };
             if (passed) {
-                p.enacted.push({ id: bill.id, name: bill.name, legacy: bill.legacy, quarter: p.quarter });
+                p.enacted.push({ id: bill.id, name: bill.name, legacy: bill.legacy, quarter: p.month });
                 p.legacyPoints += bill.legacy;
                 this._applyEffects(bill.effects);
                 // Bills cost money — the spend lands on the national debt
@@ -338,7 +368,7 @@ window.PresidencySystem = {
             }
         } else if (type === 'eo') {
             const eo = this.EOS.find(e => e.id === payload.eoId);
-            p.eos.push({ id: eo.id, name: eo.name, quarter: p.quarter, struck: false });
+            p.eos.push({ id: eo.id, name: eo.name, quarter: p.month, struck: false });
             p.legacyPoints += eo.legacy;
             this._applyEffects(eo.effects);
             p.log.push(`Signed executive order: ${eo.name}.`);
@@ -384,12 +414,13 @@ window.PresidencySystem = {
         return result;
     },
 
-    /** Close the quarter: stage the event (crisis/opportunity/SCOTUS) or advance. */
-    endQuarter() {
+    /** Close the month: stage a set-piece or advance. Acting is optional —
+     * a quiet month can be advanced directly. */
+    endMonth() {
         const p = window.GameEngine.state.presidency;
-        if (!p || !p.acted || p.over || p.pendingEvent) return null;
+        if (!p || p.over || p.pendingEvent) return null;
 
-        // Active war dominates the quarter — fight a round or seal the peace
+        // Active war dominates the month — fight a round or seal the peace
         if (p.war && !p.war.resolved) {
             const posture = p.pendingPosture || 'hold';
             p.pendingPosture = null;
@@ -407,26 +438,26 @@ window.PresidencySystem = {
         }
 
         // SCOTUS vacancies land in fixed windows
-        if ((p.quarter === 5 || p.quarter === 11) && p.scotus.length < 2) {
+        if (this.SCOTUS_MONTHS.includes(p.month) && p.scotus.length < 2) {
             p.pendingEvent = { kind: 'scotus' };
             return p.pendingEvent;
         }
 
         // Annual State of the Union addresses (year-in-review)
-        if ((p.quarter === 4 || p.quarter === 8 || p.quarter === 12) && !p.sotuHistory.some(s => s.quarter === p.quarter)) {
+        if (this.SOTU_MONTHS.includes(p.month) && !p.sotuHistory.some(s => s.quarter === p.month)) {
             p.pendingEvent = { kind: 'sotu' };
             return p.pendingEvent;
         }
 
         // Appropriations / debt-ceiling fights (only when not already shut down)
-        if (p.fiscal && !p.fiscal.shutdown && [2, 6, 10, 14].includes(p.quarter) && !(p.budgetYears || []).includes(p.quarter)) {
-            p.budgetYears = (p.budgetYears || []).concat(p.quarter);
+        if (p.fiscal && !p.fiscal.shutdown && this.BUDGET_MONTHS.includes(p.month) && !(p.budgetYears || []).includes(p.month)) {
+            p.budgetYears = (p.budgetYears || []).concat(p.month);
             p.pendingEvent = { kind: 'budget' };
             return p.pendingEvent;
         }
 
         // Surprise attack: once per term, an adversary may declare war on YOU
-        if (!p.surpriseWarDone && !p.war && p.quarter >= 3 && p.quarter <= 13 && Math.random() < 0.14) {
+        if (!p.surpriseWarDone && !p.war && p.month >= 9 && p.month <= 40 && Math.random() < 0.05) {
             p.surpriseWarDone = true;
             const pool = window.WarSystem.ADVERSARIES.filter(a => a.strength <= 40);
             const foe = pool[Math.floor(Math.random() * pool.length)];
@@ -438,14 +469,14 @@ window.PresidencySystem = {
         // A scandal may break — how loyal your cabinet is and how you've governed
         // drive the odds
         const scandalPool = this.PRES_SCANDALS.filter(s => !(p.scandals || []).some(x => x.id === s.id));
-        if (scandalPool.length && Math.random() < this._scandalRisk()) {
+        if (scandalPool.length && Math.random() < this._scandalRisk() * 0.4) {
             const s = scandalPool[Math.floor(Math.random() * scandalPool.length)];
             p.pendingEvent = { kind: 'scandal', id: s.id };
             return p.pendingEvent;
         }
 
         const roll = Math.random();
-        if (roll < 0.5) {
+        if (roll < 0.30) {
             const eff = this.cabinetEffects();
             const pool = this.CRISES.filter(c => !p.crisisLog.some(l => l.id === c.id))
                 .filter(c => c.id !== 'leaks' || eff.leakRisk);
@@ -475,7 +506,7 @@ window.PresidencySystem = {
         const success = Math.random() < odds;
         this._applyEffects(success ? choice.good : choice.bad);
         p.legacyPoints += success ? 4 : -4;
-        p.crisisLog.push({ id: crisis.id, title: crisis.title, success, quarter: p.quarter });
+        p.crisisLog.push({ id: crisis.id, title: crisis.title, success, quarter: p.month });
         p.log.push(`${crisis.title}: ${success ? 'handled' : 'botched'} (${choice.tag}).`);
         p.pendingEvent = null;
         this._advance();
@@ -495,7 +526,7 @@ window.PresidencySystem = {
         const votesFor = Math.max(0, Math.min(100, p.congress.senateSeats - defections + Math.max(0, Math.round((60 - pick.controversy) / 15))));
         const confirmed = votesFor >= 50;
         if (confirmed) {
-            p.scotus.push({ pick: pick.name, quarter: p.quarter, votesFor });
+            p.scotus.push({ pick: pick.name, quarter: p.month, votesFor });
             p.legacyPoints += pick.legacy;
             p.approval = Math.min(75, p.approval + 1);
             p.log.push(`Supreme Court seat filled (${pick.name}), ${votesFor}–${100 - votesFor}.`);
@@ -577,7 +608,7 @@ window.PresidencySystem = {
             heat = Math.round(def.base * 0.95); p.approval = Math.min(80, p.approval + 2);
             note = 'The base roars, but the heat lingers and the middle recoils.';
         }
-        p.scandals.push({ id: def.id, type: def.type, title: def.title, heat, coverup, quarter: p.quarter });
+        p.scandals.push({ id: def.id, type: def.type, title: def.title, heat, coverup, quarter: p.month });
         p.legacyPoints -= Math.round(heat / 12);
         p.log.push(`Scandal: ${def.title} — ${resp.label.split(' —')[0]} (heat ${heat}).`);
         p.pendingEvent = null;
@@ -642,7 +673,7 @@ window.PresidencySystem = {
         const p = window.GameEngine.state.presidency;
         if (p.over) { if (window.GameUI) window.GameUI.autoSave(); return; }
 
-        // EO court challenges: each standing order has a small strike chance per quarter
+        // EO court challenges: each standing order has a small strike chance per month
         for (const eo of p.eos) {
             if (!eo.struck && Math.random() < 0.08) {
                 eo.struck = true;
@@ -652,44 +683,52 @@ window.PresidencySystem = {
             }
         }
 
-        // Economy random walk (a strong Treasury secretary tilts the drift)
+        // Economy random walk, monthly scale (a strong Treasury tilts the drift)
         const e = p.economy;
-        e.gdp = Math.round((e.gdp + (Math.random() - 0.48) * 0.6 + this.cabinetEffects().econBias) * 10) / 10;
-        e.unemployment = Math.max(2.5, Math.round((e.unemployment + (Math.random() - 0.5) * 0.4 - (e.gdp > 2.5 ? 0.1 : -0.1)) * 10) / 10);
-        e.inflation = Math.max(0.5, Math.round((e.inflation + (Math.random() - 0.5) * 0.5) * 10) / 10);
+        e.gdp = Math.round((e.gdp + (Math.random() - 0.48) * 0.25 + this.cabinetEffects().econBias) * 10) / 10;
+        e.unemployment = Math.max(2.5, Math.round((e.unemployment + (Math.random() - 0.5) * 0.18 - (e.gdp > 2.5 ? 0.05 : -0.05)) * 10) / 10);
+        e.inflation = Math.max(0.3, Math.round((e.inflation + (Math.random() - 0.5) * 0.22) * 10) / 10);
 
-        // Debt servicing: strong growth shrinks the debt, weak growth grows it,
-        // and a big debt load feeds inflation and drags output. A shutdown bleeds
-        // approval every quarter until it is reopened.
+        // Debt servicing (monthly): strong growth shrinks the debt, weak growth
+        // grows it; a big load feeds inflation and drags output; a shutdown bleeds
+        // approval every month until it is reopened.
         if (p.fiscal) {
-            const drift = 1.2 - (e.gdp - 2) * 0.5;
+            const drift = (1.2 - (e.gdp - 2) * 0.5) / 3;
             p.fiscal.debt = Math.max(40, Math.round((p.fiscal.debt + drift) * 10) / 10);
-            p.fiscal.deficit = Math.round(drift * 10) / 10;
-            if (p.fiscal.debt > 125) e.inflation = Math.round((e.inflation + 0.15) * 10) / 10;
-            if (p.fiscal.debt > 150) e.gdp = Math.round((e.gdp - 0.15) * 10) / 10;
-            if (p.fiscal.shutdown) { p.approval = Math.max(15, p.approval - 3); p.fiscal.shutdownQuarters = (p.fiscal.shutdownQuarters || 0) + 1; }
+            p.fiscal.deficit = Math.round(drift * 3 * 10) / 10;
+            if (p.fiscal.debt > 125) e.inflation = Math.round((e.inflation + 0.05) * 10) / 10;
+            if (p.fiscal.debt > 150) e.gdp = Math.round((e.gdp - 0.05) * 10) / 10;
+            if (p.fiscal.shutdown) { p.approval = Math.max(15, p.approval - 2); p.fiscal.shutdownQuarters = (p.fiscal.shutdownQuarters || 0) + 1; }
         }
 
         // Scandal heat cools over time — unless it's a cover-up, which grows.
-        // Hot scandals drag approval every quarter they stay in the headlines.
         for (const s of (p.scandals || [])) {
-            if (s.coverup && s.heat > 12) s.heat = Math.min(100, s.heat + 8);
-            else s.heat = Math.max(0, s.heat - 14);
-            if (s.heat >= 50) p.approval = Math.max(15, p.approval - 2);
+            if (s.coverup && s.heat > 12) s.heat = Math.min(100, s.heat + 3);
+            else s.heat = Math.max(0, s.heat - 5);
+            if (s.heat >= 50) p.approval = Math.max(15, p.approval - 1);
         }
 
-        // Approval gravitates toward economy-driven fundamentals
+        // Approval gravitates toward economy-driven fundamentals (monthly)
         const target = 47 + e.gdp * 3 - Math.max(0, e.inflation - 2.5) * 3 - Math.max(0, e.unemployment - 4) * 2;
-        p.approval = Math.round(Math.max(20, Math.min(75, p.approval + (target - p.approval) * 0.25)));
+        p.approval = Math.round(Math.max(15, Math.min(80, p.approval + (target - p.approval) * 0.12)));
+
+        // Stability drifts toward a line set by approval (nuclear/collapse waves
+        // push it hard); a shutdown erodes it.
+        if (p.stability !== undefined) {
+            const stabTarget = 55 + (p.approval - 50) * 0.6;
+            let stab = p.stability + (stabTarget - p.stability) * 0.06;
+            if (p.fiscal && p.fiscal.shutdown) stab -= 1;
+            p.stability = Math.round(Math.max(0, Math.min(100, stab)));
+        }
 
         // Capital regenerates slowly when popular
         if (p.approval >= 52 && p.capital < 12) p.capital += 1;
 
-        p.quarter += 1;
+        p.month += 1;
         p.acted = false;
 
-        // Midterms close out year two
-        if (p.quarter === 9 && !p.midtermsDone) {
+        // Midterms (two years into the term)
+        if (p.month === this.MIDTERM_MONTH && !p.midtermsDone) {
             p.midtermsDone = true;
             let verdict;
             if (p.approval >= 52) {
@@ -709,8 +748,15 @@ window.PresidencySystem = {
             p.log.push(`Midterms: ${verdict.tier} (${verdict.seats}).`);
         }
 
-        if (p.quarter > 16) {
+        // Loss ONLY at total loss of population (nuclear/collapse waves). The
+        // four-year term ending is a normal finish that offers re-election.
+        if (p.population !== undefined && p.population <= 0) {
             p.over = true;
+            p.ending = 'annihilation';
+            p.legacy = this.computeLegacy();
+        } else if (p.month > this.TERM_MONTHS) {
+            p.over = true;
+            p.ending = p.ending || 'termend';
             p.legacy = this.computeLegacy();
         }
         if (window.GameUI) window.GameUI.autoSave();
@@ -719,10 +765,12 @@ window.PresidencySystem = {
     _applyEffects(fx) {
         const p = window.GameEngine.state.presidency;
         if (!fx) return;
-        if (fx.approval) p.approval = Math.max(20, Math.min(75, p.approval + fx.approval));
+        if (fx.approval) p.approval = Math.max(15, Math.min(80, p.approval + fx.approval));
         if (fx.gdp) p.economy.gdp = Math.round((p.economy.gdp + fx.gdp) * 10) / 10;
-        if (fx.inflation) p.economy.inflation = Math.max(0.5, Math.round((p.economy.inflation + fx.inflation) * 10) / 10);
+        if (fx.inflation) p.economy.inflation = Math.max(0.3, Math.round((p.economy.inflation + fx.inflation) * 10) / 10);
         if (fx.capital) p.capital = Math.max(0, Math.min(12, p.capital + fx.capital));
+        if (fx.stability && p.stability !== undefined) p.stability = Math.max(0, Math.min(100, p.stability + fx.stability));
+        if (fx.population && p.population !== undefined) p.population = Math.max(0, p.population + fx.population);
     },
 
     computeLegacy() {
@@ -743,16 +791,23 @@ window.PresidencySystem = {
             + Math.max(0, 110 - debt) * 0.2    // fiscal discipline burnishes it
         );
         const sigDone = p.signature && p.signature.done;
+        const startPop = this.START_POP;
+        const popLossPct = p.population !== undefined ? Math.round((1 - p.population / startPop) * 100) : 0;
+        const stability = p.stability !== undefined ? p.stability : 80;
+        const collapsed = popLossPct >= 25 || stability < 25;
         let tier;
-        if (p.removedFromOffice) tier = { grade: 'F', title: 'REMOVED FROM OFFICE' };
+        if (p.ending === 'annihilation' || (p.population !== undefined && p.population <= 0)) tier = { grade: 'F', title: 'THE LAST PRESIDENT' };
+        else if (p.removedFromOffice) tier = { grade: 'F', title: 'REMOVED FROM OFFICE' };
         else if (nuked) tier = { grade: 'F', title: 'THE PRESIDENT WHO ENDED THE WORLD' };
+        else if (collapsed) tier = score >= 15 ? { grade: 'D', title: 'PRESIDED OVER THE FALL' } : { grade: 'F', title: 'A NATION IN RUINS' };
         else if (sigDone && score >= 40) tier = { grade: 'A', title: p.signature.legacyTitle };
         else tier = score >= 60 ? { grade: 'A', title: 'TRANSFORMATIONAL' }
             : score >= 42 ? { grade: 'B', title: 'CONSEQUENTIAL' }
             : score >= 26 ? { grade: 'C', title: 'STEADY HAND' }
             : score >= 12 ? { grade: 'D', title: 'EMBATTLED' }
             : { grade: 'F', title: 'FAILED PRESIDENCY' };
-        const outlook = (nuked || p.removedFromOffice) ? 'THERE WILL BE NO RE-ELECTION'
+        const outlook = (nuked || p.removedFromOffice || p.ending === 'annihilation') ? 'THERE WILL BE NO RE-ELECTION'
+            : collapsed ? 'A COUNTRY FIGHTING TO SURVIVE'
             : p.approval >= 53 ? 'STRONG FAVORITE for re-election'
             : p.approval >= 47 ? 'TOSS-UP re-election fight ahead'
             : 'UNDERDOG heading into re-election';
@@ -761,6 +816,8 @@ window.PresidencySystem = {
                  laws: p.enacted.length, eos: p.eos.length, scotus: p.scotus.length, approval: p.approval,
                  signatureDone: sigDone, signatureName: p.signature ? p.signature.name : null,
                  sotus: (p.sotuHistory || []).length,
-                 scandals: (p.scandals || []).length, impeached: p.impeached, removed: p.removedFromOffice };
+                 scandals: (p.scandals || []).length, impeached: p.impeached, removed: p.removedFromOffice,
+                 popLossPct, populationM: p.population !== undefined ? Math.round(p.population / 1000000) : Math.round(startPop / 1000000),
+                 stability, ending: p.ending };
     },
 };

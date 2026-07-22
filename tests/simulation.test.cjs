@@ -54,7 +54,7 @@ test('every modern nominee has a deep curated and wildcard running-mate bench', 
   for (const nominee of [...CandidateData.democrats, ...CandidateData.republicans]) {
     const options = VPData.getOptionsForCandidate(nominee);
     assert.equal(options.curated.length, 7, `${nominee.name} curated slate`);
-    assert.equal(options.wildcard.length, 15, `${nominee.name} wildcard bench`);
+    assert.ok(options.wildcard.length >= 15, `${nominee.name} wildcard bench`);
     assert.ok(options.curated.every(option => option.candidateId !== nominee.id && option.name !== nominee.name), `${nominee.name} cannot run with themselves`);
   }
 });

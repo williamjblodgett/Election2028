@@ -1,3 +1,4 @@
+
 /**
  * Election 2028 — Service Worker
  * Enables offline play and PWA installation

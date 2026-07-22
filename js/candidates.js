@@ -301,6 +301,110 @@ window.CandidateData = {
         "Appeals to male voters, particularly Black men, a key Democratic demographic",
         "Outsider status could be an asset in an anti-establishment political environment"
       ]
+    },
+
+    {
+      id: "whitmer",
+      name: "Gretchen Whitmer",
+      party: "Democrat",
+      title: "Governor of Michigan",
+      age: 57,
+      homeState: "Michigan",
+      bio: "Gretchen Whitmer has served as Governor of Michigan since 2019, winning re-election by double digits in a quintessential battleground. She built a national brand on infrastructure ('fix the damn roads'), abortion rights, and a steady, plainspoken style that travels well in the industrial Midwest. Supporters see the clearest Blue Wall electability case in the field; critics point to pandemic-era lockdown fights and an at-times cautious national profile.",
+      isWildcard: false,
+      portraitEmoji: "🛣️",
+      slogan: "Get It Done",
+      color: "#2166d4",
+      charisma: 74, debate: 76, fundraising: 78, discipline: 80, mediaHandling: 79, baseEnthusiasm: 66, crossoverAppeal: 70, scandalResistance: 68,
+      staffCompetence: 82, meltdownRisk: 20, ideologicalElasticity: 55, donorTrust: 80, authenticity: 72, eliteSupport: 78, viralPotential: 48, fatigueFactor: 35,
+      vulnerabilities: [
+        "Opposition attack line: prolonged pandemic lockdowns drew lawsuits and national backlash",
+        "Reported criticism: a checkered record on delivering the infrastructure promises she campaigned on",
+        "Opposition research: critics say her national ambitions distract from Michigan"
+      ],
+      strengths: [
+        "Proven battleground winner in the must-hold industrial Midwest",
+        "Disciplined, kitchen-table communicator with crossover appeal",
+        "Strong operation and fundraising base built over two terms"
+      ]
+    },
+
+    {
+      id: "booker",
+      name: "Cory Booker",
+      party: "Democrat",
+      title: "U.S. Senator from New Jersey",
+      age: 59,
+      homeState: "New Jersey",
+      bio: "Cory Booker has represented New Jersey in the Senate since 2013, following a high-profile tenure as Mayor of Newark. A gifted orator known for a relentlessly optimistic, unity-focused message and a record-setting marathon Senate floor speech, he blends preacher's cadence with Silicon Valley donor ties. Admirers see moral clarity and stagecraft; skeptics recall a 2020 primary run that never caught fire and question whether optimism sells in an angry era.",
+      isWildcard: false,
+      portraitEmoji: "✊",
+      slogan: "A Cause to Believe In",
+      color: "#2b7de1",
+      charisma: 88, debate: 82, fundraising: 80, discipline: 68, mediaHandling: 84, baseEnthusiasm: 70, crossoverAppeal: 58, scandalResistance: 66,
+      staffCompetence: 76, meltdownRisk: 22, ideologicalElasticity: 58, donorTrust: 82, authenticity: 66, eliteSupport: 74, viralPotential: 72, fatigueFactor: 40,
+      vulnerabilities: [
+        "Opposition attack line: deep ties to Wall Street and pharmaceutical donors",
+        "Reported criticism: a 2020 presidential bid that failed to gain traction",
+        "Opposition research: critics call his relentless optimism inauthentic and rehearsed"
+      ],
+      strengths: [
+        "One of the most electric live speakers in American politics",
+        "Big-city executive experience plus a decade in the Senate",
+        "Deep national donor and small-dollar fundraising network"
+      ]
+    },
+
+    {
+      id: "beshear",
+      name: "Andy Beshear",
+      party: "Democrat",
+      title: "Governor of Kentucky",
+      age: 47,
+      homeState: "Kentucky",
+      bio: "Andy Beshear has twice won the governorship of deep-red Kentucky, an electability argument that writes itself. The son of a former governor, he built approval across party lines through disaster response, economic development wins, and a low-key, faith-and-family style. Supporters see the ultimate crossover candidate; critics question whether a red-state Democrat's caution scales to a national primary electorate.",
+      isWildcard: false,
+      portraitEmoji: "🔵",
+      slogan: "A Team for Every American",
+      color: "#3a86d4",
+      charisma: 72, debate: 74, fundraising: 68, discipline: 82, mediaHandling: 78, baseEnthusiasm: 60, crossoverAppeal: 84, scandalResistance: 74,
+      staffCompetence: 80, meltdownRisk: 16, ideologicalElasticity: 62, donorTrust: 70, authenticity: 78, eliteSupport: 66, viralPotential: 42, fatigueFactor: 30,
+      vulnerabilities: [
+        "Opposition attack line: a low national profile untested on the big stage",
+        "Reported criticism: benefits from a family political dynasty in Kentucky",
+        "Opposition research: red-state caution frustrates the progressive base"
+      ],
+      strengths: [
+        "Won twice in one of the reddest states — unmatched electability proof",
+        "Broad crossover appeal and high personal approval",
+        "Calm, competent disaster-and-economy governing record"
+      ]
+    },
+
+    {
+      id: "moore",
+      name: "Wes Moore",
+      party: "Democrat",
+      title: "Governor of Maryland",
+      age: 47,
+      homeState: "Maryland",
+      bio: "Wes Moore, elected Governor of Maryland in 2022, is an Army combat veteran, bestselling author, and former nonprofit CEO who became the state's first Black governor. A charismatic newcomer with a soaring personal story, he is frequently named on national future-of-the-party lists. Admirers see once-in-a-generation talent; skeptics note a thin governing record and question whether a first-term governor is ready for the national gauntlet.",
+      isWildcard: false,
+      portraitEmoji: "🎖️",
+      slogan: "Leave No One Behind",
+      color: "#1f6fd0",
+      charisma: 86, debate: 78, fundraising: 82, discipline: 74, mediaHandling: 82, baseEnthusiasm: 74, crossoverAppeal: 66, scandalResistance: 64,
+      staffCompetence: 78, meltdownRisk: 24, ideologicalElasticity: 56, donorTrust: 80, authenticity: 76, eliteSupport: 76, viralPotential: 70, fatigueFactor: 38,
+      vulnerabilities: [
+        "Opposition attack line: a single-term governor with a thin record for the national stage",
+        "Reported criticism: past resume discrepancies drew fact-check scrutiny",
+        "Opposition research: untested under sustained national fire"
+      ],
+      strengths: [
+        "Compelling combat-veteran and self-made personal story",
+        "Magnetic communicator who energizes a broad coalition",
+        "Strong fundraising and elite-network momentum as a rising star"
+      ]
     }
   ],
 
@@ -602,6 +706,110 @@ window.CandidateData = {
         "Ability to frame narratives and set the political conversation",
         "Outsider status — never held office, can credibly run against the political establishment"
       ]
+    },
+
+    {
+      id: "haley_r",
+      name: "Nikki Haley",
+      party: "Republican",
+      title: "Former UN Ambassador & Governor",
+      age: 56,
+      homeState: "South Carolina",
+      bio: "Nikki Haley served two terms as Governor of South Carolina and as UN Ambassador before a strong 2024 presidential run that made her the last challenger standing. She pairs a hawkish foreign policy with a fiscally conservative, generational-change pitch and outsized appeal to suburban and independent voters. Supporters see the party's best general-election profile; the MAGA base remembers the primary attacks and questions her loyalty.",
+      isWildcard: false,
+      portraitEmoji: "🌟",
+      slogan: "Strength and Clarity",
+      color: "#c62828",
+      charisma: 80, debate: 86, fundraising: 82, discipline: 82, mediaHandling: 84, baseEnthusiasm: 54, crossoverAppeal: 74, scandalResistance: 70,
+      staffCompetence: 84, meltdownRisk: 18, ideologicalElasticity: 60, donorTrust: 86, authenticity: 64, eliteSupport: 80, viralPotential: 52, fatigueFactor: 36,
+      vulnerabilities: [
+        "Opposition attack line: the MAGA base distrusts her after a bitter 2024 primary",
+        "Reported criticism: shifting positions on Trump seen as opportunistic",
+        "Opposition research: hawkish foreign policy clashes with the restraint wing"
+      ],
+      strengths: [
+        "Strongest suburban and independent crossover profile in the field",
+        "Polished, formidable debater with executive and diplomatic experience",
+        "Deep donor-class and establishment fundraising support"
+      ]
+    },
+
+    {
+      id: "youngkin_r",
+      name: "Glenn Youngkin",
+      party: "Republican",
+      title: "Governor of Virginia",
+      age: 61,
+      homeState: "Virginia",
+      bio: "Glenn Youngkin, a former Carlyle Group co-CEO, won the Virginia governorship in 2021 by threading the needle between Trump's base and the suburbs. His fleece-vest, business-friendly brand and focus on education and the economy made him a purple-state success story. Admirers see a fresh, electable outsider; critics question his thin political record and whether his suburban style survives a national MAGA primary.",
+      isWildcard: false,
+      portraitEmoji: "🧥",
+      slogan: "Common Sense, Common Ground",
+      color: "#d32f2f",
+      charisma: 76, debate: 74, fundraising: 88, discipline: 78, mediaHandling: 78, baseEnthusiasm: 60, crossoverAppeal: 72, scandalResistance: 72,
+      staffCompetence: 82, meltdownRisk: 18, ideologicalElasticity: 62, donorTrust: 90, authenticity: 68, eliteSupport: 78, viralPotential: 46, fatigueFactor: 32,
+      vulnerabilities: [
+        "Opposition attack line: a private-equity fortune that draws populist fire",
+        "Reported criticism: thin political record beyond a single term",
+        "Opposition research: tries to please both the base and the suburbs, satisfying neither"
+      ],
+      strengths: [
+        "Proven suburban-plus-base coalition in a purple state",
+        "Enormous self-funding and donor-network capacity",
+        "Disciplined kitchen-table message on schools and the economy"
+      ]
+    },
+
+    {
+      id: "scott_r",
+      name: "Tim Scott",
+      party: "Republican",
+      title: "U.S. Senator from South Carolina",
+      age: 62,
+      homeState: "South Carolina",
+      bio: "Tim Scott, the Senate's optimistic messenger, built a brand on opportunity, faith, and an aspirational tone that stands out in an angry era. The only Black Republican in the Senate, he pairs solid conservative credentials with a coalition-expanding pitch. Supporters see a uniquely likable general-election weapon; critics say his sunny style lacks the edge the base craves and that his 2024 run never ignited.",
+      isWildcard: false,
+      portraitEmoji: "☀️",
+      slogan: "The Land of Opportunity",
+      color: "#e53935",
+      charisma: 82, debate: 72, fundraising: 80, discipline: 80, mediaHandling: 80, baseEnthusiasm: 58, crossoverAppeal: 70, scandalResistance: 78,
+      staffCompetence: 76, meltdownRisk: 14, ideologicalElasticity: 50, donorTrust: 84, authenticity: 78, eliteSupport: 74, viralPotential: 48, fatigueFactor: 34,
+      vulnerabilities: [
+        "Opposition attack line: a 2024 primary run that failed to catch fire",
+        "Reported criticism: the base wants a fighter, not a sunny optimist",
+        "Opposition research: light executive experience for the top job"
+      ],
+      strengths: [
+        "Uniquely likable, coalition-expanding optimistic message",
+        "Strong faith-and-opportunity brand with crossover reach",
+        "High personal favorability and scandal resistance"
+      ]
+    },
+
+    {
+      id: "stefanik_r",
+      name: "Elise Stefanik",
+      party: "Republican",
+      title: "House Republican Conference Chair",
+      age: 44,
+      homeState: "New York",
+      bio: "Elise Stefanik rose from a moderate upstate New York backbencher to the No. 3 House Republican and one of the party's sharpest partisan brawlers. Her viral university-president hearings and unflinching loyalty made her a MAGA favorite and a fundraising powerhouse. Admirers see a disciplined attack-dog with a bright future; critics highlight her dramatic ideological transformation and question her general-election ceiling.",
+      isWildcard: false,
+      portraitEmoji: "⚔️",
+      slogan: "Fight for America",
+      color: "#b71c1c",
+      charisma: 74, debate: 80, fundraising: 84, discipline: 78, mediaHandling: 80, baseEnthusiasm: 78, crossoverAppeal: 48, scandalResistance: 66,
+      staffCompetence: 78, meltdownRisk: 24, ideologicalElasticity: 66, donorTrust: 82, authenticity: 56, eliteSupport: 72, viralPotential: 70, fatigueFactor: 38,
+      vulnerabilities: [
+        "Opposition attack line: a dramatic shift from moderate to hardline draws flip-flop charges",
+        "Reported criticism: seen as prioritizing loyalty over independence",
+        "Opposition research: a narrow, base-first profile with a low crossover ceiling"
+      ],
+      strengths: [
+        "Disciplined, viral communicator who energizes the base",
+        "Prolific fundraiser with a national small-dollar following",
+        "Leadership experience and sharp debate-stage instincts"
+      ]
     }
   ]
 };
@@ -609,6 +817,18 @@ window.CandidateData = {
 // ═══════════════════════════════════════════════
 // Additional 2028 bench depth. These figures already appear in the ticket
 // pool; presidential entries give both parties ten distinct campaign styles.
+// Main briefly carried a second copy of four contenders per party while this
+// branch was building the larger 16-person field below. Reconcile those
+// overlapping additions here so candidate cards, VP eligibility, and portrait
+// ids remain one-to-one.
+const OVERLAPPING_ROSTER_IDS = {
+  democrats: new Set(['whitmer', 'booker', 'beshear', 'moore']),
+  republicans: new Set(['haley_r', 'youngkin_r', 'scott_r', 'stefanik_r']),
+};
+for (const party of ['democrats', 'republicans']) {
+  window.CandidateData[party] = window.CandidateData[party].filter(candidate => !OVERLAPPING_ROSTER_IDS[party].has(candidate.id));
+}
+
 const EXPANDED_CANDIDATES = {
   democrats: [
     { id:'moore', name:'Wes Moore', title:'Governor of Maryland', age:49, homeState:'Maryland', slogan:'Leave No One Behind', color:'#2457a6', portraitEmoji:'🎖️', bio:'A veteran, author, and governor offering generational change with an executive record.', stats:[82,76,70,78,80,76,66,74,82,16,64,72,78,70,72,28], strengths:['Compelling personal story and disciplined national message','Executive experience with strong coalition appeal','Veteran credentials broaden the campaign profile'], vulnerabilities:['Opponents question whether one gubernatorial term is enough preparation','A rapid national rise invites intense scrutiny'] },

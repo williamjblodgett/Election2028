@@ -21,6 +21,14 @@ window.DebateWalkout = {
         trumpjr:      { skin: 0xe5b58d, hair: 0x2e2318, style: 'slick', beard: 'short',  female: false, height: 1.05, face: { w: 1.04, chin: 1.1 } },
         ramaswamy:    { skin: 0x9c6b40, hair: 0x120d09, style: 'coif',  beard: null,     female: false, height: 1.02, face: { w: 0.97, h: 1.05, brow: 1.2 } },
         carlson:      { skin: 0xecc2a0, hair: 0x6b4a2c, style: 'side',  beard: null,     female: false, height: 1.03, bowTie: true, face: { w: 1.1, h: 0.96, brow: 1.25 } },
+        whitmer:      { skin: 0xe4bb92, hair: 0x2b2018, style: 'bob',   beard: null,     female: true,  height: 1.0,  lipstick: 0xb84a54, face: { w: 0.97 } },
+        booker:       { skin: 0x7c4a26, hair: 0x120d09, style: 'bald',  beard: 'short',  female: false, height: 1.05, face: { w: 1.02, h: 1.0 } },
+        beshear:      { skin: 0xe6b48c, hair: 0x2b2018, style: 'short', beard: null,     female: false, height: 1.0,  face: { w: 1.0 } },
+        moore:        { skin: 0x8a5a30, hair: 0x14100b, style: 'short', beard: 'short',  female: false, height: 1.04, face: { w: 1.0, h: 1.0 } },
+        haley_r:      { skin: 0xc98e63, hair: 0x1d150e, style: 'long',  beard: null,     female: true,  height: 0.97, lipstick: 0xa83848, face: { w: 0.95 } },
+        youngkin_r:   { skin: 0xe6bd97, hair: 0xc6c9cd, style: 'bald',  beard: null,     female: false, height: 1.12, face: { w: 1.04, h: 1.0 } },
+        scott_r:      { skin: 0x7c4a26, hair: 0x1a120c, style: 'bald',  beard: null,     female: false, height: 1.02, face: { w: 1.0 } },
+        stefanik_r:   { skin: 0xe4bb92, hair: 0x2a1d12, style: 'long',  beard: null,     female: true,  height: 0.98, lipstick: 0xb03a48, face: { w: 0.95 } },
     },
 
     getAppearance(cand) {

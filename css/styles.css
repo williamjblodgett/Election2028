@@ -4361,6 +4361,15 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .scandal-chip { color: #ffc4c4 !important; }
 .cab-fx .scandal-chip { color: #ffc4c4; }
 
+/* Presidency stability tiles and collapse-era legacy reports. */
+.pres-stat.stab-ok .pres-stat-val { color: #7fd98f; }
+.pres-stat.stab-mid .pres-stat-val { color: #ffd75e; }
+.pres-stat.stab-bad .pres-stat-val { color: #ffab5e; }
+.pres-stat.stab-crit { border-color: #d43a3a; }
+.pres-stat.stab-crit .pres-stat-val { color: #ff6b6b; }
+.inauguration-panel.grim { border-color: #d43a3a; background: linear-gradient(180deg, rgba(212,58,58,0.10), transparent); }
+.inauguration-panel.grim .legacy-grade { color: #ff6b6b; }
+
 /* Generated 2D broadcast art. Live text and data remain HTML overlays. */
 .debate-stage {
     background:

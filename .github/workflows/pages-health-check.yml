@@ -35,8 +35,8 @@ jobs:
       - name: Verify generated portrait and broadcast art
         run: |
           portrait_count=$(find images/portraits -maxdepth 1 -name '*.jpg' | wc -l)
-          if [ "$portrait_count" -ne 32 ]; then
-            echo "ERROR: expected 32 modern candidate portraits, found $portrait_count"
+          if [ "$portrait_count" -ne 44 ]; then
+            echo "ERROR: expected 32 modern and 12 historical candidate portraits, found $portrait_count"
             exit 1
           fi
           for asset in \

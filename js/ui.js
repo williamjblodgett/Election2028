@@ -4307,12 +4307,12 @@ window.GameUI = {
                     ${this.createStatBar('Loyalty', o.loyalty, 'rep')}
                 </div>
                 <div class="cab-opt-actions">
-                    <button class="btn btn-sm btn-primary" onclick="GameUI.confirmNomination('${postId}', ${i})">${post.confirmable ? 'NOMINATE' : 'APPOINT'}</button>
+                    <button class="btn btn-sm btn-primary" onclick="GameUI.confirmNomination('${postId}', ${i})">${o.acting ? 'INSTALL ACTING OFFICIAL' : post.confirmable ? 'NOMINATE' : 'APPOINT'}</button>
                 </div>
             </div>`).join('');
         this._pickerOptions = options;
         this.showModal(`${post.icon} ${post.title}`, `
-            <p class="text-muted" style="margin-bottom:12px;">${post.desc} ${post.confirmable ? `Your Senate holds <strong>${t.senateSeats}</strong> seats — 50 votes confirms (your VP breaks a tie).` : ''}</p>
+            <p class="text-muted" style="margin-bottom:12px;">${post.desc} ${post.confirmable ? `Your Senate holds <strong>${t.senateSeats}</strong> seats — 50 votes confirms (your VP breaks a tie).${options.some(o => o.acting) ? ' The regular bench is exhausted, so a career official may now serve in an acting capacity.' : ''}` : ''}</p>
             <div class="cabinet-option-list">${cards}</div>`);
     },
 
@@ -4320,11 +4320,11 @@ window.GameUI = {
         const option = (this._pickerOptions || [])[optionIndex];
         if (!option) return;
         const post = window.CabinetData.POSTS.find(p => p.id === postId);
-        if (!post.confirmable) {
+        if (!post.confirmable || option.acting) {
             const result = window.GameEngine.nominate(postId, option, 'floor');
             if (!result) return;
             this.closeModal();
-            this.showToast(`${option.name} appointed ${post.title}`, 'success');
+            this.showToast(option.acting ? `${option.name} installed in an acting capacity` : `${option.name} appointed ${post.title}`, 'success');
             this.renderTransition();
             return;
         }

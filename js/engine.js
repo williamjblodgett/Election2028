@@ -2310,18 +2310,38 @@ window.GameEngine = {
             if (runningMate.candidateId) taken.add(runningMate.candidateId);
         }
         taken.add(gs.playerCandidate.id);
-        return options.filter(o => o.id && !taken.has(o.id));
+        const available = options.filter(o => o.id && !taken.has(o.id));
+        // A transition must never become unwinnable. If every Senate-facing
+        // nominee for this post has been rejected or hired elsewhere, permit
+        // a career official to serve in an acting capacity.
+        const post = window.CabinetData.POSTS.find(p => p.id === postId);
+        if (!available.length && post && post.confirmable) {
+            available.push({
+                id: `acting_${postId}`,
+                name: `Career ${post.title.replace(/^Secretary of (the )?/, '')} Administrator`,
+                title: `Acting ${post.title}`,
+                competence: 68,
+                loyalty: 58,
+                controversy: 0,
+                acting: true,
+                bio: 'A senior career official keeps the department functioning after the Senate exhausts the regular nominee bench.',
+                concerns: ['An acting appointment carries less political authority than a confirmed secretary'],
+            });
+        }
+        return available;
     },
 
     nominate(postId, option, strategy) {
         const t = this.state.transition;
         const post = window.CabinetData.POSTS.find(p => p.id === postId);
         if (!t || !post || t.posts[postId]) return null;
-        if (!post.confirmable) {
+        if (!post.confirmable || option.acting) {
             t.posts[postId] = Object.assign({ votesFor: null, votesAgainst: null }, option);
-            t.log.push(`${option.name} named ${post.title}.`);
+            t.log.push(option.acting
+                ? `${option.name} installed in an acting capacity after the Senate exhausted the nominee bench.`
+                : `${option.name} named ${post.title}.`);
             this.checkTransitionComplete();
-            return { confirmed: true, appointed: true, votesFor: null, votesAgainst: null };
+            return { confirmed: true, appointed: true, acting: !!option.acting, votesFor: null, votesAgainst: null };
         }
         // Hearing strategy shapes the math before the roll call:
         //   'floor'  — straight to the vote, spend nothing
@@ -2337,8 +2357,13 @@ window.GameEngine = {
             t.capital -= 2;
             whipped = 2; bought = 1;
         }
-        const defections = Math.max(0, Math.max(0, Math.round((controversy - 40) / 12)) + Math.floor(window.GameEngine.random() * 3) - whipped);
-        const crossovers = Math.max(0, Math.round((60 - controversy) / 15)) + bought;
+        // Consensus nominees can build a real bipartisan coalition even under
+        // an opposition Senate. Random defections begin only once a pick has
+        // meaningful controversy.
+        const baseDefections = Math.max(0, Math.round((controversy - 45) / 10));
+        const randomDefections = controversy >= 35 ? Math.floor(window.GameEngine.random() * 3) : 0;
+        const defections = Math.max(0, baseDefections + randomDefections - whipped);
+        const crossovers = Math.max(0, Math.round((70 - controversy) / 7)) + bought;
         const votesFor = Math.max(0, Math.min(100, t.senateSeats - defections + crossovers));
         const votesAgainst = 100 - votesFor;
         const confirmed = votesFor >= 50; // the VP breaks a 50-50 tie

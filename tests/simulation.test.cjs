@@ -84,6 +84,30 @@ test('the nominee and running mate cannot also accept cabinet posts', () => {
   assert.equal(GameEngine.getCabinetOptions('state').some(option => option.id === 'booker'), false);
 });
 
+test('a consensus cabinet nominee can clear an opposition Senate', () => {
+  GameEngine.state = GameEngine.createFreshState();
+  GameEngine.setSeed(17);
+  GameEngine.state.playerCandidate = CandidateData.democrats.find(candidate => candidate.id === 'newsom');
+  GameEngine.state.transition = { senateSeats:44, capital:5, posts:{}, failed:[], log:[], complete:false };
+  const nominee = { id:'consensus_test', name:'Consensus Nominee', title:'Career diplomat', competence:88, loyalty:65, controversy:22 };
+  const result = GameEngine.nominate('state', nominee, 'floor');
+  assert.equal(result.confirmed, true);
+  assert.ok(result.votesFor >= 50);
+});
+
+test('an exhausted cabinet post offers a guaranteed acting official', () => {
+  GameEngine.state = GameEngine.createFreshState();
+  GameEngine.state.playerCandidate = CandidateData.democrats.find(candidate => candidate.id === 'newsom');
+  const pool = CabinetData.OPTIONS.Democrat.energy;
+  GameEngine.state.transition = { senateSeats:44, capital:0, posts:{}, failed:pool.map(option => option.id), log:[], complete:false };
+  const options = GameEngine.getCabinetOptions('energy');
+  assert.equal(options.length, 1);
+  assert.equal(options[0].acting, true);
+  const result = GameEngine.nominate('energy', options[0], 'floor');
+  assert.equal(result.confirmed, true);
+  assert.equal(GameEngine.state.transition.posts.energy.acting, true);
+});
+
 test('version 1 saves migrate into the living presidency schema', () => {
   const legacy = { week:20, presidency:{ quarter:5, term:1 } };
   const restored = GameEngine.deserialize(JSON.stringify(legacy));

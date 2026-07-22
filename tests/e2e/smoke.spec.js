@@ -17,7 +17,7 @@ test('title and Situation Room render without browser errors', async ({ page }) 
   await expect(page.locator('#screen-presidency')).toContainText('POPULATION');
   await page.getByText('Situation Room', { exact:true }).click();
   await expect(page.locator('#screen-situation')).toContainText('GLOBAL COMMAND AUTHORITY');
-  await expect(page.locator('.world-node')).toHaveCount(28);
+  await expect(page.locator('.world-node')).toHaveCount(33);
   await page.screenshot({ path:'test-results/situation-room.png', fullPage:true });
   expect(errors).toEqual([]);
 });

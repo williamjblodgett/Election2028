@@ -781,64 +781,12 @@ window.GameUI = {
     startBuilderPreview() {
         this.stopBuilderPreview();
         const mount = document.getElementById('builder-preview');
-        if (!mount || !window.THREE || !window.DebateWalkout) {
-            if (mount) mount.innerHTML = `<div style="font-size:4rem;line-height:200px;text-align:center;">${this.builderState.portraitEmoji}</div>`;
-            return;
-        }
-        const THREE = window.THREE;
-        let renderer;
-        try {
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            if (!renderer.getContext()) throw new Error('no gl');
-        } catch (e) { return; }
-        const size = Math.min(mount.clientWidth || 220, 240);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-        renderer.setSize(size, size * 1.25);
-        mount.innerHTML = '';
-        mount.appendChild(renderer.domElement);
-
-        const scene = new THREE.Scene();
-        scene.add(new THREE.AmbientLight(0x8899bb, 1.0));
-        const keyL = new THREE.DirectionalLight(0xfff2e0, 1.0);
-        keyL.position.set(2, 6, 6);
-        scene.add(keyL);
-        const cam = new THREE.PerspectiveCamera(38, size / (size * 1.25), 0.1, 50);
-        cam.position.set(0, 2.6, 6.4);
-        cam.lookAt(0, 2.1, 0);
-
-        const fig = window.DebateWalkout._buildCharacter(THREE, scene,
-            { id: '__preview', name: this.builderState.name || 'You', appearance: this.builderState.appearance },
-            new THREE.Color(this.builderState.party === 'Democrat' ? '#2166d4' : '#d42121'), true);
-
-        const state = { renderer, scene, raf: 0, running: true };
-        this._builderPreview = state;
-        const loop = () => {
-            if (!state.running) return;
-            state.raf = requestAnimationFrame(loop);
-            const t = performance.now() / 1000;
-            fig.rotation.y = Math.sin(t * 0.7) * 0.55;
-            window.DebateWalkout.animateFace(fig, t, false);
-            renderer.render(scene, cam);
-        };
-        loop();
+        if (!mount) return;
+        const color = this.builderState.party === 'Democrat' ? '#2166d4' : '#d42121';
+        mount.innerHTML = `<div class="builder-preview-2d" style="--builder-color:${color}"><div>${this.builderState.portraitEmoji}</div><strong>${this.builderState.name || 'YOUR CANDIDATE'}</strong><span>2D BROADCAST AVATAR</span></div>`;
     },
 
     stopBuilderPreview() {
-        const s = this._builderPreview;
-        if (!s) return;
-        s.running = false;
-        if (s.raf) cancelAnimationFrame(s.raf);
-        try {
-            s.scene.traverse(o => {
-                if (o.geometry) o.geometry.dispose();
-                if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-            });
-            s.renderer.dispose();
-            const gl = s.renderer.getContext();
-            const lose = gl && gl.getExtension && gl.getExtension('WEBGL_lose_context');
-            if (lose) lose.loseContext();
-            if (s.renderer.domElement.parentNode) s.renderer.domElement.parentNode.removeChild(s.renderer.domElement);
-        } catch (e) { /* ignore */ }
         this._builderPreview = null;
     },
 
@@ -1689,7 +1637,7 @@ window.GameUI = {
                 </div>
                 <div class="mt-1 btn-group">
                     <button class="btn btn-sm btn-primary" onclick="GameUI.quickVisit('${stateId}')">Visit Now ($80K)</button>
-                    <button class="btn btn-sm" onclick="GameUI.quickAd('${stateId}')">Run Ad ($100K)</button>
+                    <button class="btn btn-sm" onclick="GameUI.quickAd('${stateId}')">Buy Ads ($100K–$5M)</button>
                 </div>
             </div>`;
     },
@@ -1713,17 +1661,7 @@ window.GameUI = {
     },
 
     quickAd(stateId) {
-        const gs = window.GameEngine.state;
-        if (gs.finances.cashOnHand < 100000) {
-            this.showToast('Not enough cash for ads!', 'error');
-            return;
-        }
-        window.GameEngine.applyAdBuy(stateId, 'digital', 100000, this.currentStrategy === 'negative' ? 'negative' : this.currentStrategy === 'contrast' ? 'contrast' : 'positive');
-        const st = window.StateData.find(s => s.id === stateId);
-        this.showToast(`Ad running in ${st ? st.name : stateId}!`, 'success');
-        this.renderIntelPanel();
-        this.updateTopBar();
-        this.renderCenterContent();
+        this.showAdBuyModal(stateId);
     },
 
     // ═══════════════════════════════════════════════
@@ -2463,29 +2401,30 @@ window.GameUI = {
         this.showModal('Visit State', html);
     },
 
-    showAdBuyModal() {
+    showAdBuyModal(preselectedState) {
         const gs = window.GameEngine.state;
         const states = window.StateData.filter(s => s.isBattleground);
 
         const html = `
-            <p class="text-muted mb-1">Choose a state, ad type, and budget.</p>
+            <p class="text-muted mb-1">Build a targeted media buy. Bigger budgets increase reach with diminishing returns; market costs still matter.</p>
             <div class="mb-2">
                 <label style="font-size:0.85rem;color:var(--text-secondary);">Target State</label>
-                <select id="ad-state" style="width:100%;padding:8px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);margin-top:4px;">
-                    ${states.map(st => `<option value="${st.id}">${st.name} (${st.electoralVotes} EV, ${st.adCostMultiplier}x cost)</option>`).join('')}
+                <select id="ad-state" onchange="GameUI.updateAdEstimate()" style="width:100%;padding:8px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);margin-top:4px;">
+                    ${states.map(st => `<option value="${st.id}" ${preselectedState === st.id ? 'selected' : ''}>${st.name} (${st.electoralVotes} EV, ${st.adCostMultiplier}x cost)</option>`).join('')}
                 </select>
             </div>
             <div class="mb-2">
                 <label style="font-size:0.85rem;color:var(--text-secondary);">Ad Type</label>
                 <div class="btn-group mt-1">
-                    <button class="btn btn-sm" id="ad-tv" onclick="document.getElementById('ad-tv').classList.add('selected');document.getElementById('ad-digital').classList.remove('selected');">📺 TV ($$$)</button>
-                    <button class="btn btn-sm selected" id="ad-digital" onclick="document.getElementById('ad-digital').classList.add('selected');document.getElementById('ad-tv').classList.remove('selected');">💻 Digital ($$)</button>
+                    <button class="btn btn-sm" id="ad-tv" onclick="GameUI._selectAdType('tv')">📺 TV · broad persuasion</button>
+                    <button class="btn btn-sm selected" id="ad-digital" onclick="GameUI._selectAdType('digital')">💻 Digital · targeted reach</button>
                 </div>
             </div>
             <div class="mb-2">
-                <label style="font-size:0.85rem;color:var(--text-secondary);">Budget: <span id="ad-budget-display">$100K</span></label>
-                <input type="range" class="spending-slider" id="ad-budget" min="50000" max="1000000" step="50000" value="100000"
-                    oninput="document.getElementById('ad-budget-display').textContent='$'+GameUI.formatMoney(this.value)">
+                <label style="font-size:0.85rem;color:var(--text-secondary);">Budget: <span id="ad-budget-display">$250K</span></label>
+                <input type="range" class="spending-slider" id="ad-budget" min="100000" max="5000000" step="100000" value="250000"
+                    oninput="document.getElementById('ad-budget-display').textContent='$'+GameUI.formatMoney(this.value);GameUI.updateAdEstimate()">
+                <div class="ad-buy-scale"><span>$100K test</span><span>$1M major buy</span><span>$5M saturation</span></div>
             </div>
             <div class="mb-2">
                 <label style="font-size:0.85rem;color:var(--text-secondary);">Tone</label>
@@ -2495,11 +2434,36 @@ window.GameUI = {
                     <button class="btn btn-sm" id="tone-negative" onclick="GameUI._selectToneBtn('negative')">🔥 Negative</button>
                 </div>
             </div>
+            <div class="ad-impact-preview" id="ad-impact-preview"></div>
             <div class="text-muted" style="font-size:0.8rem;margin-bottom:12px;">Cash available: $${this.formatMoney(gs.finances.cashOnHand)}</div>
             <button class="btn btn-primary w-full" onclick="GameUI.executeAdBuy()">LAUNCH AD CAMPAIGN</button>`;
 
         this.showModal('Run Ads', html);
         this._adTone = 'positive';
+        this._adType = 'digital';
+        this.updateAdEstimate();
+    },
+
+    _selectAdType(type) {
+        this._adType = type;
+        ['tv', 'digital'].forEach(t => {
+            const el = document.getElementById('ad-' + t);
+            if (el) el.classList.toggle('selected', t === type);
+        });
+        this.updateAdEstimate();
+    },
+
+    updateAdEstimate() {
+        const stateEl = document.getElementById('ad-state');
+        const budgetEl = document.getElementById('ad-budget');
+        const out = document.getElementById('ad-impact-preview');
+        if (!stateEl || !budgetEl || !out) return;
+        const st = window.StateData.find(s => s.id === stateEl.value);
+        const amount = Number(budgetEl.value);
+        const effective = amount / ((st && st.adCostMultiplier) || 1);
+        let impact = Math.sqrt(effective / 100000) * 0.8;
+        impact *= this._adType === 'tv' ? 1.2 : 0.9 * (st && st.educationSplit && st.educationSplit.college > 35 ? 1.1 : 1);
+        out.innerHTML = `<strong>ESTIMATED PERSUASION: ${impact.toFixed(1)} pts</strong><span>${this._adType === 'tv' ? 'TV also improves national media strength.' : 'Digital also improves online influence.'} Actual movement depends on tone and market saturation.</span>`;
     },
 
     _selectToneBtn(tone) {
@@ -2513,8 +2477,7 @@ window.GameUI = {
     executeAdBuy() {
         const stateId = document.getElementById('ad-state').value;
         const budget = parseInt(document.getElementById('ad-budget').value);
-        const isTV = document.getElementById('ad-tv').classList.contains('selected');
-        const type = isTV ? 'tv' : 'digital';
+        const type = this._adType || 'digital';
         const tone = this._adTone || 'positive';
 
         if (budget > window.GameEngine.state.finances.cashOnHand) {
@@ -2522,9 +2485,10 @@ window.GameUI = {
             return;
         }
 
-        window.GameEngine.applyAdBuy(stateId, type, budget, tone);
+        const result = window.GameEngine.applyAdBuy(stateId, type, budget, tone);
+        if (!result) { this.showToast('The ad buy could not be placed.', 'error'); return; }
         const st = window.StateData.find(s => s.id === stateId);
-        this.showToast(`$${this.formatMoney(budget)} ${type.toUpperCase()} ad launched in ${st ? st.name : stateId}!`, 'success');
+        this.showToast(`$${this.formatMoney(budget)} ${type.toUpperCase()} buy launched in ${st ? st.name : stateId} · ${result.impact.toFixed(1)} impact`, 'success');
         this.closeModal();
         this.updateTopBar();
         this.renderCenterContent();
@@ -2873,8 +2837,9 @@ window.GameUI = {
         // Opponent responds after a beat
         setTimeout(() => {
             const DC = window.DebateContent;
-            const pool = DC.opponentResponses[q.topic] || DC.genericResponses;
-            const line = pool[ctx.opponentStrategy] || DC.genericResponses[ctx.opponentStrategy];
+            const line = DC.getOpponentResponse
+                ? DC.getOpponentResponse(q.topic, ctx.opponentStrategy)
+                : ((DC.opponentResponses[q.topic] || DC.genericResponses)[ctx.opponentStrategy] || DC.genericResponses[ctx.opponentStrategy]);
 
             // Normalize to the player's scale (content lines score all 7 dimensions,
             // player answers only ~6) and let debate skill scale the whole answer
@@ -3035,20 +3000,9 @@ window.GameUI = {
         const nightData = window.GameEngine.generateElectionNight();
         const gs = window.GameEngine.state;
 
-        // The 2D screen serves as the post-broadcast recap after the cutscene
-        const showRecap = () => {
-            this.animateElectionNight(nightData);
-            this.skipElectionNight();
-        };
-
-        if (window.ElectionNight3D && window.THREE) {
-            const container = document.getElementById('election-night-content');
-            container.innerHTML = '<div class="cutscene-container" id="cutscene-container"></div>';
-            const mount = document.getElementById('cutscene-container');
-            window.ElectionNight3D.play(mount, nightData, gs, showRecap);
-        } else {
-            this.animateElectionNight(nightData);
-        }
+        // Election night is a portrait-and-map 2D broadcast. No WebGL gate,
+        // GPU scene, or separate recap handoff is required.
+        this.animateElectionNight(nightData);
     },
 
     animateElectionNight(nightData) {
@@ -3503,16 +3457,17 @@ window.GameUI = {
             const s = world.nations[n.id];
             const cls = s.relation >= 45 ? 'ally' : s.relation <= -35 ? 'hostile' : 'neutral';
             const radius = 1 + n.strength / 55;
-            return `<g class="world-node ${cls} ${n.id === selected.id ? 'selected' : ''}" onclick="GameUI.selectWorldNation('${n.id}')" role="button">
-                <circle cx="${n.x}" cy="${n.y}" r="${radius}"></circle><text x="${n.x}" y="${n.y - radius - 1.2}">${n.flag}</text>${s.deployed ? `<path class="deployment-marker" d="M${n.x-1.6},${n.y+3} h3.2 l-1.6,2 z"></path>` : ''}</g>`;
+            return `<g class="world-node ${cls} ${n.id === selected.id ? 'selected' : ''}" onclick="GameUI.selectWorldNation('${n.id}')" role="button" aria-label="${n.name}">
+                <circle cx="${n.x}" cy="${n.y}" r="${radius}"></circle><text class="world-flag" x="${n.x}" y="${n.y - radius - 1.1}">${n.flag}</text><text class="world-country-label" x="${n.x}" y="${n.y + radius + 2.5}">${n.name}</text>${s.deployed ? `<path class="deployment-marker" d="M${n.x-1.6},${n.y+3} h3.2 l-1.6,2 z"></path>` : ''}</g>`;
         }).join('');
         const activeConflicts = world.conflicts.filter(c => !c.resolved).length;
         host.innerHTML = `<div class="sit-shell">
             <header class="sit-header"><button class="btn btn-sm" onclick="GameUI.closeSituationRoom()">← OVAL OFFICE</button><div><div class="sit-kicker">WHITE HOUSE SITUATION ROOM · REAL INSTITUTIONS, EMERGENT SCENARIO</div><h2>GLOBAL COMMAND AUTHORITY</h2></div><div class="defcon-badge defcon-${world.defcon}"><span>DEFCON</span><strong>${world.defcon}</strong></div></header>
             <div class="sit-status"><span>GLOBAL TENSION <strong>${Math.round(world.globalTension)}</strong></span><span>ACTIVE CONFLICTS <strong>${activeConflicts}</strong></span><span>DIPLOMATIC STANDING <strong>${p.diplomaticStanding}</strong></span><span>SEASONAL MOVE <strong>${p.acted ? 'USED' : 'AVAILABLE'}</strong></span></div>
-            <main class="sit-grid"><section class="world-map-wrap"><svg class="world-map" viewBox="0 0 100 100" aria-label="Strategic world map">
-                <path class="continent" d="M5 18L24 12 37 25 29 38 22 48 14 42 8 31Z M25 48L38 54 35 72 29 91 23 73Z M41 17L59 13 69 23 62 37 49 43 43 34Z M48 44L65 45 67 68 58 91 48 76Z M63 18L91 19 97 35 89 59 74 65 64 49Z M78 69L96 72 94 93 80 91Z"></path>
-                <path class="map-gridline" d="M0 25H100M0 50H100M0 75H100M25 0V100M50 0V100M75 0V100"></path>${nodes}</svg>
+            <main class="sit-grid"><section class="world-map-wrap"><div class="world-map-title"><strong>GLOBAL STRATEGIC PICTURE</strong><span>20 largest nations by population plus key U.S. allies, partners, and adversaries</span></div><svg class="world-map" viewBox="0 0 100 100" aria-label="Strategic world map">
+                <defs><linearGradient id="ocean" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#102b45"/><stop offset="1" stop-color="#07121e"/></linearGradient></defs><rect width="100" height="100" fill="url(#ocean)"></rect>
+                <path class="map-gridline" d="M0 20H100M0 40H100M0 60H100M0 80H100M20 0V100M40 0V100M60 0V100M80 0V100"></path>${WS.LAND_PATHS.map(d => `<path class="continent" d="${d}"></path>`).join('')}
+                <g class="usa-home"><circle cx="16" cy="29" r="2.2"></circle><text x="16" y="34">UNITED STATES</text></g>${nodes}</svg>
                 <div class="map-legend"><span class="ally">ALLY / PARTNER</span><span class="neutral">NONALIGNED</span><span class="hostile">HOSTILE</span><span>▲ U.S. DEPLOYMENT</span></div></section>
                 <aside class="nation-dossier"><div class="dossier-flag">${selected.flag}</div><div class="dossier-kicker">COUNTRY DOSSIER</div><h3>${selected.name}</h3>
                     <div class="dossier-stats"><div><span>RELATIONS</span><strong>${Math.round(selectedState.relation)}</strong></div><div><span>TENSION</span><strong>${Math.round(selectedState.tension)}</strong></div><div><span>MILITARY</span><strong>${selected.strength}</strong></div><div><span>ECONOMY</span><strong>${selected.economy}</strong></div><div><span>INTEL</span><strong>${selectedState.intelligence}%</strong></div><div><span>STATUS</span><strong>${selectedState.allied ? 'PARTNER' : 'UNALIGNED'}</strong></div></div>

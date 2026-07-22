@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 global.window = globalThis;
 const root = path.resolve(__dirname, '..');
-for (const file of ['js/random.js', 'js/constants.js', 'js/candidates.js', 'js/states.js', 'js/vp-data.js', 'js/engine.js', 'js/campaign-depth.js', 'js/world.js', 'js/presidency.js', 'js/cabinet.js', 'js/politicians-expanded.js']) {
+for (const file of ['js/random.js', 'js/constants.js', 'js/candidates.js', 'js/states.js', 'js/vp-data.js', 'js/events.js', 'js/debate-content.js', 'js/debate-expanded.js', 'js/engine.js', 'js/campaign-depth.js', 'js/world.js', 'js/presidency.js', 'js/cabinet.js', 'js/politicians-expanded.js', 'js/legends.js']) {
   vm.runInThisContext(fs.readFileSync(path.join(root, file), 'utf8'), { filename:file });
 }
 
@@ -48,6 +48,54 @@ test('every modern candidate has an optimized portrait asset', () => {
   for (const plate of ['debate-stage.jpg','election-night-studio.jpg','special-report-studio.jpg']) {
     assert.ok(fs.statSync(path.join(root, 'images', 'broadcast', plate)).size > 100000, `${plate} missing`);
   }
+});
+
+test('every historical candidate has an optimized portrait asset', () => {
+  for (const candidate of [...LegendData.democrats, ...LegendData.republicans]) {
+    const portrait = path.join(root, 'images', 'portraits', `${candidate.id}.jpg`);
+    assert.equal(fs.existsSync(portrait), true, `${candidate.name} portrait missing`);
+    const bytes = fs.statSync(portrait).size;
+    assert.ok(bytes > 20000 && bytes < 100000, `${candidate.name} portrait is not optimized`);
+  }
+});
+
+test('debates cycle through fifteen substantive topics before repeating', () => {
+  GameEngine.state = GameEngine.createFreshState();
+  GameEngine.setSeed(2028);
+  const seen = [];
+  for (let debate = 0; debate < 3; debate++) {
+    seen.push(...EventSystem.DebateSystem.generateDebateQuestions().map(question => question.topic));
+  }
+  assert.equal(new Set(seen).size, 15);
+  for (const question of EventSystem.DebateSystem.questions) {
+    assert.equal(question.responses.length, 4, `${question.topic} needs four answers`);
+    assert.ok(question.responses.every(response => response.text.length > 60), `${question.topic} answers need depth`);
+  }
+});
+
+test('larger ad buys have materially larger effects with diminishing returns', () => {
+  const run = amount => {
+    GameEngine.state = GameEngine.createFreshState();
+    GameEngine.setSeed(99);
+    GameEngine.state.finances.cashOnHand = 10000000;
+    GameEngine.state.campaign.cash = 10000000;
+    GameEngine.state.statePolling.PA = { player:47, opponent:48, undecided:5, adSpend:0 };
+    return GameEngine.applyAdBuy('PA', 'tv', amount, 'positive').impact;
+  };
+  const small = run(100000);
+  const large = run(5000000);
+  assert.ok(large > small * 2, `large=${large}, small=${small}`);
+  assert.ok(large < small * 50, 'saturation should preserve diminishing returns');
+});
+
+test('Situation Room includes real continent geometry and strategic country coverage', () => {
+  assert.ok(WorldSystem.LAND_PATHS.length >= 8);
+  assert.ok(WorldSystem.NATIONS.length >= 30);
+  for (const id of ['china','india','indonesia','pakistan','nigeria','brazil','bangladesh','russia','mexico','japan','germany','uk','france','israel','ukraine']) {
+    assert.ok(WorldSystem.NATIONS.some(nation => nation.id === id), `${id} missing from the map`);
+  }
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /three\.min\.js|election-night-3d\.js/);
 });
 
 test('every modern nominee has a deep curated and wildcard running-mate bench', () => {
@@ -114,7 +162,7 @@ test('version 1 saves migrate into the living presidency schema', () => {
   assert.equal(restored.saveVersion, 3);
   assert.equal(restored.presidency.population, 335);
   assert.equal(restored.presidency.calendar.monthsElapsed, 12);
-  assert.equal(Object.keys(restored.presidency.world.nations).length, 28);
+  assert.equal(Object.keys(restored.presidency.world.nations).length, 33);
 });
 
 function campaign(seed = 2028) {

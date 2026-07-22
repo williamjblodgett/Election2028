@@ -24,15 +24,36 @@ window.WorldSystem = {
         { id:'iran', name:'Iran', flag:'🇮🇷', x:64, y:46, strength:36, economy:48, nuclear:false, treaty:null, lean:-61 },
         { id:'india', name:'India', flag:'🇮🇳', x:70, y:54, strength:58, economy:78, nuclear:true, treaty:null, lean:18 },
         { id:'pakistan', name:'Pakistan', flag:'🇵🇰', x:68, y:48, strength:34, economy:38, nuclear:true, treaty:null, lean:-18 },
+        { id:'bangladesh', name:'Bangladesh', flag:'🇧🇩', x:74, y:54, strength:17, economy:43, nuclear:false, treaty:null, lean:12 },
         { id:'china', name:'China', flag:'🇨🇳', x:79, y:42, strength:90, economy:94, nuclear:true, treaty:null, lean:-57 },
         { id:'nkorea', name:'North Korea', flag:'🇰🇵', x:86, y:37, strength:30, economy:13, nuclear:true, treaty:null, lean:-88 },
         { id:'skorea', name:'South Korea', flag:'🇰🇷', x:87, y:42, strength:38, economy:73, nuclear:false, treaty:null, lean:81 },
         { id:'japan', name:'Japan', flag:'🇯🇵', x:91, y:42, strength:42, economy:86, nuclear:false, treaty:null, lean:86 },
         { id:'taiwan', name:'Taiwan', flag:'🇹🇼', x:85, y:51, strength:29, economy:72, nuclear:false, treaty:null, lean:79 },
+        { id:'vietnam', name:'Vietnam', flag:'🇻🇳', x:80, y:57, strength:28, economy:50, nuclear:false, treaty:null, lean:22 },
+        { id:'thailand', name:'Thailand', flag:'🇹🇭', x:77, y:59, strength:24, economy:54, nuclear:false, treaty:null, lean:43 },
         { id:'indonesia', name:'Indonesia', flag:'🇮🇩', x:79, y:68, strength:27, economy:57, nuclear:false, treaty:null, lean:14 },
         { id:'philippines', name:'Philippines', flag:'🇵🇭', x:85, y:59, strength:18, economy:45, nuclear:false, treaty:null, lean:68 },
         { id:'australia', name:'Australia', flag:'🇦🇺', x:86, y:80, strength:28, economy:68, nuclear:false, treaty:'AUKUS', lean:91 },
         { id:'newzealand', name:'New Zealand', flag:'🇳🇿', x:94, y:88, strength:10, economy:39, nuclear:false, treaty:null, lean:84 },
+        { id:'ethiopia', name:'Ethiopia', flag:'🇪🇹', x:59, y:65, strength:18, economy:29, nuclear:false, treaty:null, lean:20 },
+        { id:'congo', name:'DR Congo', flag:'🇨🇩', x:53, y:69, strength:15, economy:24, nuclear:false, treaty:null, lean:12 },
+    ],
+
+    // Recognizable equirectangular land silhouettes. Country nodes sit at
+    // real-world approximate longitudes/latitudes over this offline vector map.
+    LAND_PATHS: [
+        'M2 20L5 12 13 7 25 9 34 16 32 24 27 28 23 36 17 40 13 36 10 29 5 27Z',
+        'M13 39L19 43 24 52 28 62 27 74 23 87 19 78 18 65 15 54Z',
+        'M28 6L36 4 40 9 37 17 30 18 26 13Z',
+        'M43 18L48 13 56 14 60 20 57 27 50 29 45 25Z',
+        'M47 31L58 29 63 39 60 53 56 71 51 82 47 69 43 54 44 41Z',
+        'M57 15L69 10 84 13 97 22 94 34 87 39 83 50 76 55 70 49 67 39 61 34 56 26Z',
+        'M76 57L83 59 87 66 82 70 77 67 72 64Z',
+        'M80 72L92 70 97 78 94 88 85 90 79 83Z',
+        'M94 87L98 85 99 91 96 94Z',
+        'M41 18L44 18 44 25 42 27 40 23Z',
+        'M89 39L92 36 93 44 90 48Z',
     ],
 
     FLASHPOINTS: [
@@ -61,6 +82,12 @@ window.WorldSystem = {
         const p = window.GameEngine.state && window.GameEngine.state.presidency;
         if (!p) return null;
         if (!p.world) p.world = this.createState();
+        // Backfill countries added after a save was created.
+        this.NATIONS.forEach(n => {
+            if (!p.world.nations[n.id]) {
+                p.world.nations[n.id] = { relation:n.lean, tension:n.lean < -50 ? 45 : n.lean < 0 ? 25 : 12, sanctions:0, deployed:false, aid:0, allied:!!n.treaty, intelligence:n.lean > 50 ? 90 : 62 };
+            }
+        });
         return p.world;
     },
 

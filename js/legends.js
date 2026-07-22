@@ -1,7 +1,7 @@
 /**
  * Election 2028 — Presidential Legends
  * Past presidents as fully playable candidates: era-flavored stats, historical
- * strengths and liabilities, and 3D appearances for the walkout/cutscene.
+ * strengths and liabilities, with illustrated portraits for 2D broadcasts.
  * A work of political-history fiction; stats are game balance, not scholarship.
  */
 (function () {

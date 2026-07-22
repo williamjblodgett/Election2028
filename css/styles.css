@@ -4272,12 +4272,20 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .sit-grid { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:14px; margin-top:14px; }
 .world-map-wrap,.nation-dossier,.sit-feed { border:1px solid #29445e; background:linear-gradient(180deg,#0b1622,#08101a); border-radius:10px; }
 .world-map-wrap { padding:10px; }
+.world-map-title { display:flex; justify-content:space-between; align-items:end; gap:14px; padding:2px 3px 9px; }
+.world-map-title strong { font:700 .72rem var(--font-mono); letter-spacing:.12em; color:#b8d4ed; }
+.world-map-title span { color:#718ba2; font-size:.67rem; text-align:right; }
 .world-map { width:100%; min-height:460px; display:block; background:radial-gradient(circle at 50% 50%,#14283c,#08101a 70%); border-radius:7px; }
-.continent { fill:#172b35; stroke:#315064; stroke-width:.35; }
+.continent { fill:#1b3440; stroke:#4c6b78; stroke-width:.3; filter:drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
 .map-gridline { fill:none; stroke:#284053; stroke-width:.18; opacity:.55; }
 .world-node { cursor:pointer; }
 .world-node circle { stroke-width:.55; transition:r .15s,filter .15s; }
-.world-node text { text-anchor:middle; font-size:3.2px; pointer-events:none; }
+.world-node text { text-anchor:middle; pointer-events:none; }
+.world-node .world-flag { font-size:2.8px; }
+.world-node .world-country-label { font:600 1.35px var(--font-mono); fill:#b9c9d6; paint-order:stroke; stroke:#06101a; stroke-width:.38px; }
+.world-node:hover .world-country-label,.world-node.selected .world-country-label { fill:#fff; font-size:1.7px; }
+.usa-home circle { fill:#fff; stroke:#65b5ff; stroke-width:.7; filter:drop-shadow(0 0 2px #65b5ff); }
+.usa-home text { text-anchor:middle; fill:#fff; font:700 1.7px var(--font-mono); letter-spacing:.06em; paint-order:stroke; stroke:#06101a; stroke-width:.4px; }
 .world-node.ally circle { fill:#1d6f9b; stroke:#75c9f5; }
 .world-node.neutral circle { fill:#8a6e24; stroke:#e9c961; }
 .world-node.hostile circle { fill:#862d34; stroke:#ff7e88; }
@@ -4360,6 +4368,38 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .scandal-type { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 2px; color: #ff8a8a; margin-bottom: 6px; }
 .scandal-chip { color: #ffc4c4 !important; }
 .cab-fx .scandal-chip { color: #ffc4c4; }
+
+.ad-buy-scale { display:flex; justify-content:space-between; margin-top:5px; color:var(--text-muted); font:0.64rem var(--font-mono); }
+.ad-impact-preview { display:flex; flex-direction:column; gap:3px; margin:10px 0; padding:10px 12px; border:1px solid rgba(75,145,255,.32); background:rgba(24,75,145,.14); border-radius:var(--radius-sm); }
+.ad-impact-preview strong { color:#9fc5ff; font:0.76rem var(--font-mono); letter-spacing:.05em; }
+.ad-impact-preview span { color:var(--text-secondary); font-size:.76rem; }
+
+/* GPU-free 2D candidate walkout and builder preview. */
+.walkout-2d-stage { position:relative; width:100%; height:100%; min-height:520px; overflow:hidden; background:linear-gradient(180deg,rgba(3,8,18,.05),rgba(3,8,18,.88)),url('../images/broadcast/debate-stage.jpg') center/cover no-repeat; }
+.walkout-2d-stage::after { content:''; position:absolute; inset:auto 0 0; height:34%; background:linear-gradient(180deg,transparent,rgba(2,5,12,.9)); pointer-events:none; }
+.walkout-2d-lights { position:absolute; inset:-15% 0 15%; background:radial-gradient(ellipse at 25% 20%,rgba(62,130,255,.36),transparent 31%),radial-gradient(ellipse at 75% 20%,rgba(255,74,74,.31),transparent 31%); animation:walkout-lights 2.2s ease-in-out infinite alternate; }
+.walkout-2d-title { position:absolute; top:14%; left:50%; z-index:3; transform:translate(-50%,-16px); opacity:0; text-align:center; text-shadow:0 4px 16px #000; transition:.8s ease; }
+.walkout-2d-title span,.walkout-2d-title strong { display:block; }
+.walkout-2d-title span { color:#9db1d5; font:700 .65rem var(--font-mono); letter-spacing:.28em; }
+.walkout-2d-title strong { margin-top:5px; font-family:var(--font-display); font-size:clamp(1.1rem,3vw,2rem); }
+.walkout-2d-candidate { position:absolute; bottom:9%; z-index:4; display:flex; align-items:center; gap:14px; width:min(38%,350px); transition:transform 2.35s cubic-bezier(.16,.8,.24,1),opacity .5s; opacity:0; }
+.walkout-2d-candidate.player { left:8%; transform:translateX(-145%); }
+.walkout-2d-candidate.opponent { right:8%; flex-direction:row-reverse; text-align:right; transform:translateX(145%); }
+.walkout-2d-stage.is-live .walkout-2d-title { transform:translate(-50%,0); opacity:1; }
+.walkout-2d-stage.is-live .walkout-2d-candidate { transform:translateX(0); opacity:1; }
+.walkout-portrait { width:clamp(92px,14vw,150px); height:clamp(92px,14vw,150px); flex:0 0 auto; border:4px solid var(--walkout-accent); border-radius:50%; overflow:hidden; background:#080d18; box-shadow:0 0 0 5px rgba(255,255,255,.12),0 14px 44px #000,0 0 34px color-mix(in srgb,var(--walkout-accent) 55%,transparent); }
+.walkout-portrait .portrait { width:100%; height:100%; }
+.walkout-name { padding:9px 12px; color:#fff; border-left:3px solid var(--walkout-accent); background:linear-gradient(90deg,rgba(4,9,20,.9),rgba(4,9,20,.3)); font:800 clamp(1rem,2.5vw,1.7rem) var(--font-display); text-shadow:0 2px 8px #000; }
+.walkout-2d-candidate.opponent .walkout-name { border-left:0; border-right:3px solid var(--walkout-accent); background:linear-gradient(270deg,rgba(4,9,20,.9),rgba(4,9,20,.3)); }
+.walkout-name small { display:block; margin-top:4px; color:#b8c4dc; font:600 .58rem var(--font-mono); letter-spacing:.08em; }
+.walkout-2d-podium { position:absolute; bottom:-2%; z-index:3; width:18%; height:24%; border:1px solid rgba(170,195,240,.28); background:linear-gradient(160deg,#1b2a47,#080d18); clip-path:polygon(14% 0,86% 0,100% 100%,0 100%); box-shadow:0 0 28px #000; }
+.walkout-2d-podium.left { left:16%; }.walkout-2d-podium.right { right:16%; }
+.walkout-2d-stage.is-ending .walkout-fade { opacity:1; }
+.builder-preview-2d { min-height:260px; display:grid; place-content:center; justify-items:center; gap:8px; border:1px solid color-mix(in srgb,var(--builder-color) 50%,transparent); border-radius:14px; background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--builder-color) 30%,transparent),transparent 50%),linear-gradient(180deg,#111a2c,#070b13); box-shadow:inset 0 0 40px #000; }
+.builder-preview-2d div { display:grid; place-items:center; width:120px; height:120px; border:4px solid var(--builder-color); border-radius:50%; background:#111827; font-size:4.4rem; box-shadow:0 12px 28px #000; }
+.builder-preview-2d strong { font-family:var(--font-display); }.builder-preview-2d span { color:var(--text-muted); font:.6rem var(--font-mono); letter-spacing:.12em; }
+@keyframes walkout-lights { to { opacity:.72; transform:scale(1.04); } }
+@media(max-width:640px){.walkout-2d-stage{min-height:440px}.walkout-2d-candidate{bottom:12%;width:47%;gap:7px}.walkout-2d-candidate.player{left:2%}.walkout-2d-candidate.opponent{right:2%}.walkout-name{padding:6px;font-size:.85rem}.walkout-name small{display:none}.walkout-2d-podium.left{left:9%}.walkout-2d-podium.right{right:9%}}
 
 /* Presidency stability tiles and collapse-era legacy reports. */
 .pres-stat.stab-ok .pres-stat-val { color: #7fd98f; }

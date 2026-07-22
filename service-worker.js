@@ -4,7 +4,7 @@
  * Enables offline play and PWA installation
  */
 
-const CACHE_NAME = 'election2028-v26-cabinet-fix';
+const CACHE_NAME = 'election2028-v27-2d-campaign';
 const ASSETS = [
     './',
     './index.html',
@@ -17,10 +17,10 @@ const ASSETS = [
     './js/events.js',
     './js/debate-system.js',
     './js/debate-content.js',
+    './js/debate-expanded.js',
     './js/engine.js',
     './js/campaign-depth.js',
     './js/map-paths.js',
-    './js/vendor/three.min.js',
     './js/debate-walkout.js',
     './js/legends.js',
     './js/portraits.js',
@@ -30,7 +30,6 @@ const ASSETS = [
     './js/world.js',
     './js/war.js',
     './js/presidency.js',
-    './js/election-night-3d.js',
     './js/ui.js',
     './images/broadcast/debate-stage.jpg',
     './images/broadcast/election-night-studio.jpg',
@@ -67,6 +66,18 @@ const ASSETS = [
     './images/portraits/noem.jpg',
     './images/portraits/donalds.jpg',
     './images/portraits/sununu.jpg',
+    './images/portraits/legend_fdr.jpg',
+    './images/portraits/legend_jfk.jpg',
+    './images/portraits/legend_lbj.jpg',
+    './images/portraits/legend_truman.jpg',
+    './images/portraits/legend_obama.jpg',
+    './images/portraits/legend_lincoln.jpg',
+    './images/portraits/legend_teddy.jpg',
+    './images/portraits/legend_ike.jpg',
+    './images/portraits/legend_reagan.jpg',
+    './images/portraits/legend_nixon.jpg',
+    './images/portraits/legend_washington_d.jpg',
+    './images/portraits/legend_washington_r.jpg',
     './manifest.json',
     './icons/icon-192.svg',
     './icons/icon-512.svg',

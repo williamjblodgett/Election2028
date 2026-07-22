@@ -90,6 +90,7 @@ window.GameEngine = {
             pollHistory: {},
             earlyVote: {},
             debateHistory: [],
+            debateTopicHistory: [],
             opponentVP: null,
             publicAnger: 20,
             securityDetail: false,
@@ -614,9 +615,12 @@ window.GameEngine = {
 
     applyAdBuy(stateId, type, amount, tone) {
         const poll = this.state.statePolling[stateId];
-        if (!poll) return;
+        if (!poll) return null;
         const st = window.StateData.find(s => s.id === stateId);
-        if (!st) return;
+        if (!st) return null;
+
+        amount = Math.max(0, Math.min(Number(amount) || 0, this.state.finances.cashOnHand));
+        if (amount < 50000) return null;
 
         const costMultiplier = st.adCostMultiplier || 1;
         const effectiveSpend = amount / costMultiplier;
@@ -648,6 +652,13 @@ window.GameEngine = {
         this.state.finances.cashOnHand -= amount;
         this.state.finances.totalSpent += amount;
         this.state.campaign.cash = this.state.finances.cashOnHand;
+        // Large buys also shape the broader media environment. Diminishing
+        // returns prevent money from becoming an automatic win while still
+        // making a $2M–$5M saturation buy materially stronger than $100K.
+        const scale = Math.log10(1 + amount / 100000);
+        if (type === 'tv') this.state.campaign.mediaScore += Math.min(2.5, scale * 0.9);
+        else this.state.campaign.onlineInfluence += Math.min(3, scale * 1.1);
+        return { stateId, type, tone, amount, impact:Math.round(impact * 100) / 100 };
     },
 
     applyActivityEffects(activity) {
@@ -2410,7 +2421,7 @@ window.GameEngine = {
                            'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias',
                            'publicAnger', 'securityDetail', 'hospitalized', 'assassinationAttempts',
                            'platform', 'opponentPlatform', 'flipFlops', 'platformShiftedWeek',
-                           'primary', 'opponentPlaybook', 'activeScandals', 'transition', 'interviews', 'presidency', 'incumbentSeed']) {
+                           'primary', 'opponentPlaybook', 'activeScandals', 'transition', 'interviews', 'presidency', 'incumbentSeed', 'debateTopicHistory']) {
             if (this.state[key] === undefined) this.state[key] = fresh[key];
         }
         // Old saves: seed platforms from the candidates so drift math works

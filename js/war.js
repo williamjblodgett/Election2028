@@ -80,7 +80,7 @@ window.WarSystem = {
             if (Math.abs(nation.usLean) < 45) score -= intimidation * 0.25; // neutrals extra shy
             if (nation.usLean <= -40) score -= 40;            // rivals tilt against you regardless
             // Add a little noise so no two wars are identical
-            score += (Math.random() - 0.5) * 24;
+            score += (window.GameEngine.random() - 0.5) * 24;
             if (score > 25) withUs.push(nation);
             else if (score < -25) against.push(nation);
             // otherwise stays neutral
@@ -119,6 +119,15 @@ window.WarSystem = {
         p.war.log.push(initiatedByEnemy
             ? `${adversary.name} declares war on the United States.`
             : `The United States declares war on ${adversary.name}.`);
+        if (window.WorldSystem) {
+            const world = window.WorldSystem.ensureState();
+            if (world && world.nations[adversaryId]) {
+                world.nations[adversaryId].tension = 100;
+                world.globalTension = Math.max(72, world.globalTension);
+                world.conflicts.push({ adversaryId, objective:initiatedByEnemy ? 'DEFEND THE UNITED STATES AND ALLIES' : 'COMPEL WITHDRAWAL', started:p.quarter, resolved:false });
+                window.WorldSystem.recomputeDefcon(world);
+            }
+        }
         return p.war;
     },
 
@@ -136,24 +145,37 @@ window.WarSystem = {
         if (posture === 'escalate' && adversary.nuclear) {
             war.escalations += 1;
             const brink = 0.06 * war.escalations + (war.momentum < 25 ? 0.12 : 0); // a cornered nuclear foe is worse
-            if (Math.random() < brink) {
+            if (window.GameEngine.random() < brink) {
                 war.resolved = true;
                 war.outcome = 'nuclear';
                 war.log.push('Nuclear release. The exchange cannot be recalled.');
-                p.over = true;
-                p.approval = 20;
-                p.legacyPoints -= 60;
-                p.log.push(`Nuclear war with ${adversary.name}. History ends here.`);
-                p.legacy = window.PresidencySystem.computeLegacy();
-                return { war, nuclear: true };
+                const world = window.WorldSystem && window.WorldSystem.ensureState();
+                if (world) { world.defcon = 1; world.globalTension = 100; }
+                p.population = typeof p.population === 'number' ? p.population : 335;
+                const killed = Math.round(45 + window.GameEngine.random() * 85);
+                p.population = Math.max(0, p.population - killed);
+                p.stability = p.stability || { score:76, tier:'STABLE' };
+                p.stability.score = Math.max(0, p.stability.score - 50);
+                p.institutions = p.institutions || { trust:52, infrastructure:88, health:82, justice:70, continuity:92 };
+                p.institutions.infrastructure = Math.max(0, p.institutions.infrastructure - 45);
+                p.institutions.health = Math.max(0, p.institutions.health - 40);
+                p.collapse = p.collapse || { active:false, seasons:0, recovery:0, events:[] };
+                p.collapse.active = p.population > 0;
+                p.collapse.events.push({ season:p.quarter, nationId:war.adversaryId, retaliated:true, killed });
+                if (window.PresidencySystem) window.PresidencySystem._updateStabilityTier(p);
+                p.approval = 15;
+                p.legacyPoints -= 80;
+                p.log.push(`Nuclear exchange with ${adversary.name}; ${killed} million Americans killed. Government continuity is in doubt.`);
+                if (p.population <= 0) { p.over = true; p.legacy = window.PresidencySystem.computeLegacy(); }
+                return { war, nuclear: true, killed, continues:!p.over };
             }
         }
 
         // Battle math: power ratio pushes momentum; posture trades risk for swing
         const ratioEdge = (war.ourStrength / (war.ourStrength + war.enemyStrength)) - 0.5; // −0.5..+0.5
-        let swing = ratioEdge * 26 + (Math.random() - 0.5) * 22;
-        if (posture === 'escalate') { swing += 10; war.casualties += 3 + Math.floor(Math.random() * 4); }
-        else if (posture === 'hold') { swing += ratioEdge * 8; war.casualties += 1 + Math.floor(Math.random() * 2); }
+        let swing = ratioEdge * 26 + (window.GameEngine.random() - 0.5) * 22;
+        if (posture === 'escalate') { swing += 10; war.casualties += 3 + Math.floor(window.GameEngine.random() * 4); }
+        else if (posture === 'hold') { swing += ratioEdge * 8; war.casualties += 1 + Math.floor(window.GameEngine.random() * 2); }
         war.momentum = Math.max(0, Math.min(100, Math.round(war.momentum + swing)));
 
         // Approval tracks the front and the coffins
@@ -204,6 +226,12 @@ window.WarSystem = {
         p.warLog = p.warLog || [];
         p.warLog.push({ adversary: adversary.name, outcome, label: r.label, round: war.round, casualties: war.casualties });
         p.log.push(`The ${adversary.name} war ends: ${r.label} (${war.round} quarters, ${war.casualties}k casualties).`);
+        if (window.WorldSystem) {
+            const world = window.WorldSystem.ensureState();
+            const conflict = world && world.conflicts.find(c => c.adversaryId === war.adversaryId && !c.resolved);
+            if (conflict) { conflict.resolved = true; conflict.outcome = outcome; conflict.ended = p.quarter; }
+            if (world) { world.globalTension = Math.max(25, world.globalTension - 18); window.WorldSystem.recomputeDefcon(world); }
+        }
         return { war, outcome, resultLabel: r.label };
     },
 

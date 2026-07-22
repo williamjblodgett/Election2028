@@ -37,7 +37,7 @@ window.InterviewSystem = {
 
         // Q1 — your platform, under pressure
         const issues = (gs.platform && gs.platform.issues) ? Object.keys(gs.platform.issues) : ['the economy'];
-        const issue = issues[Math.floor(Math.random() * issues.length)].replace(/_/g, ' ');
+        const issue = issues[Math.floor(window.GameEngine.random() * issues.length)].replace(/_/g, ' ');
         questions.push({
             q: `Let's talk about ${issue}. Your critics say your plan doesn't add up. Walk me through it.`,
             options: [
@@ -105,7 +105,7 @@ window.InterviewSystem = {
         const opt = q.options[optIndex];
         const cand = gs.playerCandidate;
 
-        let score = (cand.mediaHandling || 50) * 0.5 + (cand.charisma || 50) * 0.3 + Math.random() * 25 + venue.scoreMod;
+        let score = (cand.mediaHandling || 50) * 0.5 + (cand.charisma || 50) * 0.3 + window.GameEngine.random() * 25 + venue.scoreMod;
         // Tone vs venue: aggression plays great in friendly rooms, terribly in hostile ones;
         // owning a mistake plays best in hostile rooms; pivots read weak to the base
         if (opt.tone === 'attack') score += venue.id === 'friendly' ? 10 : venue.id === 'hostile' ? -12 : -3;
@@ -117,7 +117,7 @@ window.InterviewSystem = {
 
         // Critical moments: the clip machine
         let crit = null;
-        const roll = Math.random();
+        const roll = window.GameEngine.random();
         if (roll < venue.critRisk && score < 55) crit = 'disaster';
         else if (score > 82 && roll > 0.5) crit = 'viral';
         score = Math.max(5, Math.min(98, Math.round(score)));

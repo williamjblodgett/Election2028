@@ -607,6 +607,32 @@ window.CandidateData = {
 };
 
 // ═══════════════════════════════════════════════
+// Additional 2028 bench depth. These figures already appear in the ticket
+// pool; presidential entries give both parties ten distinct campaign styles.
+const EXPANDED_CANDIDATES = {
+  democrats: [
+    { id:'moore', name:'Wes Moore', title:'Governor of Maryland', age:49, homeState:'Maryland', slogan:'Leave No One Behind', color:'#2457a6', portraitEmoji:'🎖️', bio:'A veteran, author, and governor offering generational change with an executive record.', stats:[82,76,70,78,80,76,66,74,82,16,64,72,78,70,72,28], strengths:['Compelling personal story and disciplined national message','Executive experience with strong coalition appeal','Veteran credentials broaden the campaign profile'], vulnerabilities:['Opponents question whether one gubernatorial term is enough preparation','A rapid national rise invites intense scrutiny'] },
+    { id:'whitmer', name:'Gretchen Whitmer', title:'Governor of Michigan', age:56, homeState:'Michigan', slogan:'Fix the Damn Things', color:'#3859a8', portraitEmoji:'🏭', bio:'A two-term Midwestern governor running on infrastructure, labor, and repeated swing-state victories.', stats:[80,78,76,84,82,72,74,76,86,14,68,80,76,68,62,30], strengths:['Proven winner in a decisive battleground state','Strong labor and suburban coalition','Executive record centered on tangible delivery'], vulnerabilities:['Opponents nationalize controversial pandemic-era decisions','Regional strength must translate beyond the Midwest'] },
+    { id:'warnock', name:'Raphael Warnock', title:'U.S. Senator from Georgia', age:58, homeState:'Georgia', slogan:'A Voice for All of Us', color:'#4b55b4', portraitEmoji:'🎙️', bio:'A senator and pastor whose campaign rests on moral clarity, organizing, and victories in a closely divided state.', stats:[91,84,75,82,85,84,70,78,78,12,58,76,84,88,78,25], strengths:['Exceptional orator with a powerful organizing network','Repeated success in a competitive Southern state','Can energize the base while presenting an optimistic tone'], vulnerabilities:['Limited executive experience','Opposition attacks focus on a reliably liberal Senate voting record'] },
+    { id:'beshear', name:'Andy Beshear', title:'Governor of Kentucky', age:50, homeState:'Kentucky', slogan:'Common Ground, Common Good', color:'#3574a8', portraitEmoji:'🤝', bio:'A red-state Democratic governor arguing that competence and local trust can break national polarization.', stats:[74,72,66,88,76,58,88,82,84,10,78,70,68,72,48,24], strengths:['Unusually strong crossover appeal','Calm executive style and disaster-response experience','Electability case is easy to explain'], vulnerabilities:['Moderate profile may struggle to excite ideological activists','Limited national fundraising network at launch'] },
+  ],
+  republicans: [
+    { id:'youngkin', name:'Glenn Youngkin', title:'Former Governor of Virginia', age:61, homeState:'Virginia', slogan:'A New Day for America', color:'#b83a3a', portraitEmoji:'💼', bio:'A business-oriented conservative offering suburban appeal, education politics, and executive experience.', stats:[75,72,88,82,80,64,78,76,84,14,72,88,64,62,56,30], strengths:['Deep fundraising network and business résumé','Demonstrated suburban campaign strategy','Polished executive presentation'], vulnerabilities:['Must reconcile establishment donors with populist voters','Wealth and private-equity background invite attack ads'] },
+    { id:'scott', name:'Tim Scott', title:'U.S. Senator from South Carolina', age:62, homeState:'South Carolina', slogan:'Faith in America', color:'#b34632', portraitEmoji:'🌅', bio:'An optimistic conservative senator building a coalition around faith, opportunity, and personal biography.', stats:[84,76,82,84,86,72,76,84,80,10,62,86,78,84,70,24], strengths:['Optimistic communicator with broad personal appeal','Strong donor relationships','Compelling biography and disciplined campaign style'], vulnerabilities:['Optimistic tone can be crowded out in a combative primary','Previous national campaign struggled to convert goodwill into votes'] },
+    { id:'kemp', name:'Brian Kemp', title:'Governor of Georgia', age:64, homeState:'Georgia', slogan:'Results, Not Noise', color:'#a93333', portraitEmoji:'🍑', bio:'A two-term governor emphasizing conservative results, electoral independence, and swing-state durability.', stats:[70,70,76,90,74,68,82,86,88,8,54,80,58,72,46,22], strengths:['Strong executive record in a battleground state','Credibility across the conservative coalition','Highly disciplined political operation'], vulnerabilities:['Past clashes with national party leaders divide loyalists','Low-key style may struggle in spectacle-driven debates'] },
+    { id:'britt', name:'Katie Britt', title:'U.S. Senator from Alabama', age:46, homeState:'Alabama', slogan:'Strong Families, Strong America', color:'#c14747', portraitEmoji:'⭐', bio:'A younger conservative senator presenting generational change, family policy, and business relationships.', stats:[76,68,84,80,72,78,60,72,76,18,60,86,66,70,74,28], strengths:['Generational contrast and strong fundraising potential','Connections to business and party networks','Can energize voters seeking a new national figure'], vulnerabilities:['Limited national campaign experience','High-profile media moments receive disproportionate scrutiny'] },
+  ],
+};
+
+for (const [party, candidates] of Object.entries(EXPANDED_CANDIDATES)) {
+  candidates.forEach(c => {
+    const [charisma,debate,fundraising,discipline,mediaHandling,baseEnthusiasm,crossoverAppeal,scandalResistance,staffCompetence,meltdownRisk,ideologicalElasticity,donorTrust,authenticity,eliteSupport,viralPotential,fatigueFactor] = c.stats;
+    delete c.stats;
+    Object.assign(c, { party:party === 'democrats' ? 'Democrat' : 'Republican', isWildcard:false, charisma,debate,fundraising,discipline,mediaHandling,baseEnthusiasm,crossoverAppeal,scandalResistance,staffCompetence,meltdownRisk,ideologicalElasticity,donorTrust,authenticity,eliteSupport,viralPotential,fatigueFactor });
+  });
+  window.CandidateData[party].push(...candidates);
+}
+
 // RUNNING MATE OPTIONS
 // Shared by the VP pick modal (player) and the AI opponent's week-25 pick.
 // homeId drives the home-state polling boost in GameEngine.processVPPick.

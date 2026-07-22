@@ -31,3 +31,24 @@ jobs:
             echo "ERROR: css directory is missing"
             exit 1
           fi
+
+      - name: Verify generated portrait and broadcast art
+        run: |
+          portrait_count=$(find images/portraits -maxdepth 1 -name '*.jpg' | wc -l)
+          if [ "$portrait_count" -ne 32 ]; then
+            echo "ERROR: expected 32 modern candidate portraits, found $portrait_count"
+            exit 1
+          fi
+          for asset in \
+            images/broadcast/debate-stage.jpg \
+            images/broadcast/election-night-studio.jpg \
+            images/broadcast/special-report-studio.jpg; do
+            if [ ! -s "$asset" ]; then
+              echo "ERROR: required broadcast asset missing: $asset"
+              exit 1
+            fi
+          done
+          if ! grep -q "election2028-v25" service-worker.js; then
+            echo "ERROR: service worker cache version was not updated for portrait art"
+            exit 1
+          fi

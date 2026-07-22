@@ -386,7 +386,7 @@ window.VPData = {
             .sort((left, right) => right.score - left.score);
         if (!ranked.length) return null;
         const topChoices = ranked.slice(0, Math.min(3, ranked.length));
-        return this.cloneOption(topChoices[Math.floor(Math.random() * topChoices.length)].option);
+        return this.cloneOption(topChoices[Math.floor(window.GameEngine.random() * topChoices.length)].option);
     },
 
     optionTouchesState(option, stateId) {

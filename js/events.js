@@ -773,7 +773,7 @@ window.EventSystem = {
                     prob *= 1.3;
                 }
 
-                if (Math.random() < prob && events.length < maxEvents) {
+                if (window.GameEngine.random() < prob && events.length < maxEvents) {
                     events.push(JSON.parse(JSON.stringify(evt)));
                     this.usedEvents.add(evt.id);
                 }
@@ -781,7 +781,7 @@ window.EventSystem = {
 
             // Guarantee at least one event every other week in realistic+
             if (events.length === 0 && gameState.week % 2 === 0 && eligible.length > 0) {
-                const forced = eligible[Math.floor(Math.random() * eligible.length)];
+                const forced = eligible[Math.floor(window.GameEngine.random() * eligible.length)];
                 events.push(JSON.parse(JSON.stringify(forced)));
                 this.usedEvents.add(forced.id);
             }
@@ -973,7 +973,7 @@ window.EventSystem = {
         ],
 
         generateDebateQuestions(count) {
-            const shuffled = [...this.questions].sort(() => Math.random() - 0.5);
+            const shuffled = [...this.questions].sort(() => window.GameEngine.random() - 0.5);
             return shuffled.slice(0, count || 5);
         },
 
@@ -988,7 +988,7 @@ window.EventSystem = {
                 if (r.riskLevel === 'desperate') riskyCount += 2;
             }
             // Risky answers can backfire
-            if (riskyCount >= 3 && Math.random() < 0.4) {
+            if (riskyCount >= 3 && window.GameEngine.random() < 0.4) {
                 totals.viral = Math.floor(totals.viral * 0.5);
                 totals.suburban -= 5;
             }
@@ -1013,7 +1013,7 @@ window.EventSystem = {
                 `JUST IN: ${event.title.toUpperCase()}`,
                 `ALERT: ${event.title.toUpperCase()} — POLLS MAY SHIFT`,
             ];
-            return templates[Math.floor(Math.random() * templates.length)];
+            return templates[Math.floor(window.GameEngine.random() * templates.length)];
         },
 
         generatePollingHeadline(candidate1, candidate2, state, margin) {

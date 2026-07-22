@@ -1,10 +1,10 @@
 /**
  * Election 2028 — Portrait pipeline
  *
- * Real public-domain photos live in images/portraits/<id>.jpg (official
- * government portraits — see images/portraits/README.md for the exact
- * sources). The game works with zero photos present: every render point
- * falls back to the candidate's emoji automatically, and any photo dropped
+ * Original editorial portrait art lives in images/portraits/<id>.jpg.
+ * See images/portraits/README.md for the art direction and disclosure.
+ * The game works with zero portraits present: every render point
+ * falls back to the candidate's emoji automatically, and any portrait dropped
  * into the folder lights up on the next load with no code changes.
  */
 window.Portraits = {
@@ -25,7 +25,9 @@ window.Portraits = {
     html(cand, cls) {
         if (!cand) return '';
         const emoji = cand.portraitEmoji || '🗳️';
-        const id = cand.id || '';
+        // Curated VP entries can have role-specific ids; candidateId points
+        // back to the canonical person portrait.
+        const id = cand.candidateId || cand.id || '';
         // Custom candidates never have photo files — skip the network probe
         if (!id || cand.isCustom || this._status[id] === 'missing') {
             return `<span class="portrait ${cls || ''} no-photo"><span class="portrait-emoji">${emoji}</span></span>`;

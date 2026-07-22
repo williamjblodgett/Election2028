@@ -48,7 +48,7 @@ jobs:
               exit 1
             fi
           done
-          if ! grep -q "election2028-v27-2d-campaign" service-worker.js; then
+          if ! grep -q "election2028-v28-mobile-ui" service-worker.js; then
             echo "ERROR: service worker cache version was not updated for portrait art"
             exit 1
           fi

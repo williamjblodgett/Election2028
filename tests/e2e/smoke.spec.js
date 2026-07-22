@@ -37,6 +37,37 @@ test('Situation Room remains usable on a phone viewport', async ({ page }) => {
   await page.screenshot({ path:'test-results/situation-room-mobile.png', fullPage:true });
 });
 
+test('mobile campaign UI provides touch navigation without horizontal overflow', async ({ page }) => {
+  test.setTimeout(20000);
+  await page.setViewportSize({ width:390, height:844 });
+  await page.goto('/', { waitUntil:'domcontentloaded' });
+  await page.evaluate(() => {
+    GameEngine.initGame(CandidateData.democrats[0], CandidateData.republicans[0], 'campaign', 'realistic');
+    GameUI.showScreen('game');
+    GameUI.renderGameScreen();
+  });
+
+  await expect(page.locator('#mobile-nav')).toBeVisible();
+  await expect(page.getByRole('button', { name:'Campaign map' })).toBeVisible();
+  await expect(page.getByRole('button', { name:'ADVANCE →' })).toBeVisible();
+  await expect(page.locator('#game-center')).toBeVisible();
+
+  await page.getByRole('button', { name:'Campaign actions' }).click();
+  await expect(page.locator('#game-left-panel')).toBeVisible();
+  await expect(page.locator('#game-center')).toBeHidden();
+
+  await page.getByRole('button', { name:'Campaign intelligence' }).click();
+  await expect(page.locator('#game-right-panel')).toBeVisible();
+
+  await page.getByRole('button', { name:'Campaign events' }).click();
+  await expect(page.locator('#game-center')).toBeVisible();
+  await expect(page.locator('#game-center')).toContainText('Events');
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await page.screenshot({ path:'test-results/mobile-campaign-ui.png' });
+});
+
 test('Campaign HQ exposes staff, field, coalition, and polling decisions', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

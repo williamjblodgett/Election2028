@@ -3356,7 +3356,8 @@ h3 { font-size: 1.25rem; }
     .week-display {
         font-size: 0.95rem;
     }
-    #btn-advance-week {
+    #btn-advance-week,
+    .top-bar-right .btn-primary {
         width: 100%;
         min-height: 48px;
         font-size: 1rem;
@@ -4479,4 +4480,165 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
     .incident-broadcast { min-height: 420px; padding: 10px; }
     .en-broadcast { padding: 10px; }
     .en-ticket-portrait .portrait { width: 32px; height: 32px; }
+}
+
+/* Mobile UI consolidation: this final layer intentionally wins over the
+   older responsive rules while preserving the desktop war-room layout. */
+@media (max-width: 768px) {
+    html { overflow-x: hidden; }
+    body { overflow-x: hidden; overscroll-behavior-y: contain; }
+    #app {
+        min-height: 100dvh;
+        padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    }
+
+    #screen-game {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        min-height: calc(100dvh - 32px - 72px - env(safe-area-inset-bottom, 0px));
+    }
+    #screen-game.hidden { display: none !important; }
+    .game-top-bar {
+        position: sticky;
+        top: 32px;
+        z-index: 45;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px 10px;
+        padding: 8px 10px;
+        background: rgba(8, 14, 25, .97);
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: 0 8px 24px rgba(0,0,0,.28);
+        backdrop-filter: blur(12px);
+    }
+    .top-bar-left { min-width: 0; gap: 7px; }
+    .topbar-brand-block { min-width: 0; }
+    .topbar-week { max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ticket-strip { display: none; }
+    .phase-badge { font-size: .55rem; padding: 3px 6px; }
+    .top-bar-center {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        width: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-bottom: 1px;
+    }
+    .top-bar-center::-webkit-scrollbar { display: none; }
+    .polling-pill { flex: 0 0 auto; min-height: 34px; padding: 5px 9px; font-size: .7rem; }
+    .polling-pill-large { flex: 1 0 auto; }
+    .top-bar-right { grid-column: 2; grid-row: 1; width: auto; gap: 6px; }
+    .cash-display, .momentum-display { display: none; }
+    #btn-advance-week {
+        width: auto;
+        min-width: 104px;
+        min-height: 42px;
+        padding: 9px 12px;
+        font-size: .72rem;
+        white-space: nowrap;
+    }
+    .save-btn { min-width: 42px; min-height: 42px; padding: 8px; }
+
+    .game-center,
+    .game-left-panel.mobile-visible,
+    .game-right-panel.mobile-visible {
+        width: 100%;
+        max-width: 100vw;
+        padding: 12px;
+        padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+        overflow-x: hidden;
+    }
+    .game-left-panel.mobile-visible,
+    .game-right-panel.mobile-visible {
+        position: static;
+        inset: auto;
+        z-index: auto;
+        min-height: 0;
+        background: var(--bg-primary);
+    }
+    .game-left-panel .panel-section,
+    .game-right-panel .panel-section { min-width: 0; width: 100%; }
+    .action-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
+    .action-btn { min-height: 84px; align-items: flex-start; }
+    .action-label { font-size: .8rem; }
+    .action-desc { font-size: .66rem; line-height: 1.3; }
+    .summary-cards { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .summary-card { min-width: 0; padding: 10px; }
+
+    .mobile-nav {
+        display: flex;
+        height: calc(68px + env(safe-area-inset-bottom, 0px));
+        padding: 0 6px env(safe-area-inset-bottom, 0px);
+        background: rgba(8, 14, 25, .98);
+        box-shadow: 0 -10px 30px rgba(0,0,0,.38);
+        backdrop-filter: blur(14px);
+        z-index: 300;
+    }
+    .mobile-nav-btn {
+        position: relative;
+        min-width: 0;
+        min-height: 60px;
+        border-top: 0;
+        border-radius: 10px;
+        margin: 4px 2px;
+        padding: 6px 2px;
+        touch-action: manipulation;
+    }
+    .mobile-nav-btn.active {
+        color: #fff;
+        border-top: 0;
+        background: rgba(45,127,249,.18);
+        box-shadow: inset 0 0 0 1px rgba(86,153,255,.3);
+    }
+    .mobile-nav-btn .mobile-nav-icon { font-size: 1.25rem; }
+    .mobile-nav-btn .mobile-nav-label { font-size: .56rem; }
+
+    #screen-select { padding: 12px; }
+    .select-header { margin-bottom: 10px; }
+    .candidate-grid { gap: 10px; }
+    .candidate-card { min-width: 0; padding: 12px; }
+    #setup-nav {
+        position: sticky;
+        bottom: 8px;
+        z-index: 20;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        background: rgba(8,14,25,.96);
+        box-shadow: 0 10px 30px rgba(0,0,0,.4);
+        backdrop-filter: blur(12px);
+    }
+    #setup-nav .btn { flex: 1; }
+
+    .modal-content {
+        max-height: min(88dvh, 760px);
+        padding: 16px;
+        padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+        border-radius: 18px 18px 0 0;
+    }
+    .modal-header { position: sticky; top: -16px; z-index: 5; padding: 12px 0 10px; background: var(--bg-secondary); }
+    .modal-close { min-width: 44px; min-height: 44px; font-size: 1.75rem; }
+    input, select, textarea { font-size: 16px; }
+
+    .us-map-container, .world-map { border-radius: 10px; }
+    .world-map { min-height: 330px; overflow: hidden; }
+    .nation-dossier { min-width: 0; }
+    .sit-header, .sit-grid { min-width: 0; }
+    .sit-actions { grid-template-columns: 1fr; }
+    .debate-responses { grid-template-columns: 1fr; }
+    .en-broadcast, .election-night { max-width: 100vw; overflow-x: hidden; }
+}
+
+@media (max-width: 390px) {
+    .game-top-bar { grid-template-columns: minmax(0,1fr) auto; padding-inline: 8px; }
+    .topbar-brand { font-size: .9rem; }
+    .topbar-week { font-size: .68rem; max-width: 38vw; }
+    #btn-advance-week, .top-bar-right .btn-primary { min-width: 94px; padding-inline: 9px; }
+    .action-grid { grid-template-columns: 1fr; }
+    .action-btn { min-height: 70px; }
+    .mobile-nav-btn .mobile-nav-label { letter-spacing: .02em; }
 }

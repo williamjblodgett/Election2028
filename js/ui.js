@@ -73,6 +73,7 @@ window.GameUI = {
 
     checkMobile() {
         this.isMobile = window.innerWidth <= 768;
+        document.documentElement.classList.toggle('mobile-ui', this.isMobile);
         const nav = document.getElementById('mobile-nav');
         if (nav) {
             if (this.isMobile && this.currentScreen === 'game') {
@@ -80,6 +81,11 @@ window.GameUI = {
             } else {
                 nav.classList.add('hidden');
             }
+        }
+        if (!this.isMobile) {
+            document.getElementById('game-left-panel')?.classList.remove('mobile-visible');
+            document.getElementById('game-center')?.classList.remove('mobile-hidden');
+            document.getElementById('game-right-panel')?.classList.remove('mobile-visible');
         }
     },
 
@@ -170,7 +176,7 @@ window.GameUI = {
     // ═══════════════════════════════════════════════
     // MOBILE NAVIGATION
     // ═══════════════════════════════════════════════
-    switchMobileTab(tab) {
+    switchMobileTab(tab, preserveContent = false) {
         this.mobileActiveTab = tab;
         this.updateMobileNav();
 
@@ -187,7 +193,7 @@ window.GameUI = {
             case 'map':
                 if (center) center.classList.remove('mobile-hidden');
                 this.activeTab = 'map';
-                this.renderTabContent();
+                if (!preserveContent) this.renderTabContent();
                 break;
             case 'actions':
                 if (left) left.classList.add('mobile-visible');
@@ -198,7 +204,7 @@ window.GameUI = {
             case 'events':
                 if (center) center.classList.remove('mobile-hidden');
                 this.activeTab = 'events';
-                this.renderTabContent();
+                if (!preserveContent) this.renderTabContent();
                 break;
         }
     },
@@ -998,6 +1004,7 @@ window.GameUI = {
         this.renderActionPanel();
         this.renderCenterContent();
         this.renderIntelPanel();
+        if (this.isMobile) this.switchMobileTab(this.mobileActiveTab || 'map', true);
     },
 
     updateTopBar() {

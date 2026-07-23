@@ -4,7 +4,7 @@
  * Enables offline play and PWA installation
  */
 
-const CACHE_NAME = 'election2028-v28-mobile-ui';
+const CACHE_NAME = 'election2028-v29-campaign-balance';
 const ASSETS = [
     './',
     './index.html',

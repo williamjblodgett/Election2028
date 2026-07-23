@@ -68,6 +68,9 @@ window.GameEngine = {
                 burnRate: 300000,
                 totalRaised: 5000000,
                 totalSpent: 0,
+                fundraisingFatigue: 0,
+                lastRaised: 0,
+                lastOperatingCost: 300000,
             },
 
             statePolling: {},
@@ -91,6 +94,8 @@ window.GameEngine = {
             earlyVote: {},
             debateHistory: [],
             debateTopicHistory: [],
+            recentEventTitles: [],
+            activityHistory: [],
             opponentVP: null,
             publicAnger: 20,
             securityDetail: false,
@@ -417,7 +422,7 @@ window.GameEngine = {
         }
 
         // 7. Generate and process events (including primary milestones)
-        const events = window.EventSystem.ScenarioEngine.generateWeeklyEvents(this.state);
+        let events = this.filterFreshEvents(window.EventSystem.ScenarioEngine.generateWeeklyEvents(this.state));
         if (this.state.phase === 'primary') {
             const milestone = window.EventSystem.ScenarioEngine.getPrimaryMilestone(this.state.week);
             if (milestone) {
@@ -469,10 +474,9 @@ window.GameEngine = {
         const primaryResult = this.processPrimaryWeek(summary);
 
         // 10. Calculate fundraising
-        const fundsRaised = this.calculateFundraising();
         summary.financialSummary = {
-            raised: fundsRaised,
-            spent: this.state.finances.burnRate,
+            raised: this.state.finances.lastRaised,
+            spent: this.state.finances.lastOperatingCost,
             cashOnHand: this.state.finances.cashOnHand,
         };
         if (window.CampaignDepth) window.CampaignDepth.processWeek(summary);
@@ -480,6 +484,7 @@ window.GameEngine = {
         // 11. Update momentum and media
         this.calculateMomentum();
         this.updateMediaNarrative();
+        this.applyStatMaintenance();
 
         // 12. Apply polling noise and recalculate
         this.applyPollingNoise();
@@ -532,6 +537,7 @@ window.GameEngine = {
         }
 
         // 14. Store history
+        summary.newsHeadlines = this.filterFreshHeadlines(summary.newsHeadlines);
         this.state.weekHistory.push(summary);
         this.state.newsHistory.push(...summary.newsHeadlines);
 
@@ -577,6 +583,31 @@ window.GameEngine = {
         };
         clamp(this.state.campaign);
         clamp(this.state.opponent);
+    },
+
+    applyStatMaintenance() {
+        const rules = { approval:[72,.08], enthusiasm:[84,.07], baseTurnout:[82,.05], persuadableSupport:[70,.07], mediaScore:[84,.07], debateSkill:[88,.04], groundGame:[88,.05], donorConfidence:[84,.07], onlineInfluence:[86,.05], surrogateStrength:[88,.04] };
+        for (const side of [this.state.campaign, this.state.opponent]) {
+            for (const [key, [softCap, decay]] of Object.entries(rules)) {
+                if (typeof side[key] === 'number' && side[key] > softCap) side[key] -= (side[key] - softCap) * decay;
+            }
+        }
+    },
+
+    filterFreshEvents(events) {
+        const recent = this.state.recentEventTitles || (this.state.recentEventTitles = []);
+        const cutoff = this.state.week - 7;
+        const seen = new Set(recent.filter(x => x.week >= cutoff).map(x => x.title));
+        const fresh = events.filter(evt => evt.isPrimaryMilestone || !seen.has(String(evt.title || '').toLowerCase()));
+        for (const evt of fresh) recent.push({ title:String(evt.title || '').toLowerCase(), week:this.state.week });
+        this.state.recentEventTitles = recent.filter(x => x.week >= cutoff);
+        return fresh;
+    },
+
+    filterFreshHeadlines(headlines) {
+        const normalize = h => String(h || '').toLowerCase().replace(/\d+(?:\.\d+)?/g, '#').replace(/\s+/g, ' ').trim();
+        const seen = new Set((this.state.newsHistory || []).slice(-35).map(normalize));
+        return headlines.filter(h => { const key = normalize(h); if (!key || seen.has(key)) return false; seen.add(key); return true; });
     },
 
     // ═══════════════════════════════════════════════
@@ -695,14 +726,16 @@ window.GameEngine = {
                 // Full-week fundraising blitz — $1.5M-$3.5M based on donor confidence
                 const blitzBase = 1500000 + window.GameEngine.random() * 1000000;
                 const confidenceMultiplier = 0.5 + (c.donorConfidence / 100);
-                const blitzRaised = Math.floor(blitzBase * confidenceMultiplier);
+                const fatigueMultiplier = Math.max(0.35, 1 - (this.state.finances.fundraisingFatigue || 0) / 100);
+                const blitzRaised = Math.floor(blitzBase * confidenceMultiplier * fatigueMultiplier);
                 this.state.finances.cashOnHand += blitzRaised;
                 this.state.finances.totalRaised += blitzRaised;
                 c.donorConfidence += 5;
                 c.enthusiasm -= 2; // Spending the week fundraising costs momentum
                 c.momentum -= 3;
+                this.state.finances.fundraisingFatigue = Math.min(80, (this.state.finances.fundraisingFatigue || 0) + 16);
                 effects.cashRaised = blitzRaised;
-                effects.note = "Full week dedicated to fundraising";
+                effects.note = fatigueMultiplier < .7 ? "Donor fatigue reduced the haul" : "Full week dedicated to fundraising";
                 break;
             case 'debatePrep':
                 c.debateSkill += 3; c.discipline = (c.discipline || 50) + 2;
@@ -750,6 +783,15 @@ window.GameEngine = {
             }
         }
         this.state.campaign.cash = this.state.finances.cashOnHand;
+        const history = this.state.activityHistory || (this.state.activityHistory = []);
+        const recentRepeats = history.slice(-4).filter(x => x.activity === activity).length;
+        if (recentRepeats >= 2) {
+            c.momentum -= 1 + recentRepeats * .5;
+            effects.repetitionPenalty = recentRepeats;
+            effects.note = `${effects.note ? effects.note + '; ' : ''}audiences are tiring of this routine`;
+        }
+        history.push({ activity, week:this.state.week });
+        if (history.length > 24) history.splice(0, history.length - 24);
         return effects;
     },
 
@@ -878,12 +920,18 @@ window.GameEngine = {
 
         // Calculate weekly income
         const fundsRaised = this.calculateFundraising();
+        f.lastRaised = fundsRaised;
         f.cashOnHand += fundsRaised;
         f.totalRaised += fundsRaised;
 
-        // Apply base burn rate (staff, overhead)
-        f.cashOnHand -= f.burnRate;
-        f.totalSpent += f.burnRate;
+        // A national operation grows more expensive as the race scales up.
+        const phaseOverhead = this.state.phase === 'general' ? 450000 : 150000;
+        const scaleOverhead = Math.min(350000, this.state.week * 9000);
+        const operatingCost = f.burnRate + phaseOverhead + scaleOverhead;
+        f.lastOperatingCost = operatingCost;
+        f.cashOnHand -= operatingCost;
+        f.totalSpent += operatingCost;
+        f.fundraisingFatigue = Math.max(0, (f.fundraisingFatigue || 0) - 3);
 
         // Super PAC support
         if (c.donorConfidence > 60) {
@@ -919,6 +967,8 @@ window.GameEngine = {
 
         let smallDollar = f.weeklySmallDollar;
         let highDollar = f.weeklyHighDollar;
+        const reserveDrag = f.cashOnHand > 18000000 ? Math.max(.38, 1 - (f.cashOnHand - 18000000) / 65000000) : 1;
+        const fatigueDrag = Math.max(.45, 1 - (f.fundraisingFatigue || 0) / 100);
 
         // Momentum affects fundraising
         smallDollar *= (1 + c.momentum / 200);
@@ -943,7 +993,20 @@ window.GameEngine = {
         smallDollar *= mods.fundraisingMod;
         highDollar *= mods.fundraisingMod;
 
-        return Math.floor(smallDollar + highDollar);
+        const phaseCap = this.state.phase === 'general' ? 3200000 : 2100000;
+        return Math.floor(Math.min(phaseCap, (smallDollar + highDollar) * reserveDrag * fatigueDrag));
+    },
+
+    getAdTargetRecommendations(type = 'digital') {
+        return window.StateData.filter(s => s.isBattleground && this.state.statePolling[s.id]).map(state => {
+            const poll = this.state.statePolling[state.id];
+            const margin = poll.player - poll.opponent;
+            const saturation = poll.adSpend || 0;
+            const reachFit = type === 'digital' && state.educationSplit && state.educationSplit.college > 35 ? 1.12 : 1;
+            const score = ((12 - Math.min(12, Math.abs(margin))) * 4 + state.electoralVotes * 1.3) * reachFit / Math.max(.7, state.adCostMultiplier) / (1 + saturation / 2500000);
+            const reason = Math.abs(margin) <= 3 ? 'toss-up with decisive EVs' : margin < 0 ? 'reachable pickup opportunity' : 'narrow lead worth protecting';
+            return { state, poll, margin, saturation, score, reason };
+        }).sort((a,b) => b.score - a.score);
     },
 
     checkDonorPanic() {
@@ -2141,6 +2204,34 @@ window.GameEngine = {
         return results;
     },
 
+    buildCampaignAutopsy(results) {
+        const states = Object.entries(results.stateResults || {}).map(([id, result]) => ({
+            id, result, state: window.StateData.find(s => s.id === id)
+        })).filter(x => x.state);
+        const closestLosses = states.filter(x => x.result.winner === 'opponent').sort((a,b) => a.result.margin - b.result.margin).slice(0, 3);
+        const closestWins = states.filter(x => x.result.winner === 'player').sort((a,b) => a.result.margin - b.result.margin).slice(0, 3);
+        const c = this.state.campaign;
+        const metrics = [
+            ['Ground game', c.groundGame], ['Enthusiasm', c.enthusiasm], ['Media', c.mediaScore],
+            ['Persuasion', c.persuadableSupport], ['Fundraising', c.donorConfidence], ['Turnout', c.baseTurnout]
+        ].sort((a,b) => b[1] - a[1]);
+        const spent = this.state.finances.totalSpent || 0;
+        const efficiency = results.playerEV ? Math.round(spent / results.playerEV) : spent;
+        const tipping = results.winner === 'player' ? closestWins[0] : closestLosses[0];
+        return {
+            tippingPoint: tipping ? { name:tipping.state.name, margin:tipping.result.margin, ev:tipping.result.ev } : null,
+            closestLosses: closestLosses.map(x => ({ name:x.state.name, margin:x.result.margin, ev:x.result.ev })),
+            strengths: metrics.slice(0, 2).map(x => `${x[0]} ${Math.round(x[1])}`),
+            weaknesses: metrics.slice(-2).reverse().map(x => `${x[0]} ${Math.round(x[1])}`),
+            totalSpent: spent,
+            cashLeft: this.state.finances.cashOnHand,
+            costPerEV: efficiency,
+            verdict: results.winner === 'player'
+                ? 'Your coalition survived the states that decided the Electoral College.'
+                : closestLosses[0] ? `The race turned on ${closestLosses[0].state.name}; a ${closestLosses[0].result.margin.toFixed(1)}-point shift there was your clearest missed path.` : 'Your national coalition never found a viable Electoral College path.'
+        };
+    },
+
     applyFinalTurnout() {
         const c = this.state.campaign;
         const o = this.state.opponent;
@@ -2421,9 +2512,10 @@ window.GameEngine = {
                            'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias',
                            'publicAnger', 'securityDetail', 'hospitalized', 'assassinationAttempts',
                            'platform', 'opponentPlatform', 'flipFlops', 'platformShiftedWeek',
-                           'primary', 'opponentPlaybook', 'activeScandals', 'transition', 'interviews', 'presidency', 'incumbentSeed', 'debateTopicHistory']) {
+                           'primary', 'opponentPlaybook', 'activeScandals', 'transition', 'interviews', 'presidency', 'incumbentSeed', 'debateTopicHistory', 'recentEventTitles', 'activityHistory']) {
             if (this.state[key] === undefined) this.state[key] = fresh[key];
         }
+        this.state.finances = Object.assign({}, fresh.finances, this.state.finances || {});
         // Old saves: seed platforms from the candidates so drift math works
         if (!this.state.platform && this.state.playerCandidate) {
             this.state.platform = this.seedPlatform(this.state.playerCandidate);

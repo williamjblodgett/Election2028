@@ -88,6 +88,73 @@ test('larger ad buys have materially larger effects with diminishing returns', (
   assert.ok(large < small * 50, 'saturation should preserve diminishing returns');
 });
 
+test('campaign economy applies reserve drag, growing overhead, and donor fatigue', () => {
+  GameEngine.initGame(CandidateData.democrats[0], CandidateData.republicans[0], 'campaign', 'realistic');
+  GameEngine.setSeed(2801);
+  GameEngine.state.finances.cashOnHand = 30000000;
+  const reserveRaise = GameEngine.calculateFundraising();
+  GameEngine.state.finances.cashOnHand = 5000000;
+  const normalRaise = GameEngine.calculateFundraising();
+  assert.ok(reserveRaise < normalRaise, `reserve=${reserveRaise}, normal=${normalRaise}`);
+  GameEngine.state.finances.fundraisingFatigue = 60;
+  assert.ok(GameEngine.calculateFundraising() < normalRaise * .7);
+  GameEngine.state.week = 30;
+  GameEngine.state.phase = 'general';
+  GameEngine.processFinances({});
+  assert.ok(GameEngine.state.finances.lastOperatingCost >= 1000000);
+});
+
+test('strategic ad recommendations reward close, efficient electoral targets', () => {
+  GameEngine.initGame(CandidateData.democrats[0], CandidateData.republicans[0], 'campaign', 'realistic');
+  for (const poll of Object.values(GameEngine.state.statePolling)) { poll.player = 35; poll.opponent = 60; }
+  GameEngine.state.statePolling.PA.player = 48;
+  GameEngine.state.statePolling.PA.opponent = 48.5;
+  GameEngine.state.statePolling.PA.adSpend = 0;
+  const ranked = GameEngine.getAdTargetRecommendations('digital');
+  assert.ok(ranked.length > 5);
+  assert.equal(ranked[0].state.id, 'PA');
+  assert.ok(ranked.every((x, i) => i === 0 || ranked[i - 1].score >= x.score));
+});
+
+test('soft caps and repetition penalties stop one-action stat grinding', () => {
+  GameEngine.state = GameEngine.createFreshState();
+  GameEngine.state.playerCandidate = { mediaHandling:70 };
+  for (let i = 0; i < 12; i++) {
+    GameEngine.applyActivityEffects('townhall');
+    GameEngine.applyStatMaintenance();
+  }
+  assert.ok(GameEngine.state.campaign.approval < 72, GameEngine.state.campaign.approval);
+  assert.ok(GameEngine.state.campaign.momentum < -5);
+});
+
+test('campaign autopsy identifies the closest missed state and spending efficiency', () => {
+  GameEngine.initGame(CandidateData.democrats[0], CandidateData.republicans[0], 'campaign', 'realistic');
+  GameEngine.state.finances.totalSpent = 27000000;
+  const results = { winner:'opponent', playerEV:250, opponentEV:288, stateResults:{ PA:{winner:'opponent',margin:.7,ev:19}, MI:{winner:'opponent',margin:2.1,ev:15}, CA:{winner:'player',margin:20,ev:54} } };
+  const report = GameEngine.buildCampaignAutopsy(results);
+  assert.equal(report.tippingPoint.name, 'Pennsylvania');
+  assert.equal(report.costPerEV, 108000);
+});
+
+test('three complete strategy simulations avoid runaway cash and hard-capped stats', () => {
+  const strategies = ['townhall', 'fundraisingBlitz', 'fieldOffice'];
+  for (const [index, activity] of strategies.entries()) {
+    GameEngine.initGame(CandidateData.democrats[index], CandidateData.republicans[index], 'campaign', 'realistic');
+    GameEngine.setSeed(20280 + index);
+    for (let week = 0; week < 40; week++) {
+      const actions = { activities:[activity], strategy:index === 0 ? 'positive' : 'contrast' };
+      if (week > 15 && GameEngine.state.finances.cashOnHand > 3500000) {
+        const target = GameEngine.getAdTargetRecommendations('digital')[0];
+        if (target) actions.adBuys = { [target.state.id]:{ type:'digital', tone:'contrast', amount:500000 } };
+      }
+      GameEngine.processWeek(actions);
+    }
+    assert.ok(GameEngine.state.finances.cashOnHand < 40000000, `${activity} left ${GameEngine.state.finances.cashOnHand}`);
+    assert.ok(GameEngine.state.campaign.approval < 99);
+    assert.ok(GameEngine.state.campaign.enthusiasm < 99);
+  }
+});
+
 test('Situation Room includes real continent geometry and strategic country coverage', () => {
   assert.ok(WorldSystem.LAND_PATHS.length >= 8);
   assert.ok(WorldSystem.NATIONS.length >= 30);

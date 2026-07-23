@@ -2410,14 +2410,16 @@ window.GameUI = {
 
     showAdBuyModal(preselectedState) {
         const gs = window.GameEngine.state;
-        const states = window.StateData.filter(s => s.isBattleground);
+        const recommendations = window.GameEngine.getAdTargetRecommendations('digital');
+        const states = recommendations.map(x => x.state);
+        const selectedState = preselectedState || (states[0] && states[0].id);
 
         const html = `
             <p class="text-muted mb-1">Build a targeted media buy. Bigger budgets increase reach with diminishing returns; market costs still matter.</p>
             <div class="mb-2">
                 <label style="font-size:0.85rem;color:var(--text-secondary);">Target State</label>
                 <select id="ad-state" onchange="GameUI.updateAdEstimate()" style="width:100%;padding:8px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);margin-top:4px;">
-                    ${states.map(st => `<option value="${st.id}" ${preselectedState === st.id ? 'selected' : ''}>${st.name} (${st.electoralVotes} EV, ${st.adCostMultiplier}x cost)</option>`).join('')}
+                    ${states.map((st, i) => `<option value="${st.id}" ${selectedState === st.id ? 'selected' : ''}>${i < 3 ? `★ ${i + 1} · ` : ''}${st.name} (${st.electoralVotes} EV, ${st.adCostMultiplier}x cost)</option>`).join('')}
                 </select>
             </div>
             <div class="mb-2">
@@ -2466,11 +2468,12 @@ window.GameUI = {
         const out = document.getElementById('ad-impact-preview');
         if (!stateEl || !budgetEl || !out) return;
         const st = window.StateData.find(s => s.id === stateEl.value);
+        const recommendation = window.GameEngine.getAdTargetRecommendations(this._adType).find(x => x.state.id === stateEl.value);
         const amount = Number(budgetEl.value);
         const effective = amount / ((st && st.adCostMultiplier) || 1);
         let impact = Math.sqrt(effective / 100000) * 0.8;
         impact *= this._adType === 'tv' ? 1.2 : 0.9 * (st && st.educationSplit && st.educationSplit.college > 35 ? 1.1 : 1);
-        out.innerHTML = `<strong>ESTIMATED PERSUASION: ${impact.toFixed(1)} pts</strong><span>${this._adType === 'tv' ? 'TV also improves national media strength.' : 'Digital also improves online influence.'} Actual movement depends on tone and market saturation.</span>`;
+        out.innerHTML = `<strong>ESTIMATED PERSUASION: ${impact.toFixed(1)} pts</strong><span>${recommendation ? `Strategy desk: ${recommendation.reason}. $${this.formatMoney(recommendation.saturation)} already spent here. ` : ''}${this._adType === 'tv' ? 'TV also improves national media strength.' : 'Digital also improves online influence.'} Actual movement depends on tone and market saturation.</span>`;
     },
 
     _selectToneBtn(tone) {
@@ -3231,6 +3234,9 @@ window.GameUI = {
         const endorsementCount = (gs.endorsements || []).length;
         const oppEndorsementCount = (gs.opponentEndorsements || []).length;
         const vpName = gs.vpChoice ? (gs.vpChoice.name || gs.vpChoice) : '—';
+        const autopsy = window.GameEngine.buildCampaignAutopsy(results);
+        const tipping = autopsy.tippingPoint ? `${autopsy.tippingPoint.name} · ${autopsy.tippingPoint.margin.toFixed(1)} pts · ${autopsy.tippingPoint.ev} EV` : 'No single tipping state';
+        const paths = autopsy.closestLosses.length ? autopsy.closestLosses.map(s => `${s.name} (${s.margin.toFixed(1)})`).join(' · ') : 'No competitive states were lost.';
 
         banner.innerHTML = `
             <div class="winner-banner ${winClass}">
@@ -3245,6 +3251,17 @@ window.GameUI = {
                         <div class="en-retro-item"><div class="retro-val">${endorsementCount} vs ${oppEndorsementCount}</div><div class="retro-label">Endorsements</div></div>
                         <div class="en-retro-item"><div class="retro-val">$${this.formatMoney(gs.finances.totalRaised)}</div><div class="retro-label">Total Raised</div></div>
                         <div class="en-retro-item"><div class="retro-val">${vpName}</div><div class="retro-label">Running Mate</div></div>
+                    </div>
+                    <div class="campaign-autopsy">
+                        <div class="en-retro-title">CAMPAIGN AUTOPSY</div>
+                        <p>${autopsy.verdict}</p>
+                        <div class="autopsy-grid">
+                            <div><span>Tipping point</span><strong>${tipping}</strong></div>
+                            <div><span>Closest missed path</span><strong>${paths}</strong></div>
+                            <div><span>What worked</span><strong>${autopsy.strengths.join(' · ')}</strong></div>
+                            <div><span>What lagged</span><strong>${autopsy.weaknesses.join(' · ')}</strong></div>
+                            <div><span>Budget efficiency</span><strong>$${this.formatMoney(autopsy.costPerEV)} per EV · $${this.formatMoney(autopsy.cashLeft)} unspent</strong></div>
+                        </div>
                     </div>
                 </div>
                 <div class="mt-2 btn-group" style="justify-content:center;">

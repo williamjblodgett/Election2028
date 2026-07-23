@@ -110,6 +110,7 @@ window.CampaignDepth = {
         const hq = this.ensure(gs);
         this.recalculate(hq);
         gs.finances.cashOnHand -= hq.weeklyPayroll;
+        gs.finances.totalSpent += hq.weeklyPayroll;
         summary.financialSummary.payroll = hq.weeklyPayroll;
 
         const manager = this.staffSkill(hq, 'manager');

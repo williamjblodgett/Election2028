@@ -4642,3 +4642,10 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
     .action-btn { min-height: 70px; }
     .mobile-nav-btn .mobile-nav-label { letter-spacing: .02em; }
 }
+.campaign-autopsy{margin-top:18px;padding-top:16px;border-top:1px solid var(--border-color);text-align:left}
+.campaign-autopsy>p{color:var(--text-secondary);margin:8px 0 12px}
+.autopsy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.autopsy-grid>div{display:flex;flex-direction:column;gap:3px;padding:10px;background:rgba(0,0,0,.16);border-radius:var(--radius-sm)}
+.autopsy-grid span{font-size:.72rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:.06em}
+.autopsy-grid strong{font-size:.9rem}
+@media(max-width:640px){.autopsy-grid{grid-template-columns:1fr}}

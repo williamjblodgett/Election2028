@@ -90,21 +90,64 @@
             R('Give me this mandate and I will use every day of it to rebuild American confidence, capacity, and common purpose.', bold, 'risky') ] },
     ];
 
+    // Turn the fifteen issue foundations into a 60-question career book.
+    // Each moderator framing and every spoken response has unique wording.
+    const framings = [
+        { id:'plan', lead:'Give voters a concrete governing plan:', suffix:'Be specific about your first year.' },
+        { id:'tradeoff', lead:'Every option carries a cost.', suffix:'Which tradeoff are you asking the country to accept?' },
+        { id:'voter', lead:'A skeptical undecided voter asks:', suffix:'Why should that voter believe your answer?' },
+        { id:'record', lead:'Your opponent says neither party has delivered.', suffix:'What measurable result would define success?' },
+    ];
+    const responseClosers = [
+        ' I will publish the timetable and let voters measure the result.',
+        ' The tradeoff is real, and I will report the cost as openly as the benefit.',
+        ' That commitment will be enforceable, funded, and visible in every affected community.',
+        ' Judge the administration by the first-year benchmark I have just set.',
+    ];
+    D.questions = D.questions.flatMap((base, baseIndex) => framings.map((frame, variantIndex) => ({
+        ...base,
+        id:`general_${baseIndex}_${frame.id}`,
+        question:`${frame.lead} ${base.question} ${frame.suffix}`,
+        responses:base.responses.map((response, responseIndex) => ({
+            ...response,
+            id:`general_${baseIndex}_${frame.id}_r${responseIndex}`,
+            text:response.text + responseClosers[variantIndex],
+            effects:{ ...response.effects },
+        })),
+    })));
+
     D.generateDebateQuestions = function (count) {
         const gs = window.GameEngine && window.GameEngine.state;
-        const used = new Set((gs && gs.debateTopicHistory) || []);
-        let available = this.questions.filter(q => !used.has(q.topic));
-        if (available.length < (count || 5)) {
-            used.clear();
-            available = [...this.questions];
-            if (gs) gs.debateTopicHistory = [];
+        const career = gs && window.CareerSystem ? window.CareerSystem.ensure(gs) : null;
+        const usedIds = new Set(career ? career.usedQuestionIds : []);
+        const usedTopics = new Set((gs && gs.debateTopicHistory) || []);
+        const recordQuestions = gs && gs.isIncumbentRun && window.CareerSystem
+            ? window.CareerSystem.recordQuestions(gs.accountability && gs.accountability.docket)
+                .filter(q => !usedIds.has(q.id))
+            : [];
+        const needed = count || 5;
+        const recordSlots = Math.min(3, recordQuestions.length, needed);
+        const onePerTopic = pool => {
+            const grouped = new Map();
+            for (const question of pool) {
+                if (!grouped.has(question.topic)) grouped.set(question.topic, []);
+                grouped.get(question.topic).push(question);
+            }
+            return [...grouped.values()].map(group => group[Math.floor(window.GameEngine.random() * group.length)]);
+        };
+        let available = onePerTopic(this.questions.filter(q => !usedIds.has(q.id) && !usedTopics.has(q.topic)));
+        if (available.length < needed - recordSlots) {
+            available = onePerTopic(this.questions.filter(q => !usedIds.has(q.id)));
         }
         for (let i = available.length - 1; i > 0; i--) {
             const j = Math.floor(window.GameEngine.random() * (i + 1));
             [available[i], available[j]] = [available[j], available[i]];
         }
-        const selected = available.slice(0, count || 5);
-        if (gs) gs.debateTopicHistory = [...(gs.debateTopicHistory || []), ...selected.map(q => q.topic)];
+        const selected = [...recordQuestions.slice(0, recordSlots), ...available.slice(0, needed - recordSlots)];
+        if (gs) {
+            gs.debateTopicHistory = [...(gs.debateTopicHistory || []), ...selected.map(q => q.topic)];
+            if (career) career.usedQuestionIds.push(...selected.map(q => q.id));
+        }
         return selected.map(q => ({ ...q, responses:q.responses.map(r => ({ ...r, effects:{ ...r.effects } })) }));
     };
 

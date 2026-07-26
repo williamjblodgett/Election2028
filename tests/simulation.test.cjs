@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 global.window = globalThis;
 const root = path.resolve(__dirname, '..');
-for (const file of ['js/random.js', 'js/constants.js', 'js/candidates.js', 'js/states.js', 'js/vp-data.js', 'js/events.js', 'js/debate-content.js', 'js/debate-expanded.js', 'js/engine.js', 'js/campaign-depth.js', 'js/world.js', 'js/presidency.js', 'js/cabinet.js', 'js/politicians-expanded.js', 'js/legends.js']) {
+for (const file of ['js/random.js', 'js/constants.js', 'js/candidates.js', 'js/states.js', 'js/vp-data.js', 'js/events.js', 'js/debate-content.js', 'js/debate-expanded.js', 'js/engine.js', 'js/career-system.js', 'js/campaign-depth.js', 'js/world.js', 'js/war.js', 'js/presidency.js', 'js/cabinet.js', 'js/politicians-expanded.js', 'js/legends.js']) {
   vm.runInThisContext(fs.readFileSync(path.join(root, file), 'utf8'), { filename:file });
 }
 
@@ -71,6 +71,143 @@ test('debates cycle through fifteen substantive topics before repeating', () => 
     assert.equal(question.responses.length, 4, `${question.topic} needs four answers`);
     assert.ok(question.responses.every(response => response.text.length > 60), `${question.topic} answers need depth`);
   }
+});
+
+test('the debate director exposes sixty unique questions and spoken answers', () => {
+  assert.equal(EventSystem.DebateSystem.questions.length, 60);
+  assert.equal(new Set(EventSystem.DebateSystem.questions.map(q => q.question)).size, 60);
+  const answers = EventSystem.DebateSystem.questions.flatMap(q => q.responses.map(r => r.text));
+  assert.equal(new Set(answers).size, 240);
+});
+
+test('an eight-year debate career does not repeat exact questions', () => {
+  GameEngine.state = GameEngine.createFreshState();
+  GameEngine.state.playerCandidate = CandidateData.democrats[0];
+  GameEngine.state.opponentCandidate = CandidateData.republicans[0];
+  CareerSystem.ensure(GameEngine.state);
+  GameEngine.setSeed(2032);
+  const questions = [];
+  for (let debate = 0; debate < 7; debate++) {
+    questions.push(...EventSystem.DebateSystem.generateDebateQuestions().map(q => q.question));
+  }
+  assert.equal(questions.length, 35);
+  assert.equal(new Set(questions).size, 35);
+});
+
+test('reelection docket turns debt, scandals, wars, and broken promises into questions', () => {
+  GameEngine.state = GameEngine.createFreshState();
+  const career = CareerSystem.ensure(GameEngine.state);
+  career.wars.push({ adversaryId:'iran', adversary:'Iran', casualties:12, outcome:'peace', initiatedByEnemy:false });
+  const docket = CareerSystem.buildDocket({
+    debt:132, scandals:2, warsLost:0, inflation:3, signatureDone:false,
+    signatureName:'Balance the Budget', gdp:2.1, approval:49,
+  }, career);
+  assert.ok(docket.liabilities.some(x => x.id === 'record_debt'));
+  assert.ok(docket.liabilities.some(x => x.id.startsWith('record_war_')));
+  const questions = CareerSystem.recordQuestions(docket);
+  assert.ok(questions.every(q => q.isRecordQuestion && q.factCheck));
+});
+
+test('term two inherits the country, cabinet, courts, laws, debt, and crises', () => {
+  GameEngine.state = GameEngine.createFreshState();
+  GameEngine.state.playerCandidate = CandidateData.democrats[0];
+  GameEngine.state.opponentCandidate = CandidateData.republicans[0];
+  GameEngine.state.transition = { senateSeats:52, capital:6, posts:{ treasury:{ name:'Test Secretary', competence:88, loyalty:80 } } };
+  const p1 = PresidencySystem.begin();
+  p1.fiscal.debt = 131.9;
+  p1.enacted.push({ id:'care', name:'Care Act', legacy:8, quarter:2 });
+  p1.scotus.push({ pick:'the consensus moderate', quarter:5, votesFor:55 });
+  p1.crisisLog.push({ id:'market', title:'Market Convulsion', success:true, quarter:3 });
+  p1.policies.push({ id:'care', name:'Care Act', implementation:62, target:100, status:'ROLLING OUT' });
+  p1.signature = { id:'balance', name:'Balance the Budget', done:false };
+  const career = CareerSystem.ensure(GameEngine.state);
+  const snapshot = CareerSystem.closeTerm(p1);
+  const incumbent = GameEngine.state.playerCandidate;
+  const opponent = GameEngine.state.opponentCandidate;
+  GameEngine.startReelection(incumbent, opponent, 'arcade', {
+    term:1, approval:52, gdp:2, inflation:3, scandals:0, warsWon:0, warsLost:0,
+    debt:131.9, signatureDone:false, signatureName:'Balance the Budget',
+    career, countrySnapshot:snapshot,
+  }, null);
+  const p2 = PresidencySystem.begin();
+  assert.equal(p2.term, 2);
+  assert.equal(p2.fiscal.debt, 131.9);
+  assert.equal(p2.enacted[0].id, 'care');
+  assert.equal(p2.scotus.length, 1);
+  assert.equal(p2.crisisLog[0].id, 'market');
+  assert.equal(p2.policies[0].implementation, 62);
+  assert.equal(GameEngine.state.transition.posts.treasury.name, 'Test Secretary');
+  assert.equal(PresidencySystem.chooseSignature('balance'), null);
+});
+
+test('war authorization and cost become permanent accountability records', () => {
+  GameEngine.state = GameEngine.createFreshState();
+  GameEngine.state.playerCandidate = CandidateData.democrats[0];
+  GameEngine.state.transition = { senateSeats:52, capital:6, posts:{} };
+  const p = PresidencySystem.begin();
+  GameEngine.setSeed(88);
+  const war = WarSystem.declare('caldoria', false, 'CONGRESSIONAL AUTHORIZATION');
+  assert.equal(war.authorization, 'CONGRESSIONAL AUTHORIZATION');
+  WarSystem.fightRound('hold');
+  assert.ok(war.cost > 0);
+  assert.ok(p.fiscal.ledger.some(x => x.source.includes('War with')));
+  WarSystem.negotiate();
+  assert.equal(GameEngine.state.career.wars[0].objective, 'COMPEL WITHDRAWAL AND RESTORE DETERRENCE');
+});
+
+test('a complete two-term lifecycle preserves history and produces record debates', () => {
+  const resolveTerm = p => {
+    while (!p.over) {
+      if (p.pendingEvent) {
+        const kind = p.pendingEvent.kind;
+        if (kind === 'crisis') PresidencySystem.resolveCrisis(1);
+        else if (kind === 'budget') PresidencySystem.resolveBudget(0);
+        else if (kind === 'scotus') PresidencySystem.appointJustice(1);
+        else if (kind === 'scandal') PresidencySystem.resolveScandal(2);
+        else if (kind === 'impeachment') PresidencySystem.resolveImpeachment(true);
+        else if (kind === 'warbattle' || kind === 'surprisewar') PresidencySystem.resolveWarEvent();
+        else PresidencySystem.acknowledgeEvent();
+        continue;
+      }
+      if (PresidencySystem.atWar()) PresidencySystem.act('warposture', { posture:'negotiate' });
+      else if (p.fiscal.shutdown) PresidencySystem.act('reopen', {});
+      else PresidencySystem.act('barnstorm', {});
+      PresidencySystem.endQuarter();
+    }
+  };
+
+  GameEngine.initGame(CandidateData.democrats[2], CandidateData.republicans[2], 'campaign', 'arcade');
+  GameEngine.setSeed(8828);
+  GameEngine.state.transition = { senateSeats:53, capital:7, posts:{ treasury:{ name:'Continuity Treasury', competence:90, loyalty:80 } } };
+  const first = PresidencySystem.begin();
+  PresidencySystem.chooseSignature('balance');
+  first.fiscal.debt = 125;
+  first.enacted.push({ id:'first_term_law', name:'First Term Law', legacy:8, quarter:1 });
+  resolveTerm(first);
+  const snapshot = GameEngine.state.career.countrySnapshot;
+  const career = GameEngine.state.career;
+  const incumbent = GameEngine.state.playerCandidate;
+  const challenger = GameEngine.state.opponentCandidate;
+  GameEngine.startReelection(incumbent, challenger, 'arcade', {
+    term:1, approval:first.approval, gdp:first.economy.gdp, inflation:first.economy.inflation,
+    scandals:first.scandals.length, warsWon:first.legacy.warsWon, warsLost:first.legacy.warsLost,
+    debt:first.fiscal.debt, signatureDone:false, signatureName:'Balance the Budget',
+    career, countrySnapshot:snapshot,
+  }, null);
+  const debate = EventSystem.DebateSystem.generateDebateQuestions(5);
+  assert.ok(debate.some(q => q.isRecordQuestion));
+  assert.ok(debate.some(q => q.question.includes('national debt') || q.question.includes('defining promise')));
+  const second = PresidencySystem.begin();
+  assert.equal(second.term, 2);
+  assert.ok(second.enacted.some(law => law.id === 'first_term_law'));
+  assert.equal(PresidencySystem.chooseSignature('balance'), null);
+  assert.ok(PresidencySystem.chooseSignature('moonshot'));
+  resolveTerm(second);
+  assert.equal(second.over, true);
+  assert.equal(second.term, 2);
+  assert.equal(GameEngine.state.career.closedTerms.length, 2);
+  assert.ok(second.timeline.some(item => item.kind === 'succession'));
+  assert.ok(second.timeline.some(item => item.kind === 'legacy'));
 });
 
 test('larger ad buys have materially larger effects with diminishing returns', () => {

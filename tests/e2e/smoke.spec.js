@@ -179,3 +179,51 @@ test('generated studios support live debate and election overlays', async ({ pag
   expect(await page.locator('.election-night').evaluate(el => getComputedStyle(el).backgroundImage)).toContain('election-night-studio.jpg');
   await page.screenshot({ path:'test-results/broadcast-election-night.png', fullPage:true });
 });
+
+test('reelection renders an accountability docket and term two keeps the country', async ({ page }) => {
+  await page.goto('./');
+  const audit = await page.evaluate(() => {
+    const incumbent = CandidateData.democrats[0];
+    const challenger = CandidateData.republicans[0];
+    GameEngine.initGame(incumbent, challenger, 'campaign', 'arcade');
+    GameEngine.state.transition = { senateSeats:52, capital:6, posts:{ treasury:{ name:'Continuity Treasury', competence:88, loyalty:78 } } };
+    GameUI._lastResults = { nationalPopularVote:{ player:52, opponent:46 }, playerEV:300 };
+    const p1 = PresidencySystem.begin();
+    PresidencySystem.chooseSignature('balance');
+    p1.fiscal.debt = 132;
+    p1.enacted.push({ id:'continuity_law', name:'Continuity Act', legacy:8, quarter:2 });
+    p1.scotus.push({ pick:'the consensus moderate', quarter:5, votesFor:55 });
+    p1.crisisLog.push({ id:'market', title:'Market Convulsion', success:true, quarter:3 });
+    const career = CareerSystem.ensure(GameEngine.state);
+    const snapshot = CareerSystem.closeTerm(p1);
+    GameEngine.startReelection(incumbent, challenger, 'arcade', {
+      term:1, approval:51, gdp:2.1, inflation:3.2, scandals:1, warsWon:0, warsLost:0,
+      debt:132, signatureDone:false, signatureName:'Balance the Budget', career, countrySnapshot:snapshot,
+    }, null);
+    const host = document.createElement('div');
+    host.id = 'continuity-audit-host';
+    document.body.appendChild(host);
+    GameUI.renderStatsTab(host);
+    const docketText = host.innerText;
+    GameUI._lastResults = { nationalPopularVote:{ player:51, opponent:47 }, playerEV:290 };
+    const p2 = PresidencySystem.begin();
+    return {
+      docketText,
+      term:p2.term,
+      debt:p2.fiscal.debt,
+      laws:p2.enacted.map(x => x.id),
+      justices:p2.scotus.length,
+      crisis:p2.crisisLog[0] && p2.crisisLog[0].id,
+      cabinet:GameEngine.state.transition.posts.treasury.name,
+    };
+  });
+  expect(audit.docketText).toContain('THE ACCOUNTABILITY DOCKET');
+  expect(audit.docketText).toContain('Debt rose 32.0 points');
+  expect(audit.docketText).toContain('Unfinished promise');
+  expect(audit.term).toBe(2);
+  expect(audit.debt).toBe(132);
+  expect(audit.laws).toContain('continuity_law');
+  expect(audit.justices).toBe(1);
+  expect(audit.crisis).toBe('market');
+  expect(audit.cabinet).toBe('Continuity Treasury');
+});

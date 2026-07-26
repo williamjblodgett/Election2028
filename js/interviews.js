@@ -34,11 +34,25 @@ window.InterviewSystem = {
         const gs = window.GameEngine.state;
         const venue = this.getVenues(gs.playerParty).find(v => v.id === venueId);
         const questions = [];
+        const career = window.CareerSystem && window.CareerSystem.ensure(gs);
+        const docketItems = gs.isIncumbentRun && gs.accountability && gs.accountability.docket
+            ? gs.accountability.docket.liabilities : [];
+        const unusedRecord = docketItems.find(item => !career || !career.usedQuestionIds.includes(`interview_${item.id}`));
 
         // Q1 — your platform, under pressure
         const issues = (gs.platform && gs.platform.issues) ? Object.keys(gs.platform.issues) : ['the economy'];
         const issue = issues[Math.floor(window.GameEngine.random() * issues.length)].replace(/_/g, ' ');
-        questions.push({
+        questions.push(unusedRecord ? {
+            id:`interview_${unusedRecord.id}`,
+            q:unusedRecord.question,
+            recordItem:unusedRecord,
+            options: [
+                { text:'Defend the original decision and its tradeoff', tone:'steady' },
+                { text:'Accept responsibility and announce a correction', tone:'own' },
+                { text:'Contrast the record with the opponent’s alternative', tone:'attack' },
+            ],
+        } : {
+            id:`interview_platform_${issue}_${gs.week}`,
             q: `Let's talk about ${issue}. Your critics say your plan doesn't add up. Walk me through it.`,
             options: [
                 { text: 'Hold your ground — defend the plan in detail', tone: 'steady' },
@@ -46,6 +60,7 @@ window.InterviewSystem = {
                 { text: 'Turn it around — hammer your opponent\'s record instead', tone: 'attack' },
             ],
         });
+        if (career && questions[0].id) career.usedQuestionIds.push(questions[0].id);
 
         // Q2 — the gotcha: scandal > flip-flop > generic readiness
         if (gs.activeScandals && gs.activeScandals.length) {

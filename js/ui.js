@@ -1641,6 +1641,11 @@ window.GameUI = {
                         <div>${verdict} (${drift >= 0 ? '+' : ''}${drift.toFixed(2)}/wk)</div>
                     </div>`;
                     })() : ''}
+                    ${gs.stateMovementReasons && gs.stateMovementReasons[stateId] && gs.stateMovementReasons[stateId].length ? `
+                    <div class="state-info-item state-ticket-factor">
+                        <div class="info-label">Why This State Moved</div>
+                        <div>${gs.stateMovementReasons[stateId].slice(-3).reverse().map(x => `W${x.week}: ${x.reason}`).join('<br>')}</div>
+                    </div>` : ''}
                 </div>
                 <div class="mt-1 btn-group">
                     <button class="btn btn-sm btn-primary" onclick="GameUI.quickVisit('${stateId}')">Visit Now ($80K)</button>
@@ -1726,6 +1731,7 @@ window.GameUI = {
         const barClass = this.getPlayerColorClass();
 
         container.innerHTML = `
+            ${gs.isIncumbentRun ? this.renderAccountabilityDocket(gs.accountability && gs.accountability.docket) : ''}
             <div class="week-summary">
                 <h3>📊 Campaign Dashboard — ${gs.playerCandidate.name}</h3>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -2809,6 +2815,11 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const q = ctx.questions[ctx.idx];
         const response = q.responses[responseIdx];
+        if (q.isRecordQuestion && gs.accountability) {
+            gs.accountability.answered.push({ week:gs.week, questionId:q.id, posture:response.posture, factCheck:q.factCheck });
+            const consistency = response.posture === 'concede' || response.posture === 'reframe' ? 'SUPPORTED' : 'CONTESTED';
+            gs.accountability.factChecks.push({ week:gs.week, questionId:q.id, verdict:consistency, fact:q.factCheck });
+        }
 
         // Player's answer enters the transcript and the scorebook
         let playerQScore = 0;
@@ -2839,7 +2850,8 @@ window.GameUI = {
                 consistencyNote = 'Pundits note the answer clashes with the candidate\'s stated platform.';
             }
         }
-        this.appendTranscript('player', response.text, consistencyNote);
+        const recordNote = q.isRecordQuestion ? `LIVE FACT CHECK — ${q.factCheck}` : '';
+        this.appendTranscript('player', response.text, [consistencyNote, recordNote].filter(Boolean).join(' '));
 
         const choiceArea = document.getElementById('debate-choice-area');
         choiceArea.querySelectorAll('.debate-response').forEach(b => { b.disabled = true; b.classList.add('dimmed'); });
@@ -3294,7 +3306,9 @@ window.GameUI = {
     },
 
     showSignaturePicker() {
-        const cards = window.PresidencySystem.SIGNATURES.map(s => `
+        const career = window.CareerSystem && window.CareerSystem.ensure(window.GameEngine.state);
+        const used = new Set(career ? [...career.completedSignatures, ...career.failedSignatures] : []);
+        const cards = window.PresidencySystem.SIGNATURES.filter(s => !used.has(s.id)).map(s => `
             <div class="signature-option" onclick="GameUI.chooseSignature('${s.id}')">
                 <div class="sig-icon">${s.icon}</div>
                 <div class="sig-main">
@@ -3357,6 +3371,8 @@ window.GameUI = {
                         <div class="pres-stat defcon-${p.world.defcon}"><div class="pres-stat-val">${p.world.defcon}</div><div class="pres-stat-label">DEFCON</div></div>
                     </div>
                     ${p.fiscal && p.fiscal.shutdown ? `<div class="shutdown-banner">🚧 GOVERNMENT SHUTDOWN — approval bleeds every quarter until you reopen it (quarter ${p.fiscal.shutdownQuarters || 1}).</div>` : ''}
+                    ${p.fiscal && p.fiscal.ledger && p.fiscal.ledger.length ? `<div class="fiscal-ledger-strip"><strong>WHY DEBT MOVED</strong>${p.fiscal.ledger.slice(-3).reverse().map(x => `<span>${x.source}: ${x.delta >= 0 ? '+' : ''}${x.delta.toFixed(1)} → ${x.debtAfter.toFixed(1)}%</span>`).join('')}</div>` : ''}
+                    ${p.fiscal && p.fiscal.budget ? `<div class="fiscal-ledger-strip budget"><strong>QUARTERLY LEDGER</strong><span>Revenue ${p.fiscal.budget.revenue}%</span><span>Mandatory ${p.fiscal.budget.mandatory}%</span><span>Domestic ${p.fiscal.budget.domestic}%</span><span>Defense ${p.fiscal.budget.defense}%</span><span>Debt service ${p.fiscal.budget.debtService}%</span><span>Emergency ${p.fiscal.budget.emergency}%</span><span>Balance ${p.fiscal.budget.balance}% GDP</span></div>` : ''}
                     ${(() => {
                         const eff = window.PresidencySystem.cabinetEffects();
                         const chips = [];
@@ -3627,6 +3643,7 @@ window.GameUI = {
             this.showModal(`🚨 ${crisis.title}`, `
                 <div class="crisis-stage">
                     <p class="crisis-text">${crisis.text}</p>
+                    ${event.sequelText ? `<p class="crisis-sequel">${event.sequelText}</p>` : ''}
                     <div class="interview-answers">${choices}</div>
                 </div>`);
         } else if (event.kind === 'scotus') {
@@ -3856,7 +3873,7 @@ window.GameUI = {
         return `
             <div class="pres-shell">
                 <div class="inauguration-panel ${partyClass}" style="margin-top:2rem;">
-                    <div class="inaug-kicker">JANUARY 2033 · THE HISTORIANS WEIGH IN</div>
+                    <div class="inaug-kicker">JANUARY ${2029 + (p.term || 1) * 4} · THE HISTORIANS WEIGH IN</div>
                     <h2>THE ${gs.playerCandidate.name.split(' ').pop().toUpperCase()} PRESIDENCY</h2>
                     <div class="legacy-grade-row">
                         <div class="legacy-grade">${L.grade}</div>
@@ -3905,6 +3922,8 @@ window.GameUI = {
             signatureDone: !!L.signatureDone, signatureName: L.signatureName,
             debt: p.fiscal ? p.fiscal.debt : 100,
             playerName: gs.playerCandidate.name,
+            career: window.CareerSystem ? window.CareerSystem.ensure(gs) : gs.career,
+            countrySnapshot: window.CareerSystem ? window.CareerSystem.closeTerm(p) : null,
         };
         try { localStorage.setItem('election2028_incumbent', JSON.stringify(seed)); } catch (e) {}
 
@@ -3926,8 +3945,16 @@ window.GameUI = {
             <div style="text-align:center;">
                 <div class="iv-tier">RUNNING AS THE INCUMBENT</div>
                 <p class="text-muted">You skip the primary and face ${opponent.name} in the general election. Your record is your platform: ${seed.approval}% approval, ${seed.gdp.toFixed(1)}% growth${seed.signatureDone ? `, and ${seed.signatureName} delivered` : ''}${seed.warsLost ? `, but ${seed.warsLost} war${seed.warsLost === 1 ? '' : 's'} lost` : ''}${seed.scandals ? `, and ${seed.scandals} scandal${seed.scandals === 1 ? '' : 's'} to answer for` : ''}. Win, and you serve your second and final term.</p>
+                ${this.renderAccountabilityDocket(window.GameEngine.state.accountability.docket)}
                 <button class="btn btn-primary" onclick="GameUI.closeModal();">TO THE WAR ROOM</button>
             </div>`);
+    },
+
+    renderAccountabilityDocket(docket) {
+        if (!docket) return '';
+        const liabilities = (docket.liabilities || []).map(x => `<div class="accountability-item liability"><span>ANSWER FOR</span><strong>${x.title}</strong><small>${x.fact}</small></div>`).join('');
+        const achievements = (docket.achievements || []).map(x => `<div class="accountability-item achievement"><span>RUN ON</span><strong>${x.title}</strong></div>`).join('');
+        return `<div class="accountability-docket"><div class="en-retro-title">THE ACCOUNTABILITY DOCKET</div>${liabilities}${achievements}<p><strong>Referendum:</strong> ${docket.referendum}</p></div>`;
     },
 
     // ═══════════════════════════════════════════════
@@ -4005,7 +4032,7 @@ window.GameUI = {
                         <span class="war-prev us">Likely with you: ${allyFlags}</span>
                         <span class="war-prev enemy">Likely against: ${enemyStr}</span>
                     </div>
-                    <button class="btn btn-sm war-declare-confirm" onclick="GameUI.declareWar('${a.id}')">DECLARE WAR ON ${a.name.toUpperCase()}</button>
+                    <button class="btn btn-sm war-declare-confirm" onclick="GameUI.showWarAuthorization('${a.id}')">CONSIDER WAR WITH ${a.name.toUpperCase()}</button>
                 </div>`;
         }).join('');
         this.showModal('⚔️ THE WAR ROOM', `
@@ -4013,8 +4040,21 @@ window.GameUI = {
             <div class="war-target-list">${cards}</div>`);
     },
 
-    declareWar(adversaryId) {
-        window.PresidencySystem.act('declarewar', { adversaryId });
+    showWarAuthorization(adversaryId) {
+        const adversary = window.WarSystem.getAdversary(adversaryId);
+        this.showModal('WAR AUTHORIZATION & MISSION', `
+            <div class="crisis-stage">
+                <p class="crisis-text">Before forces move against ${adversary.name}, put the case on the record. The authorization, objective, projected duration, casualties, and cost will return in any reelection campaign.</p>
+                <div class="interview-answers">
+                    <button class="btn interview-answer" onclick="GameUI.declareWar('${adversaryId}','CONGRESSIONAL AUTHORIZATION')">Seek congressional authorization <span class="crisis-tag">LEGITIMATE · SLOWER</span></button>
+                    <button class="btn interview-answer" onclick="GameUI.declareWar('${adversaryId}','ALLIED TREATY AUTHORITY')">Invoke allied treaty authority <span class="crisis-tag">COALITION CREDIBILITY</span></button>
+                    <button class="btn interview-answer" onclick="GameUI.declareWar('${adversaryId}','ARTICLE II EMERGENCY AUTHORITY')">Act under Article II emergency authority <span class="crisis-tag">FAST · ACCOUNTABILITY RISK</span></button>
+                </div>
+            </div>`);
+    },
+
+    declareWar(adversaryId, authorization) {
+        window.PresidencySystem.act('declarewar', { adversaryId, authorization });
         this.closeModal();
         const w = window.GameEngine.state.presidency.war;
         this.showModal('⚔️ THE UNITED STATES IS AT WAR', `
@@ -4025,6 +4065,9 @@ window.GameUI = {
                     <div>🇺🇸 Your bloc strength: <strong>${w.ourStrength}</strong> (${w.withUs.length} ${w.withUs.length === 1 ? 'ally' : 'allies'})</div>
                     <div>${w.adversary.flag} Enemy bloc strength: <strong>${w.enemyStrength}</strong> (${w.against.length} against you)</div>
                     <div>Opening momentum: <strong>${w.momentum}/100</strong></div>
+                    <div>Authorization: <strong>${w.authorization}</strong></div>
+                    <div>Objective: <strong>${w.objective}</strong></div>
+                    <div>Projected duration/cost: <strong>${w.projectedDuration} · ${w.projectedCost} debt points</strong></div>
                 </div>
                 <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.renderPresidency();">TO THE SITUATION ROOM</button>
             </div>`);

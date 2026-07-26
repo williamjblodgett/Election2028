@@ -165,9 +165,12 @@ window.PresidencySystem = {
     chooseSignature(id) {
         const p = window.GameEngine.state.presidency;
         const sig = this.SIGNATURES.find(s => s.id === id);
-        if (!p || !sig || p.signature) return null;
+        const career = window.CareerSystem && window.CareerSystem.ensure(window.GameEngine.state);
+        const alreadyUsed = career && [...career.completedSignatures, ...career.failedSignatures].includes(id);
+        if (!p || !sig || p.signature || alreadyUsed) return null;
         p.signature = { id: sig.id, name: sig.name, icon: sig.icon, target: sig.target,
                         boostIssues: sig.boostIssues, legacyTitle: sig.legacyTitle, progress: 0, done: false };
+        if (career) career.promises.push({ id:sig.id, name:sig.name, term:p.term, status:'ACTIVE' });
         p.log.push(`Signature initiative set: ${sig.name}.`);
         return p.signature;
     },
@@ -182,6 +185,11 @@ window.PresidencySystem = {
             p.legacyPoints += 28;
             p.approval = Math.min(80, p.approval + 5);
             p.log.push(`🏆 ${p.signature.name} — ACHIEVED. A defining accomplishment.`);
+            if (window.CareerSystem) {
+                const career = window.CareerSystem.ensure(window.GameEngine.state);
+                const promise = career.promises.find(x => x.id === p.signature.id && x.term === p.term);
+                if (promise) promise.status = 'DELIVERED';
+            }
         } else if (sourceLabel) {
             p.log.push(`${p.signature.name}: progress through ${sourceLabel} (${p.signature.progress}/${p.signature.target}).`);
         }
@@ -242,6 +250,7 @@ window.PresidencySystem = {
     begin() {
         const gs = window.GameEngine.state;
         if (gs.presidency) return gs.presidency;
+        const career = window.CareerSystem ? window.CareerSystem.ensure(gs) : null;
         const results = (window.GameUI && window.GameUI._lastResults) || { nationalPopularVote: { player: 51, opponent: 47 }, playerEV: 290 };
         const margin = results.nationalPopularVote.player - results.nationalPopularVote.opponent;
         const t = gs.transition || { senateSeats: 51, capital: 5 };
@@ -277,7 +286,10 @@ window.PresidencySystem = {
             crisisLog: [],
             war: null, warLog: [], surpriseWarDone: false,
             signature: null, sotuHistory: [],
-            fiscal: { debt: 100, deficit: 4, shutdown: false, shutdownQuarters: 0 },
+            fiscal: {
+                debt:100, deficit:4, shutdown:false, shutdownQuarters:0, ledger:[],
+                budget:{ revenue:18.5, mandatory:14.5, domestic:5.5, defense:3.4, debtService:2.5, emergency:0, balance:-7.4 },
+            },
             scandals: [], impeached: false,
             acted: false,
             pendingEvent: null,
@@ -286,6 +298,19 @@ window.PresidencySystem = {
             log: [`Sworn in with ${Math.round(results.nationalPopularVote.player)}% of the vote.`],
             over: false,
         };
+        if (term >= 2 && career && career.countrySnapshot) {
+            window.CareerSystem.restoreCountry(gs.presidency, career.countrySnapshot);
+            gs.presidency.capital = Math.min(12, Math.max(5, gs.presidency.capital || 0) + 3);
+            gs.presidency.acted = false;
+            gs.presidency.pendingEvent = null;
+            gs.presidency.midtermsDone = false;
+            gs.presidency.over = false;
+            gs.presidency.quarter = 1;
+            gs.presidency.sotuHistory = [];
+            gs.presidency.budgetYears = [];
+            gs.presidency.surpriseWarDone = false;
+            gs.presidency.signature = null;
+        }
         return gs.presidency;
     },
 
@@ -354,6 +379,7 @@ window.PresidencySystem = {
                 // Bills cost money — the spend lands on the national debt
                 if (p.fiscal && typeof bill.spend === 'number') {
                     p.fiscal.debt = Math.max(40, p.fiscal.debt + bill.spend);
+                    if (window.CareerSystem) window.CareerSystem.fiscalEntry(`Law: ${bill.name}`, bill.spend, bill.desc);
                     if (bill.spend < 0 && p.signature && !p.signature.done && p.signature.id === 'balance') {
                         this._addInitiative(16, 'deficit reduction');
                     }
@@ -376,6 +402,7 @@ window.PresidencySystem = {
             p.legacyPoints += eo.legacy;
             this._applyEffects(eo.effects);
             p.log.push(`Signed executive order: ${eo.name}.`);
+            if (window.CareerSystem) window.CareerSystem.record('executive_order', { id:eo.id, name:eo.name, effects:eo.effects });
             result = { type, eo };
         } else if (type === 'barnstorm') {
             const gain = 2 + Math.floor(window.GameEngine.random() * 3);
@@ -391,7 +418,7 @@ window.PresidencySystem = {
             p.log.push(`World tour — approval +${gain}, standing with allies up.`);
             result = { type, gain };
         } else if (type === 'declarewar') {
-            const war = window.WarSystem.declare(payload.adversaryId, false);
+            const war = window.WarSystem.declare(payload.adversaryId, false, payload.authorization);
             if (!war) return null;
             p.log.push(`War declared on ${war.adversary.name}.`);
             result = { type, war };
@@ -407,6 +434,7 @@ window.PresidencySystem = {
             p.capital = Math.max(0, p.capital - 2);
             p.approval = Math.min(80, p.approval + 2);
             p.fiscal.debt = Math.max(40, p.fiscal.debt + 3); // the deal to reopen isn't free
+            if (window.CareerSystem) window.CareerSystem.fiscalEntry('Shutdown agreement', 3, 'Concessions required to reopen the government');
             p.log.push('Government reopened. The standoff ends — at a price.');
             result = { type };
         } else if (type === 'warposture') {
@@ -498,7 +526,11 @@ window.PresidencySystem = {
             const pool = this.CRISES.filter(c => !p.crisisLog.some(l => l.id === c.id))
                 .filter(c => c.id !== 'leaks' || eff.leakRisk);
             const crisis = pool[Math.floor(window.GameEngine.random() * pool.length)] || this.CRISES[Math.floor(window.GameEngine.random() * this.CRISES.length)];
-            p.pendingEvent = { kind: 'crisis', id: crisis.id };
+            const prior = p.crisisLog.filter(l => l.id === crisis.id);
+            p.pendingEvent = {
+                kind:'crisis', id:crisis.id, recurrence:prior.length,
+                sequelText:prior.length ? `This is a sequel to the ${crisis.title.replace(/^[^ ]+ /, '')} your administration faced before. Voters will compare this response with the last one.` : null,
+            };
             return p.pendingEvent;
         }
         if (roll < 0.75) {
@@ -524,6 +556,11 @@ window.PresidencySystem = {
         this._applyEffects(success ? choice.good : choice.bad);
         p.legacyPoints += success ? 4 : -4;
         p.crisisLog.push({ id: crisis.id, title: crisis.title, success, quarter: p.quarter });
+        if (window.CareerSystem) {
+            const career = window.CareerSystem.ensure(window.GameEngine.state);
+            career.crises.push({ id:crisis.id, term:p.term, quarter:p.quarter, success, choice:choice.text, recurrence:p.crisisLog.filter(x => x.id === crisis.id).length });
+            window.CareerSystem.record('crisis_response', { crisisId:crisis.id, title:crisis.title, choice:choice.text, success });
+        }
         p.log.push(`${crisis.title}: ${success ? 'handled' : 'botched'} (${choice.tag}).`);
         p.pendingEvent = null;
         this._advance();
@@ -570,15 +607,16 @@ window.PresidencySystem = {
         let outcome;
         if (choice.id === 'clean') {
             const base = (p.congress.houseMajority ? 0.85 : 0.4) + (p.congress.senateSeats - 50) * 0.01;
-            if (window.GameEngine.random() < base) { p.approval = Math.min(80, p.approval + 1); p.fiscal.debt += 2; outcome = { label: 'CLEAN BUDGET PASSED', shutdown: false, good: true }; }
+            if (window.GameEngine.random() < base) { p.approval = Math.min(80, p.approval + 1); p.fiscal.debt += 2; outcome = { label: 'CLEAN BUDGET PASSED', shutdown: false, good: true, debtDelta:2 }; }
             else { p.fiscal.shutdown = true; p.approval = Math.max(15, p.approval - 3); outcome = { label: 'THE BUDGET FAILS — GOVERNMENT SHUTS DOWN', shutdown: true, good: false }; }
         } else if (choice.id === 'concede') {
             p.capital = Math.max(0, p.capital - 2); p.approval = Math.max(15, p.approval - 2); p.fiscal.debt += 6;
-            outcome = { label: 'CEILING RAISED — WITH CONCESSIONS', shutdown: false, good: true };
+            outcome = { label: 'CEILING RAISED — WITH CONCESSIONS', shutdown: false, good: true, debtDelta:6 };
         } else {
-            if (window.GameEngine.random() < 0.55) { p.approval = Math.min(80, p.approval + 4); p.capital = Math.min(12, p.capital + 1); p.fiscal.debt = Math.max(40, p.fiscal.debt - 2); outcome = { label: 'YOU WON THE STAREDOWN', shutdown: false, good: true }; }
+            if (window.GameEngine.random() < 0.55) { p.approval = Math.min(80, p.approval + 4); p.capital = Math.min(12, p.capital + 1); p.fiscal.debt = Math.max(40, p.fiscal.debt - 2); outcome = { label: 'YOU WON THE STAREDOWN', shutdown: false, good: true, debtDelta:-2 }; }
             else { p.fiscal.shutdown = true; p.approval = Math.max(15, p.approval - 4); outcome = { label: 'BRINKMANSHIP BACKFIRES — GOVERNMENT SHUTS DOWN', shutdown: true, good: false }; }
         }
+        if (window.CareerSystem && outcome.debtDelta) window.CareerSystem.fiscalEntry(`Budget: ${outcome.label}`, outcome.debtDelta, choice.desc);
         p.log.push(`Budget fight: ${outcome.label}.`);
         p.pendingEvent = null;
         this._advance();
@@ -626,6 +664,11 @@ window.PresidencySystem = {
             note = 'The base roars, but the heat lingers and the middle recoils.';
         }
         p.scandals.push({ id: def.id, type: def.type, title: def.title, heat, coverup, quarter: p.quarter });
+        if (window.CareerSystem) {
+            const career = window.CareerSystem.ensure(window.GameEngine.state);
+            career.scandals.push({ id:def.id, term:p.term, quarter:p.quarter, response:resp.id, heat, coverup });
+            window.CareerSystem.record('scandal_response', { scandalId:def.id, title:def.title, response:resp.id, heat, coverup });
+        }
         p.legacyPoints -= Math.round(heat / 12);
         p.log.push(`Scandal: ${def.title} — ${resp.label.split(' —')[0]} (heat ${heat}).`);
         p.pendingEvent = null;
@@ -716,6 +759,21 @@ window.PresidencySystem = {
             const drift = 1.2 - (e.gdp - 2) * 0.5;
             p.fiscal.debt = Math.max(40, Math.round((p.fiscal.debt + drift) * 10) / 10);
             p.fiscal.deficit = Math.round(drift * 10) / 10;
+            const enactedSpend = p.enacted.reduce((sum, law) => {
+                const def = this.BILLS.find(b => b.id === law.id);
+                return sum + (def && def.spend > 0 ? def.spend * .025 : 0);
+            }, 0);
+            const budget = {
+                revenue:Math.round((18 + Math.max(-1, e.gdp) * .45) * 10) / 10,
+                mandatory:14.5,
+                domestic:Math.round((5.5 + enactedSpend) * 10) / 10,
+                defense:Math.round((3.4 + (this.atWar() ? 1.2 : 0)) * 10) / 10,
+                debtService:Math.round((p.fiscal.debt * .026) * 10) / 10,
+                emergency:Math.round(((p.fiscal.shutdown ? .4 : 0) + (p.collapse.active ? 1.5 : 0)) * 10) / 10,
+            };
+            budget.balance = Math.round((budget.revenue - budget.mandatory - budget.domestic - budget.defense - budget.debtService - budget.emergency) * 10) / 10;
+            p.fiscal.budget = budget;
+            if (window.CareerSystem) window.CareerSystem.fiscalEntry('Quarterly operations and debt service', drift, `Growth ${e.gdp.toFixed(1)}%; debt service and automatic spending`);
             if (p.fiscal.debt > 125) e.inflation = Math.round((e.inflation + 0.15) * 10) / 10;
             if (p.fiscal.debt > 150) e.gdp = Math.round((e.gdp - 0.15) * 10) / 10;
             if (p.fiscal.shutdown) { p.approval = Math.max(15, p.approval - 3); p.fiscal.shutdownQuarters = (p.fiscal.shutdownQuarters || 0) + 1; }
@@ -758,10 +816,20 @@ window.PresidencySystem = {
             }
             p.midtermVerdict = verdict;
             p.log.push(`Midterms: ${verdict.tier} (${verdict.seats}).`);
+            if (p.term >= 2) {
+                p.timeline.push({ season:p.quarter, kind:'succession', text:'The vice president and senior cabinet figures begin positioning for the 2036 succession.' });
+                p.log.push('Lame-duck politics begin: allies weigh your legacy against their own 2036 ambitions.');
+            }
+        }
+        if (p.term >= 2 && p.quarter === 13) {
+            p.timeline.push({ season:p.quarter, kind:'legacy', text:'The administration pivots from reelection politics to succession and legacy.' });
+            p.capital = Math.max(0, p.capital - 1);
+            p.log.push('Final-year leverage fades as Congress and the cabinet look beyond your presidency.');
         }
 
         if (p.quarter > 16) {
             p.over = true;
+            if (window.CareerSystem) window.CareerSystem.closeTerm(p);
             p.legacy = this.computeLegacy();
         }
         if (window.GameUI) window.GameUI.autoSave();
@@ -776,6 +844,9 @@ window.PresidencySystem = {
         p.policies = p.policies || [];
         p.timeline = p.timeline || [];
         p.collapse = p.collapse || { active:false, seasons:0, recovery:0, events:[] };
+        p.fiscal = p.fiscal || { debt:100, deficit:4, shutdown:false, shutdownQuarters:0 };
+        p.fiscal.ledger = p.fiscal.ledger || [];
+        p.fiscal.budget = p.fiscal.budget || { revenue:18.5, mandatory:14.5, domestic:5.5, defense:3.4, debtService:2.5, emergency:0, balance:-7.4 };
         p.administration = p.administration || { members:{}, unity:70, resignations:[] };
         p.congress.houseSeats = p.congress.houseSeats || (p.congress.houseMajority ? 224 : 211);
         p.congress.factions = p.congress.factions || { progressives:42, moderates:46, conservatives:45, populists:38, institutionalists:54 };

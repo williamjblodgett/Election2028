@@ -91,7 +91,7 @@ window.WarSystem = {
     _sum(nations) { return nations.reduce((s, n) => s + n.strength, 0); },
 
     /** Build the war object once the player commits. */
-    declare(adversaryId, initiatedByEnemy) {
+    declare(adversaryId, initiatedByEnemy, authorization) {
         const gs = window.GameEngine.state;
         const p = gs.presidency;
         const adversary = this.getAdversary(adversaryId);
@@ -113,12 +113,22 @@ window.WarSystem = {
             momentum: Math.round(30 + ratio * 40),  // seed 30–70 from the balance of power
             round: 0, casualties: 0, escalations: 0,
             posture: null, initiatedByEnemy: !!initiatedByEnemy,
+            authorization: initiatedByEnemy ? 'ARTICLE II SELF-DEFENSE' : (authorization || 'CONGRESSIONAL AUTHORIZATION'),
+            objective: initiatedByEnemy ? 'DEFEND THE UNITED STATES AND ALLIES' : 'COMPEL WITHDRAWAL AND RESTORE DETERRENCE',
+            projectedDuration:'1–4 quarters',
+            projectedCost:Math.max(3, Math.round(adversary.strength / 12)),
+            cost:0,
             resolved: false, outcome: null,
             log: [],
         };
         p.war.log.push(initiatedByEnemy
             ? `${adversary.name} declares war on the United States.`
             : `The United States declares war on ${adversary.name}.`);
+        if (window.CareerSystem) window.CareerSystem.record('war_authorization', {
+            adversaryId, adversary:adversary.name, initiatedByEnemy:!!initiatedByEnemy,
+            authorization:p.war.authorization, objective:p.war.objective,
+            projectedDuration:p.war.projectedDuration, projectedCost:p.war.projectedCost,
+        });
         if (window.WorldSystem) {
             const world = window.WorldSystem.ensureState();
             if (world && world.nations[adversaryId]) {
@@ -182,6 +192,12 @@ window.WarSystem = {
         const approvalShift = Math.round((swing) * 0.25) - (posture === 'escalate' ? 2 : 1);
         p.approval = Math.max(15, Math.min(80, p.approval + approvalShift));
         this._drain(p, posture);
+        const fiscalCost = posture === 'escalate' ? 2.5 : 1.2;
+        war.cost = Math.round((war.cost + fiscalCost) * 10) / 10;
+        if (p.fiscal) {
+            p.fiscal.debt = Math.round((p.fiscal.debt + fiscalCost) * 10) / 10;
+            if (window.CareerSystem) window.CareerSystem.fiscalEntry(`War with ${war.adversary.name}`, fiscalCost, `${posture} posture; quarter ${war.round}`);
+        }
 
         // Decisive outcomes
         if (war.momentum >= 90) return this._settle(war, p, 'victory');
@@ -224,7 +240,12 @@ window.WarSystem = {
         war.resultApproval = r.approval;
         war.resultLegacy = r.legacy;
         p.warLog = p.warLog || [];
-        p.warLog.push({ adversary: adversary.name, outcome, label: r.label, round: war.round, casualties: war.casualties });
+        p.warLog.push({ adversaryId:war.adversaryId, adversary: adversary.name, outcome, label: r.label, round: war.round, casualties: war.casualties, cost:war.cost, authorization:war.authorization, objective:war.objective, initiatedByEnemy:war.initiatedByEnemy });
+        if (window.CareerSystem) {
+            const career = window.CareerSystem.ensure(window.GameEngine.state);
+            career.wars.push({ adversaryId:war.adversaryId, adversary:adversary.name, outcome, casualties:war.casualties, cost:war.cost, authorization:war.authorization, objective:war.objective, initiatedByEnemy:war.initiatedByEnemy, term:p.term });
+            window.CareerSystem.record('war_outcome', career.wars[career.wars.length - 1]);
+        }
         p.log.push(`The ${adversary.name} war ends: ${r.label} (${war.round} quarters, ${war.casualties}k casualties).`);
         if (window.WorldSystem) {
             const world = window.WorldSystem.ensureState();

@@ -88,6 +88,7 @@ window.GameEngine = {
             opponentVPAnnouncementBias: 0,
             weekActions: [],
             visitedStates: {},
+            stateMovementReasons: {},
             endorsements: [],
             opponentEndorsements: [],
             pollHistory: {},
@@ -112,6 +113,9 @@ window.GameEngine = {
             interviews: { lastWeek: -99, history: [], active: null },
             presidency: null,
             incumbentSeed: null,
+            isIncumbentRun: false,
+            career: null,
+            accountability: { docket:null, answered:[], factChecks:[], attackHistory:[] },
             campaignDepth: null,
         };
     },
@@ -181,10 +185,19 @@ window.GameEngine = {
      * from the last term as a head start or a handicap.
      */
     startReelection(incumbent, opponent, difficulty, seed, vp) {
+        const carriedCareer = seed && seed.career ? seed.career : (this.state && this.state.career);
+        const carriedCountry = seed && seed.countrySnapshot ? seed.countrySnapshot
+            : (carriedCareer && carriedCareer.countrySnapshot);
         this.initGame(incumbent, opponent, 'campaign', difficulty);
         const gs = this.state;
         gs.incumbentSeed = seed;
         gs.isIncumbentRun = true;
+        if (window.CareerSystem) {
+            gs.career = carriedCareer || window.CareerSystem.create();
+            const career = window.CareerSystem.ensure(gs);
+            if (carriedCountry) career.countrySnapshot = carriedCountry;
+            gs.accountability.docket = window.CareerSystem.buildDocket(seed, career);
+        }
 
         // Renominated without a fight — jump straight to the general election
         if (gs.primary) { gs.primary.decided = true; gs.primary.lostNomination = false; }
@@ -216,6 +229,10 @@ window.GameEngine = {
         const shift = (c.nationalPolling - 50) * 0.3;
         for (const poll of Object.values(gs.statePolling)) {
             poll.player += shift; poll.opponent -= shift;
+        }
+        const liabilities = gs.accountability.docket ? gs.accountability.docket.liabilities : [];
+        if (liabilities.length) {
+            gs.newsHistory.push(`THE INCUMBENT RECORD: ${liabilities[0].title.toUpperCase()} DEFINES THE OPENING WEEK`);
         }
         return gs;
     },
@@ -423,6 +440,10 @@ window.GameEngine = {
 
         // 7. Generate and process events (including primary milestones)
         let events = this.filterFreshEvents(window.EventSystem.ScenarioEngine.generateWeeklyEvents(this.state));
+        if (this.state.isIncumbentRun && window.CareerSystem) {
+            const setPiece = window.CareerSystem.reelectionSetPiece(this.state.week, this.state.accountability && this.state.accountability.docket);
+            if (setPiece) events.unshift(setPiece);
+        }
         if (this.state.phase === 'primary') {
             const milestone = window.EventSystem.ScenarioEngine.getPrimaryMilestone(this.state.week);
             if (milestone) {
@@ -479,6 +500,15 @@ window.GameEngine = {
             spent: this.state.finances.lastOperatingCost,
             cashOnHand: this.state.finances.cashOnHand,
         };
+        if (this.state.isIncumbentRun && this.state.accountability && this.state.accountability.docket) {
+            const liabilities = this.state.accountability.docket.liabilities || [];
+            const liability = liabilities[(this.state.week - this.state.primaryWeeks - 1) % Math.max(1, liabilities.length)];
+            if (liability && (this.state.week === this.state.primaryWeeks + 1 || this.state.week % 5 === 0)) {
+                summary.newsHeadlines.push(`FACT CHECK: ${liability.fact} — ${this.state.playerCandidate.name.split(' ').pop()} PRESSED TO EXPLAIN`);
+                this.state.accountability.factChecks.push({ week:this.state.week, id:liability.id, fact:liability.fact });
+                this.state.accountability.attackHistory.push({ week:this.state.week, text:liability.attack });
+            }
+        }
         if (window.CampaignDepth) window.CampaignDepth.processWeek(summary);
 
         // 11. Update momentum and media
@@ -596,18 +626,41 @@ window.GameEngine = {
 
     filterFreshEvents(events) {
         const recent = this.state.recentEventTitles || (this.state.recentEventTitles = []);
+        const career = window.CareerSystem ? window.CareerSystem.ensure(this.state) : null;
         const cutoff = this.state.week - 7;
         const seen = new Set(recent.filter(x => x.week >= cutoff).map(x => x.title));
-        const fresh = events.filter(evt => evt.isPrimaryMilestone || !seen.has(String(evt.title || '').toLowerCase()));
+        const fresh = events.map(evt => {
+            if (!career || evt.isPrimaryMilestone || !career.usedEventIds.includes(evt.id)) return evt;
+            const recurrence = career.usedEventIds.filter(id => id === evt.id || id.startsWith(`${evt.id}_sequel_`)).length;
+            return {
+                ...evt,
+                id:`${evt.id}_sequel_${recurrence}`,
+                title:`${evt.title}: The Story Returns`,
+                description:`This issue has returned after the campaign faced it before. Reporters and voters compare today's response with the earlier decision. ${evt.description}`,
+                isSequel:true,
+            };
+        }).filter(evt => evt.isPrimaryMilestone || !seen.has(String(evt.title || '').toLowerCase()));
         for (const evt of fresh) recent.push({ title:String(evt.title || '').toLowerCase(), week:this.state.week });
+        if (career) career.usedEventIds.push(...fresh.filter(evt => !evt.isPrimaryMilestone).map(evt => evt.id));
         this.state.recentEventTitles = recent.filter(x => x.week >= cutoff);
         return fresh;
     },
 
     filterFreshHeadlines(headlines) {
         const normalize = h => String(h || '').toLowerCase().replace(/\d+(?:\.\d+)?/g, '#').replace(/\s+/g, ' ').trim();
-        const seen = new Set((this.state.newsHistory || []).slice(-35).map(normalize));
-        return headlines.filter(h => { const key = normalize(h); if (!key || seen.has(key)) return false; seen.add(key); return true; });
+        const career = window.CareerSystem ? window.CareerSystem.ensure(this.state) : null;
+        const used = career ? career.usedHeadlineKeys : [];
+        const seen = new Set([...(this.state.newsHistory || []).slice(-35).map(normalize), ...used]);
+        return headlines.filter(h => {
+            const key = normalize(h);
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            if (career) {
+                used.push(key);
+                if (used.length > 240) used.splice(0, used.length - 240);
+            }
+            return true;
+        });
     },
 
     // ═══════════════════════════════════════════════
@@ -640,6 +693,7 @@ window.GameEngine = {
 
         if (!this.state.visitedStates[stateId]) this.state.visitedStates[stateId] = 0;
         this.state.visitedStates[stateId]++;
+        this.recordStateMovement(stateId, `Candidate visit: +${boost.toFixed(1)} polling; charisma and repeat contact drove the change.`);
 
         return { pollingBoost: boost, state: stateId };
     },
@@ -689,7 +743,15 @@ window.GameEngine = {
         const scale = Math.log10(1 + amount / 100000);
         if (type === 'tv') this.state.campaign.mediaScore += Math.min(2.5, scale * 0.9);
         else this.state.campaign.onlineInfluence += Math.min(3, scale * 1.1);
+        this.recordStateMovement(stateId, `${type.toUpperCase()} ${tone} buy: $${Math.round(amount / 1000)}K produced ${impact.toFixed(1)} estimated impact after market cost and saturation.`);
         return { stateId, type, tone, amount, impact:Math.round(impact * 100) / 100 };
+    },
+
+    recordStateMovement(stateId, reason) {
+        const store = this.state.stateMovementReasons || (this.state.stateMovementReasons = {});
+        store[stateId] = store[stateId] || [];
+        store[stateId].push({ week:this.state.week, reason });
+        if (store[stateId].length > 8) store[stateId] = store[stateId].slice(-8);
     },
 
     applyActivityEffects(activity) {
@@ -2200,6 +2262,17 @@ window.GameEngine = {
                 opponent: Math.round(oPct * 10) / 10,
             }
         };
+        if (window.CareerSystem) {
+            const career = window.CareerSystem.ensure(this.state);
+            career.elections.push({
+                year:this.state.isIncumbentRun ? 2032 : 2028,
+                incumbent:!!this.state.isIncumbentRun,
+                winner:results.winner,
+                playerEV:results.playerEV,
+                opponentEV:results.opponentEV,
+                popularVote:{ ...results.nationalPopularVote },
+            });
+        }
 
         return results;
     },
@@ -2512,10 +2585,11 @@ window.GameEngine = {
                            'playerTicket', 'opponentTicket', 'vpAnnouncementBias', 'opponentVPAnnouncementBias',
                            'publicAnger', 'securityDetail', 'hospitalized', 'assassinationAttempts',
                            'platform', 'opponentPlatform', 'flipFlops', 'platformShiftedWeek',
-                           'primary', 'opponentPlaybook', 'activeScandals', 'transition', 'interviews', 'presidency', 'incumbentSeed', 'debateTopicHistory', 'recentEventTitles', 'activityHistory']) {
+                           'primary', 'opponentPlaybook', 'activeScandals', 'transition', 'interviews', 'presidency', 'incumbentSeed', 'debateTopicHistory', 'recentEventTitles', 'activityHistory', 'stateMovementReasons', 'isIncumbentRun', 'career', 'accountability']) {
             if (this.state[key] === undefined) this.state[key] = fresh[key];
         }
         this.state.finances = Object.assign({}, fresh.finances, this.state.finances || {});
+        if (window.CareerSystem) window.CareerSystem.ensure(this.state);
         // Old saves: seed platforms from the candidates so drift math works
         if (!this.state.platform && this.state.playerCandidate) {
             this.state.platform = this.seedPlatform(this.state.playerCandidate);

@@ -4649,3 +4649,11 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .autopsy-grid span{font-size:.72rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:.06em}
 .autopsy-grid strong{font-size:.9rem}
 @media(max-width:640px){.autopsy-grid{grid-template-columns:1fr}}
+.accountability-docket{margin:16px 0;padding:14px;text-align:left;border:1px solid var(--border-color);border-radius:var(--radius);background:rgba(0,0,0,.16)}
+.accountability-item{display:flex;flex-direction:column;gap:2px;padding:8px 10px;margin-top:7px;border-left:3px solid var(--accent-red);background:rgba(255,255,255,.035)}
+.accountability-item.achievement{border-left-color:var(--accent-green)}
+.accountability-item span{font-size:.66rem;letter-spacing:.08em;color:var(--text-muted)}
+.accountability-item small{color:var(--text-secondary)}
+.fiscal-ledger-strip{display:flex;gap:10px;flex-wrap:wrap;padding:8px 12px;background:rgba(0,0,0,.18);font-size:.72rem}
+.fiscal-ledger-strip span{color:var(--text-secondary)}
+.crisis-sequel{padding:10px;border-left:3px solid var(--accent-gold);background:rgba(255,193,7,.08);color:var(--text-secondary)}

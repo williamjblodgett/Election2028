@@ -4,7 +4,7 @@
  * Enables offline play and PWA installation
  */
 
-const CACHE_NAME = 'election2028-v29-campaign-balance';
+const CACHE_NAME = 'election2028-v30-two-term-continuity';
 const ASSETS = [
     './',
     './index.html',
@@ -19,6 +19,7 @@ const ASSETS = [
     './js/debate-content.js',
     './js/debate-expanded.js',
     './js/engine.js',
+    './js/career-system.js',
     './js/campaign-depth.js',
     './js/map-paths.js',
     './js/debate-walkout.js',

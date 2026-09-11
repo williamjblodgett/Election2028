@@ -12,7 +12,7 @@ roster. It has not been moved to a framework, backend, or different hosting serv
 
 ## Evidence and honest scope
 
-- 65 Node regression tests cover transactions, clocks, save migration, mandates,
+- 67 Node regression tests cover transactions, clocks, save migration, mandates,
   promises, nuclear/withdrawal continuity, and narrative/debate uniqueness.
 - Sixteen focused browser checks cover mobile/keyboard operation, roster and
   cabinet identities, image decoding, 2D presentation, resume paths, geography,
@@ -61,6 +61,9 @@ screenshots and career JSON as the `game-verification` artifact.
   labels now use the actual date and completed-term condition.
 - Old election headlines persisted into the legacy screen, and fractional approval
   printed a long decimal. Governing has its own briefing log and rounded displays.
+- The first live release refresh exposed duplicate update buttons from repeated
+  service-worker notifications. The prompt is now idempotent, checkpoints an
+  active game once, and leaves an unloaded save untouched.
 
 ## Release gate
 

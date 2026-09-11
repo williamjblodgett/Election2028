@@ -250,11 +250,18 @@
                 .then(reg => {
                     const offerUpdate = () => {
                         if (!reg.waiting || !navigator.serviceWorker.controller) return;
+                        if (document.getElementById('game-update-ready')) return;
                         const button=document.createElement('button');
+                        button.id='game-update-ready'; button.type='button';
                         button.className='btn update-ready'; button.textContent='Update ready — save & reload';
                         button.onclick=()=>{
+                            if (button.disabled || !reg.waiting) return;
                             const result=window.GameEngine?.state?.playerCandidate?window.SaveStore.save():{ok:true};
-                            if (result.ok) reg.waiting.postMessage({type:'APPLY_UPDATE'});
+                            if (result.ok) {
+                                button.disabled=true;
+                                button.textContent='Applying update…';
+                                reg.waiting.postMessage({type:'APPLY_UPDATE'});
+                            }
                             else window.GameUI.showToast(result.reason,'error');
                         };
                         document.body.appendChild(button);

@@ -59,7 +59,7 @@ comparison/rematch, real offline geography, keyboard/touch navigation, and a
 2D nuclear aftermath. Campaign, cabinet, and broadcast views reuse canonical
 portraits; fonts are bundled under their original open licenses.
 
-Verification: 65 Node regressions, sixteen focused browser/offline checks, and
+Verification: 67 Node regressions, sixteen focused browser/offline checks, and
 1,024 balanced seeded campaign simulations. Genuine UI careers have now completed:
 Whitmer won 287 then 303 EV and served 96 months; Rubio's first successful run won
 333 then 343 EV and served 96 months; an adverse Harris campaign reached a loss.

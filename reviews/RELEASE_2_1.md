@@ -14,7 +14,7 @@ roster. It has not been moved to a framework, backend, or different hosting serv
 
 - 67 Node regression tests cover transactions, clocks, save migration, mandates,
   promises, nuclear/withdrawal continuity, and narrative/debate uniqueness.
-- Sixteen focused browser checks cover mobile/keyboard operation, roster and
+- Seventeen focused browser checks cover mobile/keyboard operation, roster and
   cabinet identities, image decoding, 2D presentation, resume paths, geography,
   and a built artifact that loads with the network disabled.
 - 1,024 complete seeded campaign simulations: Arcade **71.875%** wins and
@@ -64,6 +64,11 @@ screenshots and career JSON as the `game-verification` artifact.
 - The first live release refresh exposed duplicate update buttons from repeated
   service-worker notifications. The prompt is now idempotent, checkpoints an
   active game once, and leaves an unloaded save untouched.
+- That live check also exposed an older browser HTTP cache contaminating a new
+  service-worker cache. Release downloads now bypass stale HTTP entries and use
+  a release-specific URL; navigation query strings retain the controlled shell.
+  A real two-version HTTP-server test checks HTML, JavaScript, CSS, update consent,
+  preserved storage, and offline reload after the switch.
 
 ## Release gate
 

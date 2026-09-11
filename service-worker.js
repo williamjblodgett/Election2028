@@ -105,7 +105,17 @@ const ASSETS = [
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(ASSETS))
+            .then(cache => Promise.all(ASSETS.map(async asset => {
+                const canonical = new URL(asset, self.location.href);
+                const download = new URL(canonical);
+                // A new Cache Storage name does not bypass the browser's HTTP
+                // cache. Fetch this release explicitly, then store canonical
+                // URLs so an old HTTP response cannot contaminate the update.
+                download.searchParams.set('__release', CACHE_NAME);
+                const response = await fetch(download.href, { cache: 'reload' });
+                if (!response.ok) throw new Error(`Release asset unavailable: ${asset}`);
+                await cache.put(canonical.href, response);
+            })))
     );
 });
 
@@ -130,8 +140,10 @@ self.addEventListener('fetch', event => {
         /\.(?:js|css|json|html)$/.test(url.pathname);
 
     if (isNavigation || isAppCode) {
+        // Query strings must not pull a new HTML shell into an old session.
+        const cacheKey = isNavigation ? new URL('./index.html', self.location.href).href : event.request;
         event.respondWith(
-            caches.open(CACHE_NAME).then(cache => cache.match(event.request)).then(cached => cached || fetch(event.request).then(response => {
+            caches.open(CACHE_NAME).then(cache => cache.match(cacheKey)).then(cached => cached || fetch(event.request).then(response => {
                 if (response.ok) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));

@@ -5,7 +5,7 @@
  * A work of political-history fiction; stats are game balance, not scholarship.
  */
 (function () {
-    const L = (o) => Object.assign({
+    const L = (o) => window.CandidateData.completeProfile(Object.assign({
         fatigueFactor: 30,
         crossoverAppeal: 55,
         ideologicalElasticity: 50,
@@ -18,7 +18,7 @@
         donorTrust: 65,
         eliteSupport: 70,
         isLegend: true,
-    }, o);
+    }, o));
 
     const DEM_LEGENDS = [
         L({

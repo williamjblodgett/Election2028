@@ -70,6 +70,38 @@ test('cabinet role identities reuse the same politician portrait without missing
   expect(result.id).toBe('rubio');expect(result.html).toContain('images/portraits/rubio.jpg');expect(result.unknown).toBe('');
 });
 
+test('historical and saved custom rosters and dossiers have complete visible profile data',async({page})=>{
+  await page.goto('/');
+  for(const party of ['democrat','republican']) {
+    await page.evaluate(party=>{
+      GameUI.playerParty=party;GameUI.setupStep=3;GameUI.rosterTab='legends';
+      GameUI.showScreen('select');GameUI.renderSetupStep();
+    },party);
+    await expect(page.locator('.candidate-card')).toHaveCount(6);
+    await expect(page.locator('#setup-content')).not.toContainText(/undefined|NaN/);
+    await page.getByRole('button',{name:'COMPARE / DETAILS',exact:true}).first().click();
+    await expect(page.getByRole('dialog')).not.toContainText(/undefined|NaN/);
+    const bars=await page.locator('.candidate-comparison .stat-bar-value').allTextContents();
+    expect(bars.length).toBeGreaterThanOrEqual(8);expect(bars.every(v=>Number.isFinite(Number(v)))).toBe(true);
+    await page.getByRole('button',{name:'Close dialog',exact:true}).click();
+  }
+  // Reproduce a saved profile from the older builder, before these fields existed.
+  await page.evaluate(()=>localStorage.setItem('election2028_custom_candidates',JSON.stringify([{
+    id:'custom_legacy',name:'Legacy Custom',party:'Democrat',title:'Governor',age:52,homeState:'Maine',isCustom:true,
+    charisma:55,debate:60,mediaHandling:50,baseEnthusiasm:55,crossoverAppeal:60,scandalResistance:65,donorTrust:70,eliteSupport:60
+  }])));
+  await page.reload();
+  await page.evaluate(()=>{GameUI.playerParty='democrat';GameUI.setupStep=3;GameUI.rosterTab='custom';GameUI.showScreen('select');GameUI.renderSetupStep();});
+  await expect(page.locator('#setup-content')).toContainText('Legacy Custom');
+  await expect(page.locator('#setup-content')).not.toContainText(/undefined|NaN/);
+  for(const id of ['legend_fdr','legend_lincoln','custom_legacy']) {
+    await page.evaluate(id=>GameUI.showCandidateDossier(id),id);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog')).not.toContainText(/undefined|NaN/);
+    await page.getByRole('button',{name:'Close dialog',exact:true}).click();
+  }
+});
+
 test.describe('published offline artifact',()=>{
   test.use({serviceWorkers:'allow'});
   test('the complete release, fonts, maps and 44 portraits load with the network disabled',async({page,context})=>{

@@ -873,3 +873,31 @@ window.CandidateData.vpOptions = {
     { name: 'Sen. Katie Britt (AL)', homeId: 'AL', home: 'Alabama', desc: 'Youngest woman in the Senate. Fresh face with fundraising strength.', effects: { fundraising: 5, enthusiasm: 5, onlineInfluence: 5 } },
   ],
 };
+
+// Legacy historical/custom profiles predate the shared comparison schema.
+// These are fictional game ratings and campaign slogans, not historical quotes.
+window.CandidateData.completeProfile = function(candidate) {
+  const c = { ...candidate };
+  const rating = (value, fallback = 60) => Number.isFinite(value) ? value : fallback;
+  c.fundraising = rating(c.fundraising, rating(c.donorTrust));
+  c.discipline = rating(c.discipline, Math.round((rating(c.scandalResistance) + rating(c.eliteSupport)) / 2));
+  const slogans = {
+    legend_fdr: 'Rebuild Confidence. Deliver Security.',
+    legend_jfk: 'Ask More of the Future.',
+    legend_lbj: 'Turn the Votes Into Progress.',
+    legend_truman: 'Straight Answers. Steady Resolve.',
+    legend_obama: 'Organize. Persist. Build.',
+    legend_lincoln: 'One Nation. A Common Purpose.',
+    legend_teddy: 'Energy for a Fairer Deal.',
+    legend_ike: 'Steady Hands. Common Ground.',
+    legend_reagan: 'An Optimistic American Future.',
+    legend_nixon: 'Strategy for a Changing World.',
+    legend_washington_d: 'Service Above Faction.',
+    legend_washington_r: 'Service Above Faction.'
+  };
+  if (typeof c.slogan !== 'string' || !c.slogan.trim()) c.slogan = slogans[c.id] || 'A New Voice, A New Choice.';
+  if (typeof c.bio !== 'string' || !c.bio.trim()) {
+    c.bio = `${c.isLegend ? 'A historical what-if candidacy' : 'A player-created candidacy'} in this fictional campaign. ${c.strengths?.[0] || ''}`.trim();
+  }
+  return c;
+};

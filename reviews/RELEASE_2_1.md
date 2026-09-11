@@ -12,9 +12,9 @@ roster. It has not been moved to a framework, backend, or different hosting serv
 
 ## Evidence and honest scope
 
-- 67 Node regression tests cover transactions, clocks, save migration, mandates,
+- 68 Node regression tests cover transactions, clocks, save migration, mandates,
   promises, nuclear/withdrawal continuity, and narrative/debate uniqueness.
-- Seventeen focused browser checks cover mobile/keyboard operation, roster and
+- Eighteen focused browser checks cover mobile/keyboard operation, roster and
   cabinet identities, image decoding, 2D presentation, resume paths, geography,
   and a built artifact that loads with the network disabled.
 - 1,024 complete seeded campaign simulations: Arcade **71.875%** wins and
@@ -69,6 +69,10 @@ screenshots and career JSON as the `game-verification` artifact.
   a release-specific URL; navigation query strings retain the controlled shell.
   A real two-version HTTP-server test checks HTML, JavaScript, CSS, update consent,
   preserved storage, and offline reload after the switch.
+- Historical and older custom profiles lacked newer comparison-card fields.
+  Their compatibility adapter now supplies complete fictional profile data, and
+  their dossiers are accessible alongside modern candidates. Modern ratings are
+  unchanged; tests cover both historical benches and saved custom profiles.
 
 ## Release gate
 

@@ -648,6 +648,7 @@ window.GameUI = {
     },
 
     renderCandidateCard(candidate, selected, isOpponent) {
+        candidate = window.CandidateData.completeProfile(candidate);
         const isSelected = selected && selected.id === candidate.id;
         const partyClass = candidate.party === 'Democrat' ? 'selected-dem' : 'selected-rep';
         const barClass = candidate.party === 'Democrat' ? 'dem' : 'rep';
@@ -682,7 +683,7 @@ window.GameUI = {
     compareCandidate(id) {
         this.comparisonIds=[...(this.comparisonIds || []).filter(x=>x!==id),id].slice(-2);
         const pool=[...window.CandidateData.democrats,...window.CandidateData.republicans,...(window.LegendData?.democrats||[]),...(window.LegendData?.republicans||[]),...(window.CandidateData.custom||[])];
-        const selected=this.comparisonIds.map(key=>pool.find(c=>c.id===key)).filter(Boolean);
+        const selected=this.comparisonIds.map(key=>pool.find(c=>c.id===key)).filter(Boolean).map(c=>window.CandidateData.completeProfile(c));
         this.showModal('CANDIDATE COMPARISON',`<p>Select Compare on another candidate to see two side by side. Ratings are game abstractions.</p><div class="candidate-comparison">${selected.map(c=>`<section><h3>${c.name}</h3>${window.Portraits.html(c)}${[['Charisma','charisma'],['Debate','debate'],['Fundraising','fundraising'],['Discipline','discipline'],['Media','mediaHandling'],['Base enthusiasm','baseEnthusiasm'],['Crossover appeal','crossoverAppeal'],['Scandal resistance','scandalResistance']].map(([label,key])=>this.createStatBar(label,c[key],'green')).join('')}</section>`).join('')}</div>`);
     },
 
@@ -711,7 +712,7 @@ window.GameUI = {
 
     loadCustomCandidates() {
         try {
-            window.CandidateData.custom = JSON.parse(localStorage.getItem('election2028_custom_candidates') || '[]');
+            window.CandidateData.custom = JSON.parse(localStorage.getItem('election2028_custom_candidates') || '[]').map(c=>window.CandidateData.completeProfile(c));
         } catch (e) {
             window.CandidateData.custom = [];
         }
@@ -872,7 +873,7 @@ window.GameUI = {
             ],
         };
         window.CandidateData.custom = window.CandidateData.custom || [];
-        window.CandidateData.custom.push(cand);
+        window.CandidateData.custom.push(window.CandidateData.completeProfile(cand));
         this.saveCustomCandidatesToStorage();
         this.stopBuilderPreview();
         document.getElementById('modal-overlay').classList.add('hidden');
@@ -4690,9 +4691,11 @@ window.GameUI = {
     },
 
     showCandidateDossier(candidateId) {
-        const allCandidates = [...window.CandidateData.democrats, ...window.CandidateData.republicans];
-        const c = allCandidates.find(x => x.id === candidateId);
-        if (!c) return;
+        const allCandidates = [...window.CandidateData.democrats, ...window.CandidateData.republicans,
+            ...(window.LegendData?.democrats || []), ...(window.LegendData?.republicans || []), ...(window.CandidateData.custom || [])];
+        const found = allCandidates.find(x => x.id === candidateId);
+        if (!found) return;
+        const c = window.CandidateData.completeProfile(found);
         const barClass = c.party === 'Democrat' ? 'dem' : 'rep';
         this.showModal(`${c.name} — Dossier`, `
             <div style="font-size:0.9rem;">

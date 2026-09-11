@@ -5,7 +5,7 @@
 
 window.GameEngine = {
 
-    SAVE_VERSION: 4,
+    SAVE_VERSION: 5,
 
     // ═══════════════════════════════════════════════
     // GAME STATE
@@ -135,8 +135,10 @@ window.GameEngine = {
     // ═══════════════════════════════════════════════
     // INITIALIZATION
     // ═══════════════════════════════════════════════
-    initGame(playerCandidate, opponentCandidate, mode, difficulty) {
+    initGame(playerCandidate, opponentCandidate, mode, difficulty, seed) {
         this.state = this.createFreshState();
+        if (seed !== undefined && seed !== '') this.setSeed(seed);
+        this.state.initialSeed=this.state.rng.seed;
         this.state.playerCandidate = playerCandidate;
         this.state.opponentCandidate = opponentCandidate;
         this.state.playerParty = playerCandidate.party === 'Democrat' ? 'democrat' : 'republican';
@@ -146,6 +148,7 @@ window.GameEngine = {
         this.state.opponentTicket = { nominee: opponentCandidate, vp: null };
         this.state.platform = this.seedPlatform(playerCandidate);
         this.state.opponentPlatform = this.seedPlatform(opponentCandidate);
+        this.state.campaignEnvironment=(this.random()-.5)*8;
         this.initPrimary();
 
         // Apply candidate stats to campaign
@@ -165,10 +168,20 @@ window.GameEngine = {
         this.state.opponent.mediaScore = oc.mediaHandling;
         this.state.opponent.scandalVulnerability = 100 - oc.scandalResistance;
         this.state.opponent.donorConfidence = oc.donorTrust || 60;
+        this.state.opponent.onlineInfluence=oc.viralPotential||40;
+        this.state.opponent.surrogateStrength=oc.eliteSupport||40;
+        if(difficulty!=='arcade') {
+            // Competitive modes give the rival the same eight-point balanced setup.
+            const o=this.state.opponent;
+            o.cash+=3000000;o.enthusiasm+=10;o.baseTurnout+=6;o.mediaScore+=8;
+            o.groundGame+=10;o.surrogateStrength+=10;o.onlineInfluence+=8;
+        }
 
         // Difficulty adjustments
         const mods = this.getDifficultyModifiers();
         this.state.finances.cashOnHand *= mods.cashMod;
+        this.state.finances.totalRaised = this.state.finances.cashOnHand;
+        this.state.finances.ledger = [{week:1,type:'opening_funds',amount:this.state.finances.cashOnHand,balance:this.state.finances.cashOnHand}];
         this.state.campaign.cash = this.state.finances.cashOnHand;
         this.state.finances.weeklySmallDollar *= mods.fundraisingMod;
         this.state.finances.weeklyHighDollar *= mods.fundraisingMod;
@@ -185,13 +198,21 @@ window.GameEngine = {
      * from the last term as a head start or a handicap.
      */
     startReelection(incumbent, opponent, difficulty, seed, vp) {
+        const serving=this.state?.presidency && !this.state.presidency.over ? this.state.presidency : null;
+        const servingTransition=serving?this.state.transition:null;
         const carriedCareer = seed && seed.career ? seed.career : (this.state && this.state.career);
         const carriedCountry = seed && seed.countrySnapshot ? seed.countrySnapshot
             : (carriedCareer && carriedCareer.countrySnapshot);
-        this.initGame(incumbent, opponent, 'campaign', difficulty);
+        const continuationSeed=Math.floor(this.random()*4294967295);
+        this.initGame(incumbent, opponent, 'campaign', difficulty, continuationSeed);
         const gs = this.state;
         gs.incumbentSeed = seed;
         gs.isIncumbentRun = true;
+        if (serving) {
+            gs.presidency=serving; gs.transition=servingTransition;
+            gs.concurrentCampaign=true; gs.countryMonthDue=false;
+            serving.pendingEvent=null;
+        }
         if (window.CareerSystem) {
             gs.career = carriedCareer || window.CareerSystem.create();
             const career = window.CareerSystem.ensure(gs);
@@ -264,6 +285,8 @@ window.GameEngine = {
 
             let playerPoll = isPlayerDem ? demBase : repBase;
             let opponentPoll = isPlayerDem ? repBase : demBase;
+            playerPoll+=(this.state.campaignEnvironment||0)/2;
+            opponentPoll-=(this.state.campaignEnvironment||0)/2;
 
             if (stateNameMatch(playerHome, st.id)) playerPoll += 5;
             if (stateNameMatch(oppHome, st.id)) opponentPoll += 5;
@@ -294,11 +317,12 @@ window.GameEngine = {
                 lastVisitWeek: 0,
                 adSpend: 0,
                 groundGameLevel: 0,
+                baselinePlayer:playerPoll,baselineOpponent:opponentPoll,
             };
         }
 
         this.state.campaign.nationalPolling = this.calculateNationalPolling();
-        this.state.opponent.nationalPolling = 100 - this.state.campaign.nationalPolling - 8; // undecideds
+        this.state.opponent.nationalPolling = this.calculateNationalPolling(false,'opponent');
     },
 
     applyTicketStatEffects(side, effects) {
@@ -313,9 +337,7 @@ window.GameEngine = {
 
         if (side === 'player') {
             if (effects.cashOnHand) {
-                this.state.finances.cashOnHand += effects.cashOnHand;
-                this.state.finances.totalRaised += effects.cashOnHand;
-                this.state.campaign.cash = this.state.finances.cashOnHand;
+                window.CampaignFinance.post(effects.cashOnHand,'ticket_fundraising');
             }
             if (effects.weeklySmallDollar) this.state.finances.weeklySmallDollar += effects.weeklySmallDollar;
             if (effects.weeklyHighDollar) this.state.finances.weeklyHighDollar += effects.weeklyHighDollar;
@@ -348,7 +370,7 @@ window.GameEngine = {
             poll.undecided = Math.max(2, 100 - poll.player - poll.opponent);
         }
         this.state.campaign.nationalPolling = this.calculateNationalPolling();
-        this.state.opponent.nationalPolling = Math.max(20, Math.round((100 - this.state.campaign.nationalPolling - 8) * 10) / 10);
+        this.state.opponent.nationalPolling = this.calculateNationalPolling(false,'opponent');
     },
 
     assignRunningMates(playerVP, opponentVP) {
@@ -365,6 +387,7 @@ window.GameEngine = {
             this.state.vpAnnouncementBias = playerVP.announcementBias || 0;
             this.applyTicketStatEffects('player', playerVP.effects);
             this.applyTicketMapEffects('player', playerVP);
+            this.reconcilePrimaryTicket();
         }
 
         if (opponentVP) {
@@ -423,7 +446,6 @@ window.GameEngine = {
         // 4. Process coalition building
         if (actions.coalitionFocus) {
             const coalitionResult = this.applyCoalitionBuilding(actions.coalitionFocus);
-            if (coalitionResult?.ok && window.CampaignDepth) window.CampaignDepth.applyCoalitionFocus(actions.coalitionFocus);
         }
 
         // 5. Process strategy
@@ -443,6 +465,10 @@ window.GameEngine = {
         if (this.state.isIncumbentRun && window.CareerSystem) {
             const setPiece = window.CareerSystem.reelectionSetPiece(this.state.week, this.state.accountability && this.state.accountability.docket);
             if (setPiece) events.unshift(setPiece);
+            if(this.state.week>=39) {
+                let remaining;
+                while((remaining=window.CareerSystem.reelectionSetPiece(this.state.week,this.state.accountability.docket))) events.push(remaining);
+            }
         }
         if (this.state.phase === 'primary') {
             const milestone = window.EventSystem.ScenarioEngine.getPrimaryMilestone(this.state.week);
@@ -519,7 +545,7 @@ window.GameEngine = {
         // 12. Apply polling noise and recalculate
         this.applyPollingNoise();
         this.state.campaign.nationalPolling = this.calculateNationalPolling();
-        this.state.opponent.nationalPolling = 100 - this.state.campaign.nationalPolling - 8;
+        this.state.opponent.nationalPolling = this.calculateNationalPolling(false,'opponent');
 
         // 12a. Platform alignment slowly moves states toward the better fit
         this.applyPlatformDrift();
@@ -550,14 +576,15 @@ window.GameEngine = {
         }
 
         // 13b. Weekly polling headline from the closest battleground
+        const publishedPolling = this.getObservedPolling();
         const closest = window.StateData
             .filter(s => s.isBattleground && this.state.statePolling[s.id])
             .sort((a, b) => {
-                const pa = this.state.statePolling[a.id], pb = this.state.statePolling[b.id];
+                const pa = publishedPolling[a.id], pb = publishedPolling[b.id];
                 return Math.abs(pa.player - pa.opponent) - Math.abs(pb.player - pb.opponent);
             })[0];
         if (closest) {
-            const poll = this.state.statePolling[closest.id];
+            const poll = publishedPolling[closest.id];
             summary.newsHeadlines.push(window.EventSystem.BreakingNewsTicker.generatePollingHeadline(
                 this.state.playerCandidate.name.split(' ').pop(),
                 this.state.opponentCandidate.name.split(' ').pop(),
@@ -625,27 +652,12 @@ window.GameEngine = {
     },
 
     filterFreshEvents(events) {
-        const recent = this.state.recentEventTitles || (this.state.recentEventTitles = []);
-        const career = window.CareerSystem ? window.CareerSystem.ensure(this.state) : null;
-        const cutoff = this.state.week - 7;
-        const seen = new Set(recent.filter(x => x.week >= cutoff).map(x => x.title));
-        const fresh = events.map(evt => {
-            if (!career || evt.isPrimaryMilestone || !career.usedEventIds.includes(evt.id)) return evt;
-            const recurrence = career.usedEventIds.filter(id => id === evt.id || id.startsWith(`${evt.id}_sequel_`)).length;
-            return {
-                ...evt,
-                id:`${evt.id}_sequel_${recurrence}`,
-                title:`${evt.title}: The Story Returns`,
-                description:`This issue has returned after the campaign faced it before. Reporters and voters compare today's response with the earlier decision. ${evt.description}`,
-                isSequel:true,
-            };
-        }).filter(evt => evt.isPrimaryMilestone || !seen.has(String(evt.title || '').toLowerCase()));
-        for (const evt of fresh) recent.push({ title:String(evt.title || '').toLowerCase(), week:this.state.week });
-        if (career) career.usedEventIds.push(...fresh.filter(evt => !evt.isPrimaryMilestone).map(evt => evt.id));
-        this.state.recentEventTitles = recent.filter(x => x.week >= cutoff);
+        const career=window.CareerSystem?.ensure(this.state);
+        const used=new Set(career?.usedEventIds||[]);
+        const fresh=events.filter(e=>!used.has(e.id));
+        if(career) career.usedEventIds.push(...fresh.map(e=>e.id));
         return fresh;
     },
-
     filterFreshHeadlines(headlines) {
         const normalize = h => String(h || '').toLowerCase().replace(/\d+(?:\.\d+)?/g, '#').replace(/\s+/g, ' ').trim();
         const career = window.CareerSystem ? window.CareerSystem.ensure(this.state) : null;
@@ -675,7 +687,8 @@ window.GameEngine = {
         const charisma = this.state.playerCandidate.charisma || 50;
         // While the candidate recovers, surrogates carry a diminished campaign
         const recoveryMult = this.state.hospitalized > 0 ? 0.5 : 1;
-        const boost = (0.5 + (charisma / 100) * 1.5) * recoveryMult;
+        const contact=(this.state.visitedStates[stateId]||0);
+        const boost = (0.15 + (charisma / 100) * .2) * recoveryMult / Math.sqrt(1+contact*.7);
         const enthusiasm_boost = (0.3 + (charisma / 100) * 0.7) * recoveryMult;
 
         poll.player += boost;
@@ -822,14 +835,15 @@ window.GameEngine = {
             case 'gotv': {
                 // Get-out-the-vote push: bank votes in the closest battlegrounds
                 const cfg = window.GameConstants.EARLY_VOTE;
+                const observed=this.getObservedPolling();
                 const targets = window.StateData
                     .filter(s => s.isBattleground)
-                    .map(s => ({ s, poll: this.state.statePolling[s.id] }))
+                    .map(s => ({ s, poll: observed[s.id] }))
                     .filter(x => x.poll)
                     .sort((a, b) => Math.abs(a.poll.player - a.poll.opponent) - Math.abs(b.poll.player - b.poll.opponent))
                     .slice(0, cfg.GOTV_TARGET_STATES);
 
-                const gain = 0.8 + (c.groundGame / 100) * 1.2; // banked points per state
+                const gain = .02 + (c.groundGame / 100) * .03; // marginal turnout, not a new electorate
                 for (const { s } of targets) {
                     if (!this.state.earlyVote[s.id]) {
                         this.state.earlyVote[s.id] = { playerBanked: 0, opponentBanked: 0, pctBanked: 0 };
@@ -925,9 +939,11 @@ window.GameEngine = {
     applyEventChoice(eventId, choiceIdx, events) {
         const event = events.find(e => e.id === eventId);
         if (!event || !event.choices[choiceIdx]) return;
+        if(this.state.eventHistory.some(e=>e.eventId===eventId && e.week===this.state.week)) return;
 
         const choice = event.choices[choiceIdx];
         const c = this.state.campaign;
+        if(event.isAccountability) this.state.accountability.answered.push({week:this.state.week,questionId:event.id,liability:event.liabilityId,choice:choiceIdx});
 
         // Endorsement events: courting it claims the endorser
         if (event.isEndorsement && choiceIdx === 0) {
@@ -942,8 +958,7 @@ window.GameEngine = {
 
         for (const [key, val] of Object.entries(choice.effects)) {
             if (key === 'cash') {
-                this.state.finances.cashOnHand += val;
-                c.cash = this.state.finances.cashOnHand;
+                window.CampaignFinance.post(val,'event_choice',{eventId,choiceIdx},{mandatory:true});
             } else if (c.hasOwnProperty(key)) {
                 c[key] += val;
             }
@@ -953,8 +968,7 @@ window.GameEngine = {
         if (event.effects) {
             for (const [key, val] of Object.entries(event.effects)) {
                 if (key === 'cash') {
-                    this.state.finances.cashOnHand += val;
-                    c.cash = this.state.finances.cashOnHand;
+                    window.CampaignFinance.post(val,'event_effect',{eventId},{mandatory:true});
                 } else if (c.hasOwnProperty(key)) {
                     c[key] += val;
                 }
@@ -983,16 +997,15 @@ window.GameEngine = {
         // Calculate weekly income
         const fundsRaised = this.calculateFundraising();
         f.lastRaised = fundsRaised;
-        f.cashOnHand += fundsRaised;
-        f.totalRaised += fundsRaised;
+        window.CampaignFinance.post(fundsRaised,'weekly_fundraising');
+        window.CampaignFinance.settleArrears();
 
         // A national operation grows more expensive as the race scales up.
         const phaseOverhead = this.state.phase === 'general' ? 450000 : 150000;
         const scaleOverhead = Math.min(350000, this.state.week * 9000);
         const operatingCost = f.burnRate + phaseOverhead + scaleOverhead;
         f.lastOperatingCost = operatingCost;
-        f.cashOnHand -= operatingCost;
-        f.totalSpent += operatingCost;
+        window.CampaignFinance.post(-operatingCost,'operating_cost',{}, {mandatory:true});
         f.fundraisingFatigue = Math.max(0, (f.fundraisingFatigue || 0) - 3);
 
         // Super PAC support
@@ -1013,9 +1026,7 @@ window.GameEngine = {
             c.enthusiasm -= 2;
             c.mediaScore -= 2;
         }
-        if (f.cashOnHand < 0) {
-            f.cashOnHand = 0;
-            c.cash = 0;
+        if (f.arrears > 0) {
             c.groundGame -= 5;
             c.enthusiasm -= 5;
             c.donorConfidence -= 10;
@@ -1061,11 +1072,11 @@ window.GameEngine = {
 
     getAdTargetRecommendations(type = 'digital') {
         return window.StateData.filter(s => s.isBattleground && this.state.statePolling[s.id]).map(state => {
-            const poll = this.state.statePolling[state.id];
+            const poll = window.CampaignDepth?.getPoll(state.id) || this.state.statePolling[state.id];
             const margin = poll.player - poll.opponent;
-            const saturation = poll.adSpend || 0;
+            const saturation = this.state.adMarkets?.[state.id]?.exposure || 0;
             const reachFit = type === 'digital' && state.educationSplit && state.educationSplit.college > 35 ? 1.12 : 1;
-            const score = ((12 - Math.min(12, Math.abs(margin))) * 4 + state.electoralVotes * 1.3) * reachFit / Math.max(.7, state.adCostMultiplier) / (1 + saturation / 2500000);
+            const score = state.electoralVotes*Math.exp(-Math.abs(margin)/3.5)*reachFit/Math.sqrt(Math.max(.7,state.adCostMultiplier)*(1+saturation/100000));
             const reason = Math.abs(margin) <= 3 ? 'toss-up with decisive EVs' : margin < 0 ? 'reachable pickup opportunity' : 'narrow lead worth protecting';
             return { state, poll, margin, saturation, score, reason };
         }).sort((a,b) => b.score - a.score);
@@ -1087,15 +1098,22 @@ window.GameEngine = {
     // ═══════════════════════════════════════════════
     // POLLING ENGINE
     // ═══════════════════════════════════════════════
-    calculateNationalPolling() {
+    getObservedPolling() {
+        const gs=this.state,latest=gs.campaignDepth?.polling?.latest||{};
+        return Object.fromEntries(Object.entries(gs.statePolling).map(([id,p])=>[id,
+            {...p,...(latest[id] || window.ElectionSystem?.normalize(p) || p)}]));
+    },
+
+    calculateNationalPolling(observed=false,side='player') {
         let totalPlayerVotes = 0;
         let totalWeight = 0;
 
-        for (const [stId, poll] of Object.entries(this.state.statePolling)) {
+        for (const [stId, poll] of Object.entries(observed?this.getObservedPolling():this.state.statePolling)) {
             const st = window.StateData.find(s => s.id === stId);
             if (!st) continue;
-            const weight = st.electoralVotes;
-            totalPlayerVotes += poll.player * weight;
+            const weight = window.ElectionSystem?.votingAge[stId] || st.electoralVotes;
+            const share=window.ElectionSystem?.normalize(poll)[side] ?? poll[side];
+            totalPlayerVotes += share * weight;
             totalWeight += weight;
         }
 
@@ -1103,6 +1121,9 @@ window.GameEngine = {
     },
 
     applyPollingNoise() {
+        const c=this.state.campaign,o=this.state.opponent;
+        const quality=((c.approval-o.approval)*.04+(c.persuadableSupport-o.persuadableSupport)*.06+
+            (c.mediaScore-o.mediaScore)*.035+(c.onlineInfluence-o.onlineInfluence)*.025+(c.momentum-o.momentum)*.015)*.25;
         for (const [stId, poll] of Object.entries(this.state.statePolling)) {
             const st = window.StateData.find(s => s.id === stId);
             const volatility = st ? st.swingVolatility / 100 : 0.3;
@@ -1116,15 +1137,13 @@ window.GameEngine = {
             // Trend decay
             poll.trend *= 0.8;
 
-            // Visit decay - states you ignore drift back to baseline
-            if (this.state.week - poll.lastVisitWeek > 4) {
-                const st2 = window.StateData.find(s => s.id === stId);
-                if (st2) {
-                    const isPlayerDem = this.state.playerParty === 'democrat';
-                    const baseline = isPlayerDem ? (50 - st2.partisanLean * 0.3) : (50 + st2.partisanLean * 0.3);
-                    poll.player += (baseline - poll.player) * 0.05 * liveShare;
-                }
-            }
+            // Both sides' local persuasion fades; national work shifts the target.
+            // Previously only the player's gains decayed, granting permanent AI gains.
+            const lean=(this.state.playerParty==='democrat'?-1:1)*(st?.partisanLean||0)*.3;
+            poll.baselinePlayer ??= 50+lean;poll.baselineOpponent ??=50-lean;
+            const bloc=st?window.CampaignDepth?.electorateEdge(st)||0:0;
+            poll.player+=(poll.baselinePlayer+quality+bloc-poll.player)*.12*liveShare;
+            poll.opponent+=(poll.baselineOpponent-quality-bloc-poll.opponent)*.12*liveShare;
 
             // Keep in bounds
             poll.player = Math.max(20, Math.min(75, poll.player));
@@ -1138,7 +1157,7 @@ window.GameEngine = {
         let opponentEV = 0;
         const stateResults = {};
 
-        for (const [stId, poll] of Object.entries(this.state.statePolling)) {
+        for (const [stId, poll] of Object.entries(this.getObservedPolling())) {
             const st = window.StateData.find(s => s.id === stId);
             if (!st) continue;
 
@@ -1490,7 +1509,7 @@ window.GameEngine = {
         const cap = window.GameConstants.POLL_HISTORY_WEEKS;
         for (const st of window.StateData) {
             if (!st.isBattleground) continue;
-            const poll = this.state.statePolling[st.id];
+            const poll = this.getObservedPolling()[st.id];
             if (!poll) continue;
             if (!this.state.pollHistory[st.id]) this.state.pollHistory[st.id] = [];
             const h = this.state.pollHistory[st.id];
@@ -1612,6 +1631,16 @@ window.GameEngine = {
         const key = candidate.party === 'Democrat' ? 'democrats' : 'republicans';
         if (candidate.isLegend && window.LegendData) return window.LegendData[key];
         return window.CandidateData[key] || [];
+    },
+
+    reconcilePrimaryTicket() {
+        const gs=this.state,primary=gs.primary,vp=gs.playerTicket?.vp||gs.vpChoice;
+        if(!primary || !vp) return;
+        const key=p=>window.People?window.People.key(p):p.name;
+        for(const rival of primary.rivals) if(!rival.droppedOut && key(rival)===key(vp)) {
+            primary.undecided+=rival.support;rival.support=0;rival.droppedOut=true;rival.joinedTicket=true;
+            window.CareerSystem?.record('ticket_unity',{name:rival.name,detail:'Withdrew from the nomination contest to join the ticket.'});
+        }
     },
 
     initPrimary() {
@@ -1938,9 +1967,8 @@ window.GameEngine = {
         const cost = window.GameConstants.ANGER.SECURITY_COST;
         if (this.state.finances.cashOnHand < cost) return { ok: false, message: 'Not enough cash for a security detail.' };
         this.state.securityDetail = true;
-        this.state.finances.cashOnHand -= cost;
-        this.state.finances.totalSpent += cost;
-        this.state.campaign.cash = this.state.finances.cashOnHand;
+        window.CampaignFinance.post(-cost,'security_detail');
+        window.SaveStore?.save();
         return { ok: true, message: 'Enhanced security detail deployed. Threats are less likely and more survivable.' };
     },
 
@@ -2014,7 +2042,7 @@ window.GameEngine = {
     // MOMENTUM & NARRATIVE
     // ═══════════════════════════════════════════════
     calculateMomentum() {
-        const c = this.state.campaign;
+        for(const c of [this.state.campaign,this.state.opponent]) {
         let momentumShift = 0;
 
         // Polling trend
@@ -2034,14 +2062,16 @@ window.GameEngine = {
 
         // Decay toward zero
         c.momentum = c.momentum * 0.8 + momentumShift;
+        }
     },
 
     updateMediaNarrative() {
-        const c = this.state.campaign;
+        for(const c of [this.state.campaign,this.state.opponent]) {
         // Media score slowly normalizes
         c.mediaScore += (50 - c.mediaScore) * 0.1;
         // Scandal vulnerability slowly decreases
         c.scandalVulnerability *= 0.95;
+        }
     },
 
     // ═══════════════════════════════════════════════
@@ -2183,11 +2213,14 @@ window.GameEngine = {
         // Fundraising bump
         if (totalScore > 20) {
             const bump = 200000 + totalScore * 20000;
-            this.state.finances.cashOnHand += bump;
-            this.state.finances.totalRaised += bump;
+            window.CampaignFinance.post(bump,'debate_fundraising');
+        }
+        if(oppTotal>20 && window.OpponentCampaign) {
+            window.CampaignFinance.post(200000+oppTotal*20000,'debate_fundraising',{}, {gs:window.OpponentCampaign.context()});
         }
 
         c.momentum += normalizedScore * 5;
+        o.momentum += oppNormalized * 5;
 
         // Winning the night carries momentum beyond the raw scores
         if (winner === 'player') { c.momentum += 8; o.momentum -= 5; }
@@ -2294,7 +2327,7 @@ window.GameEngine = {
         const efficiency = results.playerEV ? Math.round(spent / results.playerEV) : spent;
         const tipping = results.winner === 'player' ? closestWins[0] : closestLosses[0];
         return {
-            tippingPoint: tipping ? { name:tipping.state.name, margin:tipping.result.margin, ev:tipping.result.ev } : null,
+            tippingPoint: window.ElectionSystem ? window.ElectionSystem.tippingPoint(results) : tipping ? { name:tipping.state.name, margin:tipping.result.margin, ev:tipping.result.ev } : null,
             closestLosses: closestLosses.map(x => ({ name:x.state.name, margin:x.result.margin, ev:x.result.ev })),
             strengths: metrics.slice(0, 2).map(x => `${x[0]} ${Math.round(x[1])}`),
             weaknesses: metrics.slice(-2).reverse().map(x => `${x[0]} ${Math.round(x[1])}`),
@@ -2489,12 +2522,18 @@ window.GameEngine = {
             if (runningMate.candidateId) taken.add(runningMate.candidateId);
         }
         taken.add(gs.playerCandidate.id);
-        const available = options.filter(o => o.id && !taken.has(o.id));
+        const identity=window.People?.key || (o=>o.id);
+        const peopleTaken=new Set([...Object.values(t.posts),gs.playerCandidate,runningMate].filter(Boolean).map(identity));
+        const seen=new Set();
+        const available = options.filter(o=>{
+            const person=identity(o);if(!o.id || taken.has(o.id) || peopleTaken.has(person) || seen.has(person)) return false;
+            seen.add(person);return true;
+        });
         // A transition must never become unwinnable. If every Senate-facing
         // nominee for this post has been rejected or hired elsewhere, permit
         // a career official to serve in an acting capacity.
         const post = window.CabinetData.POSTS.find(p => p.id === postId);
-        if (!available.length && post && post.confirmable) {
+        if (!available.length && post) {
             available.push({
                 id: `acting_${postId}`,
                 name: `Career ${post.title.replace(/^Secretary of (the )?/, '')} Administrator`,
@@ -2513,7 +2552,7 @@ window.GameEngine = {
     nominate(postId, option, strategy) {
         const t = this.state.transition;
         const post = window.CabinetData.POSTS.find(p => p.id === postId);
-        if (!t || !post || t.posts[postId]) return null;
+        if (!t || !post || t.posts[postId] || !option || !this.getCabinetOptions(postId).some(o=>o.id===option.id)) return null;
         if (!post.confirmable || option.acting) {
             t.posts[postId] = Object.assign({ votesFor: null, votesAgainst: null }, option);
             t.log.push(option.acting

@@ -355,9 +355,12 @@ window.VPData = {
 
     getOptionsForCandidate(candidate) {
         const partyKey = this.getPartyKey(candidate);
+        const identity=value=>value.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
+        const curated=this.getCuratedOptionsForCandidate(candidate.id, partyKey).filter(o=>identity(o)!==identity(candidate));
+        const used=new Set(curated.map(identity));
         return {
-            curated: this.getCuratedOptionsForCandidate(candidate.id, partyKey),
-            wildcard: this.getWildcardOptionsForCandidate(candidate),
+            curated,
+            wildcard: this.getWildcardOptionsForCandidate(candidate).filter(o=>!used.has(identity(o))),
         };
     },
 

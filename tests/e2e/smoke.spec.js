@@ -127,14 +127,16 @@ test('expanded modern field and running-mate slate render in setup', async ({ pa
   });
   await expect(page.locator('.vp-section-header').first()).toContainText('7 vetted choices');
   await expect(page.locator('.vp-grid').first().locator('.candidate-card')).toHaveCount(7);
-  await expect(page.locator('.vp-grid').nth(1).locator('.candidate-card')).toHaveCount(15);
+  await expect(page.locator('.vp-grid').nth(1).locator('.candidate-card')).toHaveCount(9);
+  const names=await page.locator('.vp-grid .candidate-name').allTextContents();
+  expect(new Set(names).size).toBe(names.length);
   await page.screenshot({ path:'test-results/expanded-vp-bench.png', fullPage:true });
 });
 
 test('portrait and broadcast art assets decode successfully', async ({ page }) => {
   await page.goto('/', { waitUntil:'domcontentloaded' });
   const result = await page.evaluate(async () => {
-    const ids = [...CandidateData.democrats, ...CandidateData.republicans].map(candidate => candidate.id);
+    const ids = [...CandidateData.democrats, ...CandidateData.republicans, ...LegendData.democrats, ...LegendData.republicans].map(candidate => candidate.id);
     const urls = [
       ...ids.map(id => `images/portraits/${id}.jpg`),
       'images/broadcast/debate-stage.jpg',
@@ -196,6 +198,7 @@ test('reelection renders an accountability docket and term two keeps the country
     p1.crisisLog.push({ id:'market', title:'Market Convulsion', success:true, quarter:3 });
     const career = CareerSystem.ensure(GameEngine.state);
     const snapshot = CareerSystem.closeTerm(p1);
+    p1.over = true; // This fixture represents an already-finished legacy term.
     GameEngine.startReelection(incumbent, challenger, 'arcade', {
       term:1, approval:51, gdp:2.1, inflation:3.2, scandals:1, warsWon:0, warsLost:0,
       debt:132, signatureDone:false, signatureName:'Balance the Budget', career, countrySnapshot:snapshot,
@@ -226,4 +229,47 @@ test('reelection renders an accountability docket and term two keeps the country
   expect(audit.justices).toBe(1);
   expect(audit.crisis).toBe('market');
   expect(audit.cabinet).toBe('Continuity Treasury');
+});
+
+test('monthly UI launches concurrent reelection and gates an unplayed governing month', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(() => {
+    GameEngine.initGame(CandidateData.democrats[0],CandidateData.republicans[0],'campaign','arcade');
+    GameEngine.setSeed(912);
+    GameEngine.state.transition={senateSeats:54,capital:8,posts:{},complete:true};
+    const p=PresidencySystem.begin(); Simulation.ensure(p); p.month=41; p.calendar.monthsElapsed=40;
+    PresidencySystem.chooseSignature('frontier'); GameUI.openGoverning();
+  });
+  await page.getByRole('button',{name:'MAINTAIN COURSE →'}).click();
+  await page.getByRole('button',{name:'LAUNCH RE-ELECTION CAMPAIGN'}).click();
+  await expect(page.locator('#screen-game')).toBeVisible();
+  expect(await page.evaluate(()=>GameEngine.state.concurrentCampaign)).toBe(true);
+  await page.locator('.modal-close').click();
+  await page.evaluate(()=>{GameEngine.state.countryMonthDue=true; GameEngine.state.presidency.calendar.completed.push('1:41');});
+  await page.getByRole('button',{name:'ADVANCE →',exact:true}).click();
+  await expect(page.locator('#screen-presidency')).toBeVisible();
+  await page.getByRole('button',{name:'MAINTAIN COURSE →'}).click();
+  await expect(page.locator('.pres-kicker')).toContainText('MONTH 42 OF 48');
+  await page.getByRole('button',{name:'RETURN TO CAMPAIGN'}).click();
+  await expect(page.locator('#screen-game')).toBeVisible();
+});
+
+test('ad quote and charged budget agree and saves return to cabinet formation', async ({page})=>{
+  await page.goto('./');
+  await page.evaluate(()=>{
+    GameEngine.initGame(CandidateData.democrats[0],CandidateData.republicans[0],'campaign','arcade');
+    GameUI.playerParty='democrat';GameUI.showScreen('game');GameUI.renderGameScreen();GameUI.showAdBuyModal('PA');
+  });
+  await expect(page.locator('#ad-budget')).toHaveValue('250000');
+  const before=await page.evaluate(()=>GameEngine.state.finances.cashOnHand);
+  await page.getByRole('button',{name:'LAUNCH AD CAMPAIGN',exact:true}).click();
+  expect(await page.evaluate(()=>GameEngine.state.finances.cashOnHand)).toBe(before-250000);
+  await page.evaluate(()=>{
+    GameEngine.state.electionResult={winner:'player',playerEV:300,opponentEV:238,nationalPopularVote:{player:52,opponent:46}};
+    GameUI._lastResults=GameEngine.state.electionResult; GameUI.startTransition();
+  });
+  await page.reload();
+  await page.getByRole('button',{name:/CONTINUE/}).click();
+  await expect(page.locator('#screen-election-night')).toBeVisible();
+  await expect(page.locator('#election-night-content')).toContainText('Secretary of State');
 });

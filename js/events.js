@@ -121,7 +121,7 @@ window.EventSystem = {
 
         MEDIA_FIRESTORM: [
             {
-                id: "debate_gaffe", title: "Debate Answer Goes Viral — For All the Wrong Reasons",
+                id: "debate_gaffe", title: "Forum Answer Goes Viral — For All the Wrong Reasons",
                 description: "A clip from a candidate forum is spreading across social media. The answer is awkward, evasive, or just plain strange. The memes are already flying.",
                 category: "MEDIA_FIRESTORM", phase: "both", probability: 0.07,
                 effects: { approval: -3, mediaScore: -5, scandalVulnerability: 5 },

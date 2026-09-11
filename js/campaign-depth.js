@@ -46,7 +46,7 @@ window.CampaignDepth = {
             : { labor:36,youth:39,suburban:48,rural:66,minority:31,women:44,veterans:57,evangelical:72 };
         gs.campaignDepth = {
             staff:{}, offices:{}, weeklyPayroll:0, operationScore:45,
-            blocs:this.BLOC_DEFS.map(b => ({ ...b, support:baselines[b.id], turnout:52, contact:0 })),
+            blocs:this.BLOC_DEFS.map(b => ({ ...b, support:baselines[b.id], baselineSupport:baselines[b.id],turnout:52, contact:0 })),
             polling:{ latest:{}, history:[], lastWeek:0 },
             messages:{}, timeline:[],
         };
@@ -65,12 +65,13 @@ window.CampaignDepth = {
         const candidate = def && def.candidates.find(c => c.id === candidateId);
         if (!candidate) return { ok:false, message:'Candidate unavailable.' };
         if (gs.finances.cashOnHand < candidate.hire) return { ok:false, message:'The campaign cannot afford that hire.' };
-        gs.finances.cashOnHand -= candidate.hire;
-        gs.campaign.cash = gs.finances.cashOnHand;
+        if (hq.staff[role]?.id===candidateId && hq.staff[role]?.status==='ACTIVE') return {ok:false,message:'This staffer is already hired.'};
+        window.CampaignFinance.post(-candidate.hire,'staff_hire',{role,candidateId});
         hq.staff[role] = { ...candidate, role, status:'ACTIVE', loyalty:72, burnout:8, hiredWeek:gs.week };
         this.recalculate(hq);
         if (role === 'pollster') this.generatePolls(gs);
         hq.timeline.push({ week:gs.week, text:`${candidate.name} hired as ${def.label}.` });
+        window.SaveStore?.save();
         return { ok:true, message:`${candidate.name} joins as ${def.label}.` };
     },
 
@@ -84,13 +85,13 @@ window.CampaignDepth = {
         const costs = [300000, 475000, 700000];
         const cost = costs[current.level];
         if (gs.finances.cashOnHand < cost) return { ok:false, message:'The campaign cannot afford that office expansion.' };
-        gs.finances.cashOnHand -= cost;
-        gs.campaign.cash = gs.finances.cashOnHand;
+        window.CampaignFinance.post(-cost,'field_office',{stateId,level:current.level+1});
         current.level += 1;
         current.organizers += 8 + current.level * 4;
         hq.offices[stateId] = current;
         this.recalculate(hq);
         hq.timeline.push({ week:gs.week, text:`Field organization in ${state.name} reaches level ${current.level}.` });
+        window.SaveStore?.save();
         return { ok:true, message:`${state.name} field organization upgraded to level ${current.level}.`, office:current };
     },
 
@@ -109,8 +110,7 @@ window.CampaignDepth = {
         const gs = window.GameEngine.state;
         const hq = this.ensure(gs);
         this.recalculate(hq);
-        gs.finances.cashOnHand -= hq.weeklyPayroll;
-        gs.finances.totalSpent += hq.weeklyPayroll;
+        const payroll=window.CampaignFinance.post(-hq.weeklyPayroll,'payroll',{}, {mandatory:true});
         summary.financialSummary.payroll = hq.weeklyPayroll;
 
         const manager = this.staffSkill(hq, 'manager');
@@ -121,7 +121,7 @@ window.CampaignDepth = {
         if (comms) gs.campaign.mediaScore += (comms - 65) / 100;
         if (finance) {
             const bonus = 40000 + finance * 1200;
-            gs.finances.cashOnHand += bonus; gs.finances.totalRaised += bonus;
+            window.CampaignFinance.post(bonus,'finance_staff_fundraising');
             summary.financialSummary.staffBonus = bonus;
         }
 
@@ -133,12 +133,13 @@ window.CampaignDepth = {
         for (const [stateId, office] of Object.entries(hq.offices)) {
             const poll = gs.statePolling[stateId];
             if (!poll) continue;
-            const effect = office.level * (0.05 + field / 1800);
+            const effect = office.level * (0.05 + field / 1800) * (payroll.unpaid ? .25 : 1);
             poll.player += effect; poll.trend += effect;
             office.contact = Math.min(100, office.contact + office.level * 2 + field / 50);
             gs.campaign.groundGame += office.level * 0.025;
             if (gs.week >= window.GameConstants.EARLY_VOTE.START_WEEK && gs.earlyVote[stateId]) {
-                gs.earlyVote[stateId].playerBanked += office.level * 0.04;
+                const ev=gs.earlyVote[stateId],add=Math.max(0,Math.min(office.level*.02,window.GameConstants.EARLY_VOTE.MAX_BANKED_PCT-ev.pctBanked));
+                ev.playerBanked+=add;ev.pctBanked+=add;
             }
         }
 
@@ -152,7 +153,7 @@ window.CampaignDepth = {
             hq.blocs.reduce((sum,b) => sum + b.weight, 0);
         gs.campaign.nationalPolling += electorateEdge * 0.004;
 
-        if (gs.finances.cashOnHand < 0) {
+        if (gs.finances.arrears > 0) {
             gs.campaign.donorConfidence -= 3;
             summary.newsHeadlines.push('CAMPAIGN CASH CRUNCH: PAYROLL AND FIELD OPERATIONS UNDER PRESSURE');
         }
@@ -170,6 +171,15 @@ window.CampaignDepth = {
         hq.operationScore = Math.round(staffScore * .72 + officeScore * .28);
     },
 
+    electorateEdge(state,gs=window.GameEngine.state) {
+        const blocs=gs.campaignDepth?.blocs||[];
+        const weights={rural:state.composition?.rural||15,suburban:state.composition?.suburban||18,
+            minority:(state.demographics?.black||0)+(state.demographics?.hispanic||0),labor:(state.issueSalience?.labor||60)/5};
+        let sum=0,total=0;
+        for(const b of blocs) {const w=weights[b.id]??b.weight;sum+=(b.support-(b.baselineSupport??b.support))*w;total+=w;}
+        return total?sum/total*.08:0;
+    },
+
     generatePolls(gs) {
         const hq = this.ensure(gs);
         const pollsterSkill = this.staffSkill(hq, 'pollster');
@@ -180,13 +190,14 @@ window.CampaignDepth = {
             const sample = Math.round(520 + window.GameEngine.random() * 880 + pollsterSkill * 3);
             const publicMoe = Math.max(2.1, 4.4 - sample / 900 + (state.swingVolatility || 30) / 100);
             const noise = (window.GameEngine.random() - .5) * publicMoe * 2;
-            const trueMargin = truth.player - truth.opponent;
+            const normalized=window.ElectionSystem?.normalize(truth) || truth;
+            const trueMargin = normalized.player - normalized.opponent;
             const shownMargin = trueMargin + noise;
-            const decided = Math.max(86, Math.min(98, truth.player + truth.opponent));
-            const player = Math.max(20, Math.min(75, (decided + shownMargin) / 2));
-            const opponent = Math.max(20, Math.min(75, decided - player));
+            const decided = Math.max(86, Math.min(98, normalized.player + normalized.opponent));
+            const player = Math.max(0, Math.min(decided, (decided + shownMargin) / 2));
+            const opponent = decided - player;
             const internalMoe = pollsterSkill ? Math.max(1.3, publicMoe - pollsterSkill / 45) : null;
-            latest[state.id] = { player, opponent, margin:shownMargin, moe:publicMoe, sample, week:gs.week,
+            latest[state.id] = { player, opponent, undecided:100-decided, margin:player-opponent, moe:publicMoe, sample, week:gs.week,
                 internal:pollsterSkill ? { margin:trueMargin + (window.GameEngine.random() - .5) * internalMoe, moe:internalMoe } : null };
         }
         hq.polling.latest = latest;

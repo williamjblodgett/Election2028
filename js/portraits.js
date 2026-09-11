@@ -18,6 +18,16 @@ window.Portraits = {
 
     url(id) { return this.BASE + id + '.jpg'; },
 
+    resolveId(person) {
+        if(!person) return '';
+        const candidates=[...(window.CandidateData?.democrats||[]),...(window.CandidateData?.republicans||[]),...(window.LegendData?.democrats||[]),...(window.LegendData?.republicans||[])];
+        const known=new Set(candidates.map(c=>c.id)),id=person.candidateId||person.id;
+        if(known.has(id)) return id;
+        const registry=window.People?.registry||{};
+        const canonical=registry[window.People?.key(person)] || Object.values(registry).find(p=>p.profileIds.includes(id));
+        return canonical?.profileIds.find(profile=>known.has(profile)) || '';
+    },
+
     /**
      * HTML for a portrait slot: the photo when it exists, the emoji when it
      * doesn't. Sized entirely by the wrapper it's placed in.
@@ -27,7 +37,7 @@ window.Portraits = {
         const emoji = cand.portraitEmoji || '🗳️';
         // Curated VP entries can have role-specific ids; candidateId points
         // back to the canonical person portrait.
-        const id = cand.candidateId || cand.id || '';
+        const id = this.resolveId(cand);
         // Custom candidates never have photo files — skip the network probe
         if (!id || cand.isCustom || this._status[id] === 'missing') {
             return `<span class="portrait ${cls || ''} no-photo"><span class="portrait-emoji">${emoji}</span></span>`;

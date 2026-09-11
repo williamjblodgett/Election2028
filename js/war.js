@@ -95,7 +95,7 @@ window.WarSystem = {
         const gs = window.GameEngine.state;
         const p = gs.presidency;
         const adversary = this.getAdversary(adversaryId);
-        if (!p || !adversary) return null;
+        if (!p || !adversary || p.over || (p.war&&!p.war.resolved)) return null;
 
         const cabinetDiplo = this._cabinetDiplomacy();
         const coalition = this.formCoalition(adversary, p.diplomaticStanding || 55, cabinetDiplo);
@@ -106,6 +106,7 @@ window.WarSystem = {
         const ratio = ourStrength / (ourStrength + enemyStrength);
 
         p.war = {
+            id:`war_${p.term}_${p.month||1}_${adversaryId}`,term:p.term,
             adversaryId, adversary: { name: adversary.name, flag: adversary.flag, nuclear: adversary.nuclear, size: adversary.size },
             withUs: coalition.withUs.map(n => ({ id: n.id, name: n.name, flag: n.flag })),
             against: coalition.against.map(n => ({ id: n.id, name: n.name, flag: n.flag })),
@@ -115,7 +116,10 @@ window.WarSystem = {
             posture: null, initiatedByEnemy: !!initiatedByEnemy,
             authorization: initiatedByEnemy ? 'ARTICLE II SELF-DEFENSE' : (authorization || 'CONGRESSIONAL AUTHORIZATION'),
             objective: initiatedByEnemy ? 'DEFEND THE UNITED STATES AND ALLIES' : 'COMPEL WITHDRAWAL AND RESTORE DETERRENCE',
-            projectedDuration:'1–4 quarters',
+            projectedDuration:'3–12 months',
+            intelligenceConfidence:65, forceCommitment:'CONVENTIONAL',
+            exitCriteria:'Negotiated withdrawal, mission achieved, or ordered withdrawal',
+            started:p.month || (p.quarter-1)*3+1,
             projectedCost:Math.max(3, Math.round(adversary.strength / 12)),
             cost:0,
             resolved: false, outcome: null,
@@ -134,19 +138,19 @@ window.WarSystem = {
             if (world && world.nations[adversaryId]) {
                 world.nations[adversaryId].tension = 100;
                 world.globalTension = Math.max(72, world.globalTension);
-                world.conflicts.push({ adversaryId, objective:initiatedByEnemy ? 'DEFEND THE UNITED STATES AND ALLIES' : 'COMPEL WITHDRAWAL', started:p.quarter, resolved:false });
                 window.WorldSystem.recomputeDefcon(world);
             }
         }
         return p.war;
     },
 
-    /** Run one quarter of fighting under the chosen posture. */
+    /** Run one month of fighting, or carry out a withdrawal order. */
     fightRound(posture) {
         const gs = window.GameEngine.state;
         const p = gs.presidency;
         const war = p.war;
-        if (!war || war.resolved) return null;
+        if (!war || war.resolved || !['hold','escalate','withdraw'].includes(posture)) return null;
+        if (posture==='withdraw') {war.posture=posture;return this._settle(war,p,'withdrawal',true);}
         const adversary = this.getAdversary(war.adversaryId);
         war.round += 1;
         war.posture = posture;
@@ -154,56 +158,37 @@ window.WarSystem = {
         // Nuclear brink: escalating against a nuclear power ratchets the danger
         if (posture === 'escalate' && adversary.nuclear) {
             war.escalations += 1;
-            const brink = 0.06 * war.escalations + (war.momentum < 25 ? 0.12 : 0); // a cornered nuclear foe is worse
+            const quarterlyRisk = Math.min(.95,0.06 * war.escalations + (war.momentum < 25 ? 0.12 : 0));
+            const brink=1-Math.pow(1-quarterlyRisk,1/3);
             if (window.GameEngine.random() < brink) {
-                war.resolved = true;
-                war.outcome = 'nuclear';
-                war.log.push('Nuclear release. The exchange cannot be recalled.');
-                const world = window.WorldSystem && window.WorldSystem.ensureState();
-                if (world) { world.defcon = 1; world.globalTension = 100; }
-                p.population = typeof p.population === 'number' ? p.population : 335;
-                const killed = Math.round(45 + window.GameEngine.random() * 85);
-                p.population = Math.max(0, p.population - killed);
-                p.stability = p.stability || { score:76, tier:'STABLE' };
-                p.stability.score = Math.max(0, p.stability.score - 50);
-                p.institutions = p.institutions || { trust:52, infrastructure:88, health:82, justice:70, continuity:92 };
-                p.institutions.infrastructure = Math.max(0, p.institutions.infrastructure - 45);
-                p.institutions.health = Math.max(0, p.institutions.health - 40);
-                p.collapse = p.collapse || { active:false, seasons:0, recovery:0, events:[] };
-                p.collapse.active = p.population > 0;
-                p.collapse.events.push({ season:p.quarter, nationId:war.adversaryId, retaliated:true, killed });
-                if (window.PresidencySystem) window.PresidencySystem._updateStabilityTier(p);
-                p.approval = 15;
-                p.legacyPoints -= 80;
-                p.log.push(`Nuclear exchange with ${adversary.name}; ${killed} million Americans killed. Government continuity is in doubt.`);
-                if (p.population <= 0) { p.over = true; p.legacy = window.PresidencySystem.computeLegacy(); }
-                return { war, nuclear: true, killed, continues:!p.over };
+                return window.WorldSystem.resolveNuclear(war.adversaryId,true);
             }
         }
 
         // Battle math: power ratio pushes momentum; posture trades risk for swing
         const ratioEdge = (war.ourStrength / (war.ourStrength + war.enemyStrength)) - 0.5; // −0.5..+0.5
         let swing = ratioEdge * 26 + (window.GameEngine.random() - 0.5) * 22;
-        if (posture === 'escalate') { swing += 10; war.casualties += 3 + Math.floor(window.GameEngine.random() * 4); }
-        else if (posture === 'hold') { swing += ratioEdge * 8; war.casualties += 1 + Math.floor(window.GameEngine.random() * 2); }
+        if (posture === 'escalate') { swing += 10; war.casualties += (3 + Math.floor(window.GameEngine.random() * 4))/3; }
+        else if (posture === 'hold') { swing += ratioEdge * 8; war.casualties += (1 + Math.floor(window.GameEngine.random() * 2))/3; }
+        swing/=3; war.casualties=Math.round(war.casualties*10)/10;
         war.momentum = Math.max(0, Math.min(100, Math.round(war.momentum + swing)));
 
         // Approval tracks the front and the coffins
-        const approvalShift = Math.round((swing) * 0.25) - (posture === 'escalate' ? 2 : 1);
+        const approvalShift = swing * 0.25 - (posture === 'escalate' ? 2 : 1)/3;
         p.approval = Math.max(15, Math.min(80, p.approval + approvalShift));
         this._drain(p, posture);
-        const fiscalCost = posture === 'escalate' ? 2.5 : 1.2;
+        const fiscalCost = (posture === 'escalate' ? 2.5 : 1.2)/3;
         war.cost = Math.round((war.cost + fiscalCost) * 10) / 10;
         if (p.fiscal) {
             p.fiscal.debt = Math.round((p.fiscal.debt + fiscalCost) * 10) / 10;
-            if (window.CareerSystem) window.CareerSystem.fiscalEntry(`War with ${war.adversary.name}`, fiscalCost, `${posture} posture; quarter ${war.round}`);
+            if (window.CareerSystem) window.CareerSystem.fiscalEntry(`War with ${war.adversary.name}`, fiscalCost, `${posture} posture; month ${war.round}`);
         }
 
         // Decisive outcomes
         if (war.momentum >= 90) return this._settle(war, p, 'victory');
         if (war.momentum <= 10) return this._settle(war, p, 'defeat');
 
-        war.log.push(`Quarter ${war.round}: ${posture} — front ${swing >= 0 ? 'advances' : 'slips'} (momentum ${war.momentum}).`);
+        war.log.push(`Month ${war.round}: ${posture} — front ${swing >= 0 ? 'advances' : 'slips'} (momentum ${war.momentum}).`);
         return { war, ongoing: true, swing };
     },
 
@@ -223,8 +208,10 @@ window.WarSystem = {
     },
 
     _settle(war, p, outcome, negotiated) {
+        if(war.resolved || !['victory','peace','quagmire','defeat','withdrawal'].includes(outcome)) return null;
         war.resolved = true;
         war.outcome = outcome;
+        war.ended = p.month || p.quarter;
         const adversary = this.getAdversary(war.adversaryId);
         const enemyWeight = adversary.strength / 90; // beating a superpower is worth far more
         const table = {
@@ -232,6 +219,7 @@ window.WarSystem = {
             peace:    { approval: 3,  legacy: Math.round(6 + enemyWeight * 4), label: 'NEGOTIATED PEACE' },
             quagmire: { approval: -8, legacy: Math.round(-6 - enemyWeight * 6), label: 'QUAGMIRE' },
             defeat:   { approval: Math.round(-16 - enemyWeight * 10), legacy: Math.round(-20 - enemyWeight * 20), label: 'DEFEAT' },
+            withdrawal: { approval:-5, legacy:-8, label:'ORDERED WITHDRAWAL' },
         };
         const r = table[outcome];
         p.approval = Math.max(15, Math.min(85, p.approval + r.approval));
@@ -240,13 +228,13 @@ window.WarSystem = {
         war.resultApproval = r.approval;
         war.resultLegacy = r.legacy;
         p.warLog = p.warLog || [];
-        p.warLog.push({ adversaryId:war.adversaryId, adversary: adversary.name, outcome, label: r.label, round: war.round, casualties: war.casualties, cost:war.cost, authorization:war.authorization, objective:war.objective, initiatedByEnemy:war.initiatedByEnemy });
+        p.warLog.push({ id:war.id,started:war.started,term:war.term,adversaryId:war.adversaryId, adversary: adversary.name, outcome, label: r.label, round: war.round, casualties: war.casualties, cost:war.cost, authorization:war.authorization, objective:war.objective, initiatedByEnemy:war.initiatedByEnemy });
         if (window.CareerSystem) {
             const career = window.CareerSystem.ensure(window.GameEngine.state);
-            career.wars.push({ adversaryId:war.adversaryId, adversary:adversary.name, outcome, casualties:war.casualties, cost:war.cost, authorization:war.authorization, objective:war.objective, initiatedByEnemy:war.initiatedByEnemy, term:p.term });
+            career.wars.push({ id:war.id,started:war.started,adversaryId:war.adversaryId, adversary:adversary.name, outcome, casualties:war.casualties, cost:war.cost, authorization:war.authorization, objective:war.objective, initiatedByEnemy:war.initiatedByEnemy, term:p.term });
             window.CareerSystem.record('war_outcome', career.wars[career.wars.length - 1]);
         }
-        p.log.push(`The ${adversary.name} war ends: ${r.label} (${war.round} quarters, ${war.casualties}k casualties).`);
+        p.log.push(`The ${adversary.name} war ends: ${r.label} (${war.round} months, ${war.casualties}k casualties).`);
         if (window.WorldSystem) {
             const world = window.WorldSystem.ensureState();
             const conflict = world && world.conflicts.find(c => c.adversaryId === war.adversaryId && !c.resolved);
@@ -258,15 +246,16 @@ window.WarSystem = {
 
     _drain(p, posture) {
         // Wars are expensive: capital and growth bleed while the fight is on
-        p.capital = Math.max(0, p.capital - (posture === 'escalate' ? 2 : 1));
-        p.economy.gdp = Math.round((p.economy.gdp - (posture === 'escalate' ? 0.3 : 0.15)) * 10) / 10;
-        p.economy.inflation = Math.round((p.economy.inflation + 0.2) * 10) / 10;
+        p.capital = Math.max(0, p.capital - (posture === 'escalate' ? 2 : 1)/3);
+        p.economy.gdp -= (posture === 'escalate' ? 0.3 : 0.15)/3;
+        p.economy.inflation += .2/3;
     },
 
     _cabinetMilitary() {
         // Strong SecDef + CIA make American forces punch harder (0.9–1.25×)
-        const posts = (window.GameEngine.state.transition && window.GameEngine.state.transition.posts) || {};
-        const vals = ['defense', 'cia'].map(id => posts[id] && posts[id].competence).filter(v => typeof v === 'number');
+        const gs=window.GameEngine.state;
+        const posts = gs.presidency?.administration?.members || gs.transition?.posts || {};
+        const vals = ['defense', 'cia'].map(id => posts[id] && (!posts[id].status||posts[id].status==='ACTIVE') ? posts[id].competence : null).filter(v => typeof v === 'number');
         if (!vals.length) return 1.0;
         const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
         return 0.9 + Math.max(0, Math.min(0.35, (avg - 60) / 100));
@@ -274,8 +263,9 @@ window.WarSystem = {
 
     _cabinetDiplomacy() {
         // Strong State/UN/NSA widen your coalition (adds up to ~18 to standing)
-        const posts = (window.GameEngine.state.transition && window.GameEngine.state.transition.posts) || {};
-        const vals = ['state', 'un', 'nsa'].map(id => posts[id] && posts[id].competence).filter(v => typeof v === 'number');
+        const gs=window.GameEngine.state;
+        const posts = gs.presidency?.administration?.members || gs.transition?.posts || {};
+        const vals = ['state', 'un', 'nsa'].map(id => posts[id] && (!posts[id].status||posts[id].status==='ACTIVE') ? posts[id].competence : null).filter(v => typeof v === 'number');
         if (!vals.length) return 0;
         const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
         return Math.max(0, Math.min(18, (avg - 70) / 2));

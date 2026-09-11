@@ -88,6 +88,11 @@ window.WorldSystem = {
                 p.world.nations[n.id] = { relation:n.lean, tension:n.lean < -50 ? 45 : n.lean < 0 ? 25 : 12, sanctions:0, deployed:false, aid:0, allied:!!n.treaty, intelligence:n.lean > 50 ? 90 : 62 };
             }
         });
+        if (p.war) {
+            const index=p.world.conflicts.findIndex(c=>c.adversaryId===p.war.adversaryId && !c.resolved);
+            if (index>=0) p.world.conflicts[index]=p.war;
+            else if (!p.war.resolved) p.world.conflicts.push(p.war);
+        }
         return p.world;
     },
 
@@ -96,7 +101,7 @@ window.WorldSystem = {
 
     recomputeDefcon(world) {
         const hostileDeployment = this.NATIONS.some(n => n.nuclear && world.nations[n.id].deployed && world.nations[n.id].relation < 0);
-        const activeNuclearWar = world.conflicts.some(c => !c.resolved && this.getNation(c.adversaryId).nuclear);
+        const activeNuclearWar = world.conflicts.some(c => !c.resolved && this.getNation(c.adversaryId)?.nuclear);
         world.defcon = activeNuclearWar && world.globalTension >= 82 ? 1
             : activeNuclearWar || world.globalTension >= 68 || hostileDeployment ? 2
             : world.globalTension >= 50 ? 3
@@ -119,6 +124,7 @@ window.WorldSystem = {
         } else if (type === 'aid') {
             state.aid += 1; state.relation = this.clamp(state.relation + 9, -100, 100);
             p.fiscal.debt = Math.round((p.fiscal.debt + 0.4) * 10) / 10;
+            window.CareerSystem?.fiscalEntry(`Aid to ${nation.name}`,.4,'Security and development assistance');
             summary = `A security and development package is approved for ${nation.name}.`;
         } else if (type === 'sanction') {
             state.sanctions += 1; state.relation = this.clamp(state.relation - 12, -100, 100);
@@ -175,16 +181,32 @@ window.WorldSystem = {
         const p = window.GameEngine.state.presidency;
         const world = this.ensureState();
         const nation = this.getNation(nationId);
-        if (!p || !world || !nation || !nation.nuclear || world.defcon > 2 || p.acted) return null;
+        if (!p || p.over || !world || !nation || !nation.nuclear || world.defcon > 2 || p.acted) return null;
+        return this.resolveNuclear(nationId,false);
+    },
+
+    resolveNuclear(nationId,initiatedByEnemy=false) {
+        const p=window.GameEngine.state.presidency,world=this.ensureState(),nation=this.getNation(nationId);
+        if(!p || p.over || !world || !nation?.nuclear) return null;
         const targetState = world.nations[nationId];
         const retaliationChance = this.clamp(0.45 + nation.strength / 200 + targetState.tension / 300, 0.55, 0.98);
-        const retaliated = window.GameEngine.random() < retaliationChance;
+        const retaliated = initiatedByEnemy || window.GameEngine.random() < retaliationChance;
         const killed = retaliated ? Math.round(38 + window.GameEngine.random() * 92) : Math.round(8 + window.GameEngine.random() * 18);
         p.population = Math.max(0, Math.round((p.population - killed) * 10) / 10);
         p.stability.score = this.clamp(p.stability.score - (retaliated ? 52 : 28), 0, 100);
         p.institutions.infrastructure = this.clamp(p.institutions.infrastructure - (retaliated ? 48 : 18), 0, 100);
         p.institutions.health = this.clamp(p.institutions.health - (retaliated ? 42 : 15), 0, 100);
         world.globalTension = 100; world.defcon = 1; world.nuclearExchanges += 1;
+        world.lastExchange={nationId,retaliated,initiatedByEnemy,killed,term:p.term,month:p.month};
+        const active=p.war&&!p.war.resolved&&p.war.adversaryId===nationId?p.war:null;
+        if(active) {active.resolved=true;active.outcome='nuclear';active.resultLabel='NUCLEAR EXCHANGE';active.log.push('Nuclear release ends the conventional mission.');}
+        const record={id:active?.id||`nuclear_${p.term}_${p.month}_${world.nuclearExchanges}`,adversaryId:nationId,
+            adversary:nation.name,term:p.term,started:active?.started||p.month,outcome:'nuclear',label:'NUCLEAR EXCHANGE',
+            casualties:active?.casualties||0,civilianDeaths:killed,cost:active?.cost||0,initiatedByEnemy,
+            objective:active?.objective||'Nuclear escalation',authorization:active?.authorization||(initiatedByEnemy?'EMERGENCY RESPONSE':'PRESIDENTIAL NUCLEAR ORDER')};
+        p.warLog.push({...record});
+        const career=window.CareerSystem.ensure(window.GameEngine.state);career.wars.push({...record});
+        window.CareerSystem.record('nuclear_exchange',record);
         p.collapse = p.collapse || { active:false, seasons:0, recovery:0, events:[] };
         p.collapse.active = p.population > 0;
         p.collapse.events.push({ season:p.quarter, nationId, retaliated, killed });
@@ -193,6 +215,6 @@ window.WorldSystem = {
         p.legacyPoints -= 80;
         p.log.push(`Nuclear exchange with ${nation.name}; ${killed} million Americans killed.`);
         if (p.population <= 0) { p.over = true; p.legacy = window.PresidencySystem.computeLegacy(); }
-        return { nation, retaliated, killed, population:p.population };
+        return { nation, retaliated, killed, population:p.population,war:active,nuclear:true,continues:!p.over };
     },
 };

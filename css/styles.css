@@ -3,6 +3,12 @@
    Dark Mode / Newsroom / Data Dashboard Aesthetic
    ═══════════════════════════════════════════════════════════════ */
 
+/* Bundled under the SIL Open Font License; no runtime font CDN. */
+@font-face {font-family:'Space Grotesk';src:url('../fonts/space-grotesk.ttf') format('truetype');font-weight:300 700;font-style:normal;font-display:swap;}
+@font-face {font-family:'IBM Plex Mono';src:url('../fonts/ibm-plex-mono-regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap;}
+@font-face {font-family:'IBM Plex Mono';src:url('../fonts/ibm-plex-mono-medium.ttf') format('truetype');font-weight:500;font-style:normal;font-display:swap;}
+@font-face {font-family:'IBM Plex Mono';src:url('../fonts/ibm-plex-mono-bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap;}
+
 /* ── CSS Variables ── */
 :root {
     --bg-primary: #0a0e17;
@@ -4659,8 +4665,64 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .crisis-sequel{padding:10px;border-left:3px solid var(--accent-gold);background:rgba(255,193,7,.08);color:var(--text-secondary)}
 /* Persistent, compact decision information. */
 .action-slots { white-space:nowrap; font-size:.8rem; color:var(--accent-yellow); }
+.candidate-comparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+.candidate-comparison img { width:90px; height:110px; object-fit:cover; border-radius:8px; }
+.candidate-card[hidden] { display:none!important; }
+.campaign-summary { margin-bottom:12px; border:1px solid var(--border-color); border-radius:8px; }
+.campaign-summary summary { padding:12px; cursor:pointer; color:var(--text-secondary); }
+.roster-search, .world-tools select { padding:10px; background:#101e30; color:#f5f7fa; border:1px solid #566477; border-radius:6px; }
+.world-tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px; }
+.world-map { aspect-ratio:2.4; min-height:260px; height:auto; }
+.world-map .continent { stroke-width:.12; fill:#254252; }
+.world-node .world-country-label, .world-node .world-flag { display:none; }
+.world-node.selected .world-country-label, .world-node:focus .world-country-label, .world-node:hover .world-country-label { display:block; font-size:1.25px; paint-order:stroke; stroke:#07121e; stroke-width:.5px; }
+.world-node { outline:none; }
+.world-node:focus circle { stroke:#ffe782; stroke-width:.55; }
+.world-node circle { stroke-width:.2; }
+.breaking-news-label { flex-shrink:0; position:relative; z-index:2; background:#aa1429; }
+@media(max-width:768px) {
+    button, [role=button], select { min-height:44px; }
+    .top-bar-right { flex-wrap:wrap; gap:6px; }
+    .top-bar-right .cash-display { display:block!important; font-size:1rem; }
+    .game-top-bar { display:flex; flex-wrap:wrap; position:sticky; top:0; z-index:30; }
+    .top-bar-left { flex:1; min-width:160px; }
+    .top-bar-center { display:none; }
+    .pres-stats .pres-stat { display:none; }
+    .pres-stats .pres-stat:nth-child(1), .pres-stats .pres-stat:nth-child(6), .pres-stats .pres-stat:nth-child(9), .pres-stats .pres-stat:nth-child(11) { display:block; }
+    .pres-stats { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .pres-stat-val { font-size:1.15rem; }
+    .pres-header .cab-fx-row, .pres-header>.fiscal-ledger-strip:not(.budget) { display:none; }
+    .candidate-comparison { grid-template-columns:1fr; }
+    .world-tools select { width:100%; }
+}
 .update-ready { position:fixed; bottom:76px; right:12px; z-index:11000; background:#173b56; box-shadow:0 4px 20px #0008; }
+.candidate-hook {font-size:.76rem;line-height:1.5;color:#b8cbdc;min-height:5em;}
+.candidate-card {cursor:default;}
+.candidate-card .btn {margin:4px;min-height:44px;}
+.seed-control {display:flex;gap:12px;align-items:center;justify-content:center;padding:18px;flex-wrap:wrap;}
+.seed-control input {background:#152133;color:white;border:1px solid #718499;border-radius:6px;padding:12px;max-width:100%;}
+.national-metrics,.career-archive {padding:12px;margin:12px 0;text-align:left;border:1px solid #36465a;border-radius:8px;}
+.national-metrics summary,.career-archive summary {cursor:pointer;min-height:32px;line-height:2;}
+.national-metrics-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;font-size:.85rem;padding:10px 0;}
+.signature-requirement {font-size:.8rem;line-height:1.5;color:#bbcbdc;padding:8px 12px;}
+.table-scroll {overflow:auto;max-width:100%;}
+.career-archive table {border-collapse:collapse;width:100%;font-size:.8rem;}
+.career-archive th,.career-archive td {padding:10px;border-bottom:1px solid #36465a;white-space:nowrap;text-align:left;}
+.career-archive p {font-size:.85rem;line-height:1.6;}
 button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline:3px solid #f8cf55; outline-offset:3px; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; scroll-behavior:auto!important; }
 }
+/* A legible 2D exchange, with a static equivalent for reduced-motion users. */
+.exchange-map { display:block; width:100%; background:#101b2b; border-radius:10px; margin:16px 0; }
+.exchange-path { stroke-dasharray:140; animation:exchange-route 3s ease-out both; }
+.exchange-path.retaliation { animation-delay:.8s; }
+.pres-advance-date {display:none;}
+.map-navigation small {color:var(--text-secondary);font-size:.7rem;line-height:1.5;}
+@media(max-width:768px) {
+    #screen-presidency .pres-shell {padding-bottom:92px;}
+    #screen-presidency .pres-end-quarter {position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:16px;right:16px;width:calc(100% - 32px);z-index:40;margin:0;box-shadow:0 0 24px #000b;font-size:1rem;}
+    .pres-advance-date {display:block;font-size:.65rem;font-weight:500;letter-spacing:.08em;margin-bottom:3px;}
+}
+@keyframes exchange-route { from {stroke-dashoffset:140} to {stroke-dashoffset:0} }
+@media (prefers-reduced-motion:reduce) { .exchange-path {animation:none;} }

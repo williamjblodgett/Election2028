@@ -100,7 +100,7 @@ window.GameUI = {
             try {
                 const data = JSON.parse(save);
                 btn.classList.remove('hidden');
-                btn.textContent = `CONTINUE (Week ${data.week})`;
+                btn.textContent = data.presidency && data.flow?.screen!=='game'?`CONTINUE (Term ${data.presidency.term||1}, Month ${data.presidency.month||1})`:`CONTINUE (Week ${data.week})`;
             } catch(e) {
                 btn.classList.add('hidden');
             }
@@ -124,13 +124,15 @@ window.GameUI = {
             this.weeklyEvents=gs.flow?.weeklyEvents || [];
             this.pendingEventChoices=gs.flow?.pendingEventChoices || {};
             this._lastResults=gs.electionResult;
+            if(gs.flow?.pendingWeek) {this.resumeProcessedWeek(gs.flow.pendingWeek);return;}
             if (gs.flow?.screen==='cabinet' || (gs.transition&&!gs.transition.complete)) {
                 this.showScreen('election-night'); this.renderTransition(); return;
             }
             if (gs.flow?.screen==='debate' && gs.flow.debate) {
                 this.debateCtx=gs.flow.debate; this.debateCtx.advanceTimer=null;
                 this.showScreen('debate'); this.renderDebateStage();
-                if (this.debateCtx.answered) this.nextDebateQuestion(); else this.renderDebateExchange();
+                if (this.debateCtx.completed) this.showDebateResults();
+                else if (this.debateCtx.answered) this.renderAnsweredDebateQuestion(); else this.renderDebateExchange();
                 return;
             }
             if (gs.presidency && (!gs.isIncumbentRun || gs.presidency.over || gs.flow?.screen==='presidency')) {
@@ -142,6 +144,12 @@ window.GameUI = {
             if (gs.electionResult) { this.startElectionNight(); return; }
             this.showScreen('game');
             this.renderGameScreen();
+            if(gs.interviews?.active) {
+                this._interviewVenue=window.InterviewSystem.getVenues(gs.playerParty).find(v=>v.id===gs.interviews.active.venueId);
+                this._interviewQ=gs.interviews.active.answers.length;
+                if(this._interviewQ<gs.interviews.active.questions.length) this.renderInterviewQuestion();
+                else this.finishInterview();
+            } else if(gs.narrative?.pending) this.showNarrative(gs.narrative.pending);
             this.showToast(`Campaign resumed — ${window.GameEngine.getWeekLabel()}`, 'success');
         } catch(e) {
             this.showToast('Failed to load save', 'error');
@@ -170,6 +178,7 @@ window.GameUI = {
             target.classList.remove('hidden');
             this.currentScreen = screenId;
         }
+        document.getElementById('breaking-news-ticker')?.classList.toggle('hidden',['title','select','presidency','situation'].includes(screenId));
         // Show/hide mobile nav
         const nav = document.getElementById('mobile-nav');
         if (nav) {
@@ -234,7 +243,23 @@ window.GameUI = {
     // TITLE SCREEN
     // ═══════════════════════════════════════════════
     renderTitleScreen() {
-        // Title screen is static HTML, nothing to render dynamically
+        document.getElementById('rematch-btn')?.classList.toggle('hidden',!localStorage.getItem('election2028_matchup'));
+    },
+
+    quickMatch(rematch=false) {
+        let saved=null;try{saved=rematch?JSON.parse(localStorage.getItem('election2028_matchup')):null;}catch(_){}
+        this.startNewGame();
+        if(saved) Object.assign(this,saved);
+        else {
+            this.playerParty=Math.random()<.5?'democrat':'republican';
+            this.selectedDemocrat=window.CandidateData.democrats[Math.floor(Math.random()*window.CandidateData.democrats.length)];
+            this.selectedRepublican=window.CandidateData.republicans[Math.floor(Math.random()*window.CandidateData.republicans.length)];
+            this.selectedDifficulty='arcade';
+            this.campaignPerks={warChest:2,groundSwell:2,mediaDarling:1,partyMachine:2,digitalArmy:1,teflonCandidate:0};
+            this.selectedVP=window.VPData.chooseRunningMate(this.getPlayerCandidateSelection());
+        }
+        this.setupStep=8;this.renderSetupStep();
+        this.showToast('Matchup ready. Review the platform or go back to change the ticket.','info');
     },
 
     startNewGame() {
@@ -247,6 +272,7 @@ window.GameUI = {
         this.selectedMode = 'campaign';
         this.campaignPerks = { warChest: 0, groundSwell: 0, mediaDarling: 0, partyMachine: 0, digitalArmy: 0, teflonCandidate: 0 };
         this.setupPlatform = null;
+        this.scenarioSeed='';this._pendingWeek=null;this.weeklyEvents=[];this.pendingEventChoices={};this.debateCtx=null;
         this.showScreen('select');
         this.renderSetupStep();
     },
@@ -277,22 +303,12 @@ window.GameUI = {
                 subtitle.textContent = 'Define the shape of the race before the first ad goes up.';
                 stageContent = `
                     <div class="mode-cards">
-                        <div class="mode-card ${this.selectedMode === 'campaign' ? 'selected' : ''}" onclick="GameUI.selectMode('campaign')">
+                        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="mode-card ${this.selectedMode === 'campaign' ? 'selected' : ''}" onclick="GameUI.selectMode('campaign')">
                             <div class="mode-icon">🎯</div>
                             <h4>Campaign Mode</h4>
                             <p>Play as one candidate against an AI opponent. Full strategic control.</p>
                         </div>
-                        <div class="mode-card ${this.selectedMode === 'versus' ? 'selected' : ''}" onclick="GameUI.selectMode('versus')">
-                            <div class="mode-icon">⚔️</div>
-                            <h4>Versus Mode</h4>
-                            <p>Control one candidate while the AI controls the other. Head-to-head.</p>
-                        </div>
-                        <div class="mode-card ${this.selectedMode === 'simulation' ? 'selected' : ''}" onclick="GameUI.selectMode('simulation')">
-                            <div class="mode-icon">📊</div>
-                            <h4>Simulation Mode</h4>
-                            <p>Choose both candidates and watch the AI run the race. Pure chaos.</p>
-                        </div>
-                    </div>`;
+                    </div><p class="text-muted" style="text-align:center;margin-top:16px;">Modern, historical, and custom matchups all use player-versus-AI campaign play. Spectator autoplay and local multiplayer are not included in this release.</p>`;
                 break;
 
             case 2: // Party Selection
@@ -300,12 +316,12 @@ window.GameUI = {
                 subtitle.textContent = 'Lock in the coalition you want to build.';
                 stageContent = `
                     <div class="mode-cards" style="max-width:500px;margin:0 auto;">
-                        <div class="mode-card ${this.playerParty === 'democrat' ? 'selected' : ''}" onclick="GameUI.selectParty('democrat')" style="border-color:${this.playerParty === 'democrat' ? 'var(--dem-blue)' : 'var(--border-color)'}">
+                        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="mode-card ${this.playerParty === 'democrat' ? 'selected' : ''}" onclick="GameUI.selectParty('democrat')" style="border-color:${this.playerParty === 'democrat' ? 'var(--dem-blue)' : 'var(--border-color)'}">
                             <div class="mode-icon">🔵</div>
                             <h4 class="text-dem">Democrat</h4>
                             <p>Build a coalition of the diverse, the young, and the suburban to take back the White House.</p>
                         </div>
-                        <div class="mode-card ${this.playerParty === 'republican' ? 'selected' : ''}" onclick="GameUI.selectParty('republican')" style="border-color:${this.playerParty === 'republican' ? 'var(--rep-red)' : 'var(--border-color)'}">
+                        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="mode-card ${this.playerParty === 'republican' ? 'selected' : ''}" onclick="GameUI.selectParty('republican')" style="border-color:${this.playerParty === 'republican' ? 'var(--rep-red)' : 'var(--border-color)'}">
                             <div class="mode-icon">🔴</div>
                             <h4 class="text-rep">Republican</h4>
                             <p>Rally the base, win the heartland, and fight through the media to claim victory.</p>
@@ -365,23 +381,23 @@ window.GameUI = {
                 subtitle.textContent = 'Decide how punishing the campaign environment will be.';
                 stageContent = `
                     <div class="difficulty-options">
-                        <div class="difficulty-card ${this.selectedDifficulty === 'arcade' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('arcade')">
+                        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="difficulty-card ${this.selectedDifficulty === 'arcade' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('arcade')">
                             <h4>🎮 Arcade</h4>
                             <p>More money, fewer scandals, forgiving AI. Learn the ropes.</p>
                         </div>
-                        <div class="difficulty-card ${this.selectedDifficulty === 'realistic' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('realistic')">
+                        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="difficulty-card ${this.selectedDifficulty === 'realistic' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('realistic')">
                             <h4>📰 Realistic</h4>
-                            <p>Historically accurate dynamics. The real campaign experience.</p>
+                            <p>Competitive simulated dynamics and a resource-constrained opponent.</p>
                         </div>
-                        <div class="difficulty-card ${this.selectedDifficulty === 'chaos' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('chaos')">
+                        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="difficulty-card ${this.selectedDifficulty === 'chaos' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('chaos')">
                             <h4>🌪️ Chaos</h4>
                             <p>Double events, higher scandal impact, maximum volatility. Buckle up.</p>
                         </div>
-                        <div class="difficulty-card ${this.selectedDifficulty === 'iron' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('iron')">
+                        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="difficulty-card ${this.selectedDifficulty === 'iron' ? 'selected' : ''}" onclick="GameUI.selectDifficulty('iron')">
                             <h4>⛓️ Iron Campaign</h4>
-                            <p>No saves. Permanent consequences. Brutal media. One shot at history.</p>
+                            <p>Automatic continuity checkpoint only. No manual rollback. Brutal media.</p>
                         </div>
-                    </div>`;
+                    </div><label class="seed-control">Optional scenario seed <input type="number" min="1" max="4294967295" id="scenario-seed" value="${Number(this.scenarioSeed)||''}" oninput="GameUI.scenarioSeed=this.value" placeholder="Random world"></label>`;
                 break;
 
             case 7: // Campaign Perks (point allocation)
@@ -424,11 +440,11 @@ window.GameUI = {
                                     </div>
                                     <div class="perk-desc">${p.desc}</div>
                                     <div class="perk-controls">
-                                        <button class="perk-btn" onclick="GameUI.adjustPerk('${p.key}', -1)" ${p.val <= 0 ? 'disabled' : ''}>−</button>
+                                        <button class="perk-btn" aria-label="Decrease ${p.name}" onclick="GameUI.adjustPerk('${p.key}', -1)" ${p.val <= 0 ? 'disabled' : ''}>−</button>
                                         <div class="perk-pips">
                                             ${[1,2,3].map(i => `<div class="perk-pip ${i <= p.val ? 'filled' : ''}"></div>`).join('')}
                                         </div>
-                                        <button class="perk-btn" onclick="GameUI.adjustPerk('${p.key}', 1)" ${p.val >= 3 || remaining <= 0 ? 'disabled' : ''}>+</button>
+                                        <button class="perk-btn" aria-label="Increase ${p.name}" onclick="GameUI.adjustPerk('${p.key}', 1)" ${p.val >= 3 || remaining <= 0 ? 'disabled' : ''}>+</button>
                                     </div>
                                 </div>
                             `).join('')}
@@ -473,7 +489,7 @@ window.GameUI = {
                 </div>
                 <div class="platform-stops">
                     ${stops.map(v => `
-                        <button class="platform-stop ${stance === v ? 'selected' : ''}" onclick="${handler}('${issue.key}', ${v})">
+                        <button aria-label="${issue.label}: ${v===0?'centrist':Math.abs(v)+' steps toward '+(v<0?issue.left:issue.right)}" aria-pressed="${stance===v}" class="platform-stop ${stance === v ? 'selected' : ''}" onclick="${handler}('${issue.key}', ${v})">
                             ${v === 0 ? '◈' : ''}
                         </button>`).join('')}
                 </div>
@@ -600,7 +616,7 @@ window.GameUI = {
         const tag = option.source === 'wildcard' ? (option.wildcardLabel || 'WILDCARD') : 'SHORTLIST';
         const swingTargets = (option.regionalTargets || []).length ? option.regionalTargets.join(', ') : 'National validator';
         return `
-            <div class="candidate-card vp-card ${isSelected ? `selected ${partyClass}` : ''}" onclick="GameUI.selectVPOption('${option.id}')">
+            <div role="button" tabindex="0" aria-pressed="${!!isSelected}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();GameUI.selectVPOption('${option.id}')}" class="candidate-card vp-card ${isSelected ? `selected ${partyClass}` : ''}" onclick="GameUI.selectVPOption('${option.id}')">
                 <div class="wildcard-badge">${tag}</div>
                 <div class="candidate-portrait">${window.Portraits.html(option)}</div>
                 <div class="candidate-name">${option.name}</div>
@@ -636,7 +652,7 @@ window.GameUI = {
         const partyClass = candidate.party === 'Democrat' ? 'selected-dem' : 'selected-rep';
         const barClass = candidate.party === 'Democrat' ? 'dem' : 'rep';
         return `
-            <div class="candidate-card ${isSelected ? 'selected ' + partyClass : ''}" onclick="GameUI.selectCandidate('${candidate.id}', ${!!isOpponent})">
+            <div class="candidate-card ${isSelected ? 'selected ' + partyClass : ''}">
                 ${candidate.isWildcard ? '<div class="wildcard-badge">WILDCARD</div>' : ''}
                 <div class="candidate-portrait">${window.Portraits.html(candidate)}</div>
                 <div class="candidate-name">${candidate.name}</div>
@@ -645,12 +661,10 @@ window.GameUI = {
                     ${this.createStatBar('Charisma', candidate.charisma, barClass)}
                     ${this.createStatBar('Debate', candidate.debate, barClass)}
                     ${this.createStatBar('Fundraising', candidate.fundraising, barClass)}
-                    ${this.createStatBar('Discipline', candidate.discipline, barClass)}
-                    ${this.createStatBar('Media', candidate.mediaHandling, barClass)}
-                    ${this.createStatBar('Base Energy', candidate.baseEnthusiasm, barClass)}
-                    ${this.createStatBar('Crossover', candidate.crossoverAppeal, barClass)}
-                    ${this.createStatBar('Scandal Armor', candidate.scandalResistance, barClass)}
                 </div>
+                <p class="candidate-hook">${window.CandidateHooks.describe(candidate)}</p>
+                <button class="btn btn-sm btn-primary" aria-label="Select ${candidate.name}" aria-pressed="${!!isSelected}" onclick="GameUI.selectCandidate('${candidate.id}', ${!!isOpponent})">${isSelected?'SELECTED':'SELECT'}</button>
+                <button class="btn btn-sm" onclick="GameUI.compareCandidate('${candidate.id}')">COMPARE / DETAILS</button>
                 <div class="candidate-slogan">"${candidate.slogan}"</div>
             </div>`;
     },
@@ -664,6 +678,18 @@ window.GameUI = {
     },
 
     rosterTab: 'modern',
+
+    compareCandidate(id) {
+        this.comparisonIds=[...(this.comparisonIds || []).filter(x=>x!==id),id].slice(-2);
+        const pool=[...window.CandidateData.democrats,...window.CandidateData.republicans,...(window.LegendData?.democrats||[]),...(window.LegendData?.republicans||[]),...(window.CandidateData.custom||[])];
+        const selected=this.comparisonIds.map(key=>pool.find(c=>c.id===key)).filter(Boolean);
+        this.showModal('CANDIDATE COMPARISON',`<p>Select Compare on another candidate to see two side by side. Ratings are game abstractions.</p><div class="candidate-comparison">${selected.map(c=>`<section><h3>${c.name}</h3>${window.Portraits.html(c)}${[['Charisma','charisma'],['Debate','debate'],['Fundraising','fundraising'],['Discipline','discipline'],['Media','mediaHandling'],['Base enthusiasm','baseEnthusiasm'],['Crossover appeal','crossoverAppeal'],['Scandal resistance','scandalResistance']].map(([label,key])=>this.createStatBar(label,c[key],'green')).join('')}</section>`).join('')}</div>`);
+    },
+
+    filterRoster(value) {
+        const query=value.trim().toLowerCase();
+        document.querySelectorAll('#setup-content .candidate-grid .candidate-card').forEach(card=>card.hidden=!card.textContent.toLowerCase().includes(query));
+    },
 
     // ═══════════════════════════════════════════════
     // CREATE-A-CANDIDATE
@@ -714,21 +740,21 @@ window.GameUI = {
         const used = Object.values(b.stats).reduce((a, v) => a + v, 0);
         const remaining = this.BUILDER_POINTS - used;
         const swatches = (list, current, handler) => list.map(v =>
-            `<button class="builder-swatch ${current === v ? 'selected' : ''}" style="background:#${v.toString(16).padStart(6, '0')};" onclick="${handler}(${v})"></button>`).join('');
+            `<button class="builder-swatch ${current === v ? 'selected' : ''}" aria-label="${handler.includes('skin')?'Skin':'Hair'} color ${list.indexOf(v)+1}" aria-pressed="${current===v}" style="background:#${v.toString(16).padStart(6, '0')};" onclick="${handler}(${v})"></button>`).join('');
 
         const html = `
             <div class="builder-layout">
                 <div class="builder-preview-col">
                     <div id="builder-preview" class="builder-preview"></div>
-                    <div class="builder-preview-note">Live 3D preview</div>
+                    <div class="builder-preview-note">Live 2D preview</div>
                 </div>
                 <div class="builder-form-col">
                     <div class="builder-row">
-                        <input id="builder-name" class="builder-input" placeholder="Candidate name" value="${b.name}" oninput="GameUI.builderState.name = this.value" maxlength="30">
-                        <input id="builder-title" class="builder-input" placeholder="Title" value="${b.title}" oninput="GameUI.builderState.title = this.value" maxlength="40">
+                        <input id="builder-name" class="builder-input" aria-label="Candidate name" placeholder="Candidate name" value="${this.escapeHtml(b.name)}" oninput="GameUI.builderState.name = this.value" maxlength="30">
+                        <input id="builder-title" class="builder-input" aria-label="Candidate title" placeholder="Title" value="${this.escapeHtml(b.title)}" oninput="GameUI.builderState.title = this.value" maxlength="40">
                     </div>
                     <div class="builder-row">
-                        <select class="builder-input" onchange="GameUI.builderState.homeState = this.value">
+                        <select class="builder-input" aria-label="Candidate home state" onchange="GameUI.builderState.homeState = this.value">
                             ${window.StateData.map(s => `<option ${b.homeState === s.name ? 'selected' : ''}>${s.name}</option>`).join('')}
                         </select>
                         <div class="builder-emoji-current" title="Campaign emblem">${b.portraitEmoji}</div>
@@ -753,9 +779,9 @@ window.GameUI = {
                     ${this.BUILDER_STATS.map(st => `
                         <div class="builder-stat-row">
                             <span class="builder-mini-label">${st.label}</span>
-                            <button class="perk-btn" onclick="GameUI.adjustBuilderStat('${st.key}', -5)" ${b.stats[st.key] <= 0 ? 'disabled' : ''}>−</button>
+                            <button class="perk-btn" aria-label="Decrease ${st.label}" onclick="GameUI.adjustBuilderStat('${st.key}', -5)" ${b.stats[st.key] <= 0 ? 'disabled' : ''}>−</button>
                             <div class="builder-pips">${[5, 10, 15, 20, 25].map(v => `<div class="perk-pip ${b.stats[st.key] >= v ? 'filled' : ''}"></div>`).join('')}</div>
-                            <button class="perk-btn" onclick="GameUI.adjustBuilderStat('${st.key}', 5)" ${b.stats[st.key] >= 25 || remaining < 5 ? 'disabled' : ''}>+</button>
+                            <button class="perk-btn" aria-label="Increase ${st.label}" onclick="GameUI.adjustBuilderStat('${st.key}', 5)" ${b.stats[st.key] >= 25 || remaining < 5 ? 'disabled' : ''}>+</button>
                             <span class="builder-stat-val">${40 + b.stats[st.key]}</span>
                         </div>`).join('')}
                     <div class="builder-row">
@@ -893,6 +919,7 @@ window.GameUI = {
             <div class="roster-tabs">
                 ${tabs.map(t => `<button class="roster-tab ${this.rosterTab === t.id ? 'active' : ''}" onclick="GameUI.setRosterTab('${t.id}')">${t.label}</button>`).join('')}
             </div>
+            <label for="roster-search">Find a politician</label><input id="roster-search" class="roster-search" type="search" placeholder="Name, title, or slogan" oninput="GameUI.filterRoster(this.value)">
             <div class="candidate-grid">${createCard}${cards}</div>${emptyNote}
             ${this.rosterTab === 'custom' && pool.length ? `
             <div class="custom-manage-row">
@@ -913,6 +940,9 @@ window.GameUI = {
         ];
         const candidate = allCandidates.find(c => c.id === candidateId);
         if (!candidate) return;
+        if(isOpponent && window.People.key(candidate)===window.People.key(this.getPlayerCandidateSelection())) {
+            this.showToast('Choose a different person for the opposing ticket.','warning');return;
+        }
 
         if (isOpponent) {
             if (candidate.party === 'Democrat') this.selectedDemocrat = candidate;
@@ -964,9 +994,8 @@ window.GameUI = {
         const playerCand = this.getPlayerCandidateSelection();
         const oppCand = this.getOpponentCandidateSelection();
         const playerVP = this.selectedVP;
+        window.GameEngine.initGame(playerCand, oppCand, this.selectedMode, this.selectedDifficulty,this.scenarioSeed);
         const opponentVP = window.VPData.chooseRunningMate(oppCand);
-
-        window.GameEngine.initGame(playerCand, oppCand, this.selectedMode, this.selectedDifficulty);
         window.GameEngine.assignRunningMates(playerVP, opponentVP);
         if (this.setupPlatform) window.GameEngine.state.platform = { ...this.setupPlatform };
 
@@ -977,9 +1006,7 @@ window.GameUI = {
 
         if (perks.warChest > 0) {
             const bonus = perks.warChest * 1500000;
-            f.cashOnHand += bonus;
-            f.totalRaised += bonus;
-            c.cash = f.cashOnHand;
+            window.CampaignFinance.post(bonus,'party_launch_support');
         }
         if (perks.groundSwell > 0) {
             c.enthusiasm += perks.groundSwell * 5;
@@ -1001,6 +1028,8 @@ window.GameUI = {
 
         this.showScreen('game');
         this.renderGameScreen();
+        localStorage.setItem('election2028_matchup',JSON.stringify({selectedDemocrat:this.selectedDemocrat,selectedRepublican:this.selectedRepublican,selectedVP:this.selectedVP,playerParty:this.playerParty,selectedDifficulty:this.selectedDifficulty,selectedMode:this.selectedMode,campaignPerks:this.campaignPerks,setupPlatform:this.setupPlatform}));
+        this.autoSave();
         this.showToast(`Campaign launched! ${playerCand.name} / ${playerVP ? playerVP.name : 'TBD'} is on the ballot.`, 'success');
     },
 
@@ -1044,9 +1073,9 @@ window.GameUI = {
             <div class="top-bar-center">
                 <div class="polling-pill polling-pill-large">
                     <span class="topbar-kicker">National</span>
-                    <span style="color:${pColor}">You ${Math.round(gs.campaign.nationalPolling)}%</span>
+                    <span style="color:${pColor}">You ${Math.round(window.GameEngine.calculateNationalPolling(true))}%</span>
                     <span class="text-muted">vs</span>
-                    <span style="color:${oColor}">Opp ${Math.round(gs.opponent.nationalPolling)}%</span>
+                    <span style="color:${oColor}">Opp ${Math.round(window.GameEngine.calculateNationalPolling(true,'opponent'))}%</span>
                 </div>
                 ${gs.phase === 'primary' && gs.primary ? `
                 <div class="polling-pill">
@@ -1078,6 +1107,7 @@ window.GameUI = {
             <div class="top-bar-right">
                 <div class="cash-display">$${this.formatMoney(gs.finances.cashOnHand)}</div>
                 <span class="action-slots">${3-(gs.commandState?.week===gs.week?gs.commandState.used:0)}/3 actions</span>
+                ${gs.concurrentCampaign?'<button class="btn btn-sm" onclick="GameUI.openGoverning()">GOVERN</button>':''}
                 <div class="momentum-display ${momClass}">
                     ${momIcon} <span>${Math.round(Math.abs(gs.campaign.momentum))}</span>
                 </div>
@@ -1087,10 +1117,12 @@ window.GameUI = {
     },
 
     renderActionPanel() {
+        const gs=window.GameEngine.state;
         const panel = document.getElementById('game-left-panel');
         panel.innerHTML = `
             <div class="panel-section">
                 <div class="panel-section-title">Campaign</div>
+                <button class="btn action-btn" onclick="GameUI.useCandidateMove()" ${gs.hookUsed?'disabled':''}><span class="action-icon">⭐</span><span class="action-copy"><span class="action-label">${window.CandidateHooks.get(gs.playerCandidate).name}</span><span class="action-desc">${window.CandidateHooks.describe(gs.playerCandidate)}</span></span></button>
                 <button class="btn action-btn" onclick="GameUI.showVisitModal()">
                     <span class="action-icon">✈️</span>
                     <span class="action-copy"><span class="action-label">Visit State</span><span class="action-desc">Move the race in the closest battlegrounds.</span></span>
@@ -1118,7 +1150,7 @@ window.GameUI = {
                 </button>` : `
                 <button class="btn action-btn" disabled style="opacity:0.55;">
                     <span class="action-icon">📺</span>
-                    <span class="action-copy"><span class="action-label">TV Interview</span><span class="action-desc">Bookers need ${window.InterviewSystem ? window.InterviewSystem.weeksUntilAvailable() : 1} more week(s) before the next sit-down.</span></span>
+                    <span class="action-copy"><span class="action-label">TV Interview</span><span class="action-desc">Requires a free action, a fresh question set, and a two-week booking interval.</span></span>
                 </button>`}
             </div>
             <div class="panel-section">
@@ -1206,7 +1238,7 @@ window.GameUI = {
             return `<div class="hq-staff-card"><div class="hq-card-icon">${def.icon}</div><div class="hq-staff-main"><span>${def.label}</span>${def.candidates.map(c => `<div class="staff-candidate"><div><strong>${c.name}</strong><small>${c.trait} · Skill ${c.skill}<br>${c.effect}</small></div><button class="btn btn-sm" ${gs.finances.cashOnHand < c.hire ? 'disabled' : ''} onclick="GameUI.hireCampaignStaff('${role}','${c.id}')">HIRE ${CD.money(c.hire)}</button></div>`).join('')}</div></div>`;
         }).join('');
         const battlegrounds = window.StateData.filter(s => s.isBattleground).sort((a,b) => {
-            const pa = gs.statePolling[a.id], pb = gs.statePolling[b.id];
+            const pa = window.GameEngine.getObservedPolling()[a.id], pb = window.GameEngine.getObservedPolling()[b.id];
             return Math.abs(pa.player-pa.opponent)-Math.abs(pb.player-pb.opponent);
         }).slice(0,10);
         const offices = battlegrounds.map(st => {
@@ -1251,7 +1283,7 @@ window.GameUI = {
         // Summary cards
         const c = gs.campaign;
         center.innerHTML = `
-            <div class="summary-cards">
+            <details class="campaign-summary"><summary>Campaign indicators · Approval ${Math.round(c.approval)}% · Ground game ${Math.round(c.groundGame)}</summary><div class="summary-cards">
                 <div class="summary-card">
                     <div class="summary-card-header"><span class="summary-card-kicker">Approval</span><span class="summary-card-icon">👥</span></div>
                     <div class="sc-value ${c.approval > 50 ? 'text-green' : c.approval < 40 ? 'text-red' : ''}">${Math.round(c.approval)}%</div>
@@ -1284,6 +1316,8 @@ window.GameUI = {
                 </div>
             </div>
 
+            </details>
+            ${gs.phase==='primary'?this.buildPrimaryScoreboard(gs):''}
             <div class="tab-bar">
                 <button class="tab-btn ${this.activeTab === 'map' ? 'active' : ''}" onclick="GameUI.switchTab('map')">Electoral Map</button>
                 <button class="tab-btn ${this.activeTab === 'events' ? 'active' : ''}" onclick="GameUI.switchTab('events')">Events ${this.weeklyEvents.length > 0 ? '(' + this.weeklyEvents.length + ')' : ''}</button>
@@ -1330,7 +1364,7 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const map = window.GameEngine.calculateElectoralMap();
         const battlegroundCount = window.StateData.filter((state) => state.isBattleground).length;
-        const leaningCount = Object.values(gs.statePolling).filter((poll) => Math.abs(poll.player - poll.opponent) <= 6).length;
+        const leaningCount = Object.values(window.GameEngine.getObservedPolling()).filter((poll) => Math.abs(poll.player - poll.opponent) <= 6).length;
 
         // Build SVG map using real state shapes
         const svgMap = window.USMapPaths ? this.buildSVGMap(gs) : this.buildFallbackMap(gs);
@@ -1398,7 +1432,7 @@ window.GameUI = {
         const labels = [];
 
         for (const [abbr, data] of Object.entries(mapData.states)) {
-            const poll = gs.statePolling[abbr];
+            const poll = window.GameEngine.getObservedPolling()[abbr];
             const st = window.StateData.find(s => s.id === abbr);
             if (!poll || !st) continue;
 
@@ -1444,7 +1478,7 @@ window.GameUI = {
         const stack = [];
         (mapData.sideStack || []).forEach((abbr, i) => {
             const data = mapData.states[abbr];
-            const poll = gs.statePolling[abbr];
+            const poll = window.GameEngine.getObservedPolling()[abbr];
             const st = window.StateData.find(s => s.id === abbr);
             if (!data || !poll || !st) return;
 
@@ -1509,7 +1543,7 @@ window.GameUI = {
         // Fallback to circle-based map if SVG paths aren't loaded
         let statesHTML = '';
         for (const st of window.StateData) {
-            const poll = gs.statePolling[st.id];
+            const poll = window.GameEngine.getObservedPolling()[st.id];
             if (!poll) continue;
             const margin = poll.player - poll.opponent;
             const colorClass = this.getStateColorClass(margin, st.isBattleground);
@@ -1559,7 +1593,7 @@ window.GameUI = {
     handleStateClick(stateId) {
         const st = window.StateData.find(s => s.id === stateId);
         const gs = window.GameEngine.state;
-        const poll = gs.statePolling[stateId];
+        const poll = window.GameEngine.getObservedPolling()[stateId];
         if (!st || !poll) return;
 
         const area = document.getElementById('state-detail-area');
@@ -1729,6 +1763,7 @@ window.GameUI = {
         this.weeklyEvents = this.weeklyEvents.filter(e => e.id !== eventId);
         this.renderCenterContent();
         this.updateTopBar();
+        this.autoSave();
     },
 
     // ═══════════════════════════════════════════════
@@ -1809,8 +1844,8 @@ window.GameUI = {
         // Battleground polling cards
         const battlegrounds = window.StateData.filter(s => s.isBattleground)
             .sort((a, b) => {
-                const pa = window.CampaignDepth ? window.CampaignDepth.getPoll(a.id) : gs.statePolling[a.id];
-                const pb = window.CampaignDepth ? window.CampaignDepth.getPoll(b.id) : gs.statePolling[b.id];
+                const pa = window.CampaignDepth ? window.CampaignDepth.getPoll(a.id) : window.GameEngine.getObservedPolling()[a.id];
+                const pb = window.CampaignDepth ? window.CampaignDepth.getPoll(b.id) : window.GameEngine.getObservedPolling()[b.id];
                 return Math.abs((pa ? (pa.margin !== undefined ? pa.margin : pa.player - pa.opponent) : 0)) - Math.abs((pb ? (pb.margin !== undefined ? pb.margin : pb.player - pb.opponent) : 0));
             });
 
@@ -1818,7 +1853,7 @@ window.GameUI = {
         const isPlayerRep = gs.playerParty === 'republican';
 
         let pollCardsHTML = battlegrounds.slice(0, 8).map((st, stIdx) => {
-            const poll = gs.statePolling[st.id];
+            const poll = window.GameEngine.getObservedPolling()[st.id];
             if (!poll) return '';
             const published = window.CampaignDepth ? window.CampaignDepth.getPoll(st.id) : null;
             const shownPlayer = published ? published.player : poll.player;
@@ -1861,7 +1896,7 @@ window.GameUI = {
             const shown = published ? Math.round(published.margin * 10) / 10 : Math.round((poll.player - poll.opponent + houseShift + jitter) * 10) / 10;
             const pLast = gs.playerCandidate.name.split(' ').pop();
             const oLast = gs.opponentCandidate.name.split(' ').pop();
-            const pollsterLine = `${pollster.name.toUpperCase()}: ${shown >= 0 ? pLast : oLast} +${Math.abs(shown).toFixed(1)} (±${pollster.moe.toFixed(1)})`;
+            const pollsterLine = `${pollster.name.toUpperCase()}: ${shown >= 0 ? pLast : oLast} +${Math.abs(shown).toFixed(1)} (±${(published?.moe??pollster.moe).toFixed(1)})`;
 
             // Early vote banked share
             const ev = gs.earlyVote && gs.earlyVote[st.id];
@@ -1936,7 +1971,7 @@ window.GameUI = {
                 <div class="intel-opponent-vp">VP: ${gs.opponentTicket && gs.opponentTicket.vp ? gs.opponentTicket.vp.name : (gs.opponentVP ? gs.opponentVP.name : 'TBD')}</div>
                 ${this.createStatBar('Approval', Math.round(gs.opponent.approval), this.getOpponentColorClass())}
                 ${this.createStatBar('Enthusiasm', Math.round(gs.opponent.enthusiasm), this.getOpponentColorClass())}
-                ${this.createStatBar('Cash', Math.min(100, Math.round(gs.opponent.cash / 100000)), 'yellow')}
+                <div class="intel-cash">Cash on hand: $${this.formatMoney(gs.opponent.cash)}</div>
             </div>`;
     },
 
@@ -2060,6 +2095,23 @@ window.GameUI = {
     // ═══════════════════════════════════════════════
     handleEndWeek() {
         const gs = window.GameEngine.state;
+        if(gs.interviews?.active) {
+            this._interviewVenue=window.InterviewSystem.getVenues(gs.playerParty).find(v=>v.id===gs.interviews.active.venueId);
+            this._interviewQ=gs.interviews.active.answers.length;
+            if(this._interviewQ<gs.interviews.active.questions.length) this.renderInterviewQuestion(); else this.finishInterview();
+            return;
+        }
+        if (gs.concurrentCampaign && gs.countryMonthDue) {
+            this.openGoverning();
+            this.showToast('Resolve the monthly governing brief before another campaign week.','info');
+            return;
+        }
+        if(this.weeklyEvents.some(e=>e.isAccountability)) {
+            this.activeTab='events';if(this.isMobile) this.switchMobileTab('events');
+            this.renderGameScreen();this.showToast('Answer the outstanding record questions before advancing.','info');return;
+        }
+        const narrative=window.NarrativeDirector?.next(gs);
+        if(narrative && narrative.phase!=='presidency') {this.showNarrative(narrative);return;}
 
         // Check for VP pick (week 24-26, general phase)
         if (gs.phase === 'general' && !gs.vpPicked && gs.week >= 24 && gs.week <= 26) {
@@ -2082,6 +2134,12 @@ window.GameUI = {
         // Store events for display
         this.weeklyEvents = result.events;
         this.pendingEventChoices = {};
+        this._pendingWeek=result;
+        if (gs.concurrentCampaign) {
+            const date=window.Simulation.campaignDate(gs);
+            const target=(date.getUTCFullYear()-2029)*12+date.getUTCMonth()+1;
+            gs.countryMonthDue=target>gs.presidency.month;
+        }
 
         // Auto-save after each week
         this.autoSave();
@@ -2094,6 +2152,7 @@ window.GameUI = {
         // The rest of the week's flow, run either directly or after an
         // assassination-attempt interstitial resolves
         const continueWeek = () => {
+            this._pendingWeek=null;
             // Losing the nomination ends the run before any general election
             if (result.gameOver === 'lostNomination') {
                 this.showPrimaryDefeat();
@@ -2108,7 +2167,8 @@ window.GameUI = {
             // Check for debate
             if (result.isDebateWeek) {
                 this.showToast('DEBATE NIGHT! Prepare yourself.', 'info');
-                setTimeout(() => this.startDebate(), 1000);
+                this.closeModal();
+                this.startDebate();
                 return;
             }
 
@@ -2138,6 +2198,19 @@ window.GameUI = {
         }
 
         continueWeek();
+    },
+
+    resumeProcessedWeek(result) {
+        this._pendingWeek=null;
+        const resume=()=>{
+            if(result.gameOver==='lostNomination') this.showPrimaryDefeat();
+            else if(result.isDebateWeek) this.startDebate();
+            else if(result.gameOver) this.startElectionNight();
+            else {this.showScreen('game');this.activeTab=this.weeklyEvents.length?'events':'map';this.renderGameScreen();}
+            this.autoSave();
+        };
+        if(result.assassinationEvent) this.showAssassinationAttempt(result.assassinationEvent,resume);
+        else resume();
     },
 
     showContestResults(cr) {
@@ -2367,6 +2440,12 @@ window.GameUI = {
         }
     },
 
+    useCandidateMove() {
+        const result=window.GameCommands.execute('candidateMove');
+        this.showToast(result.ok?`${result.hook} launched.`:result.reason,result.ok?'success':'warning');
+        this.renderGameScreen();
+    },
+
     doActivity(activity) {
         const gs = window.GameEngine.state;
         const costMap = { rally: 60000, townhall: 30000, podcast: 5000, oppoResearch: 150000, fieldOffice: 200000, surrogateDeployment: 40000, gotv: window.GameConstants.EARLY_VOTE.GOTV_COST };
@@ -2417,8 +2496,8 @@ window.GameUI = {
     showVisitModal() {
         const states = window.StateData.filter(s => s.isBattleground)
             .sort((a, b) => {
-                const pa = window.GameEngine.state.statePolling[a.id];
-                const pb = window.GameEngine.state.statePolling[b.id];
+                const pa = window.GameEngine.getObservedPolling()[a.id];
+                const pb = window.GameEngine.getObservedPolling()[b.id];
                 return Math.abs(pa.player - pa.opponent) - Math.abs(pb.player - pb.opponent);
             });
 
@@ -2426,7 +2505,7 @@ window.GameUI = {
             <p class="text-muted mb-1">Choose a state to visit. Closest races listed first. Cost: $80K per visit.</p>
             <div style="display:grid;gap:8px;max-height:400px;overflow-y:auto;">
                 ${states.map(st => {
-                    const poll = window.GameEngine.state.statePolling[st.id];
+                    const poll = window.GameEngine.getObservedPolling()[st.id];
                     const margin = (poll.player - poll.opponent).toFixed(1);
                     const sign = margin > 0 ? '+' : '';
                     return `<button class="btn action-btn" onclick="GameUI.quickVisit('${st.id}');GameUI.closeModal();">
@@ -2448,7 +2527,7 @@ window.GameUI = {
         const html = `
             <p class="text-muted mb-1">Build a targeted media buy. Bigger budgets increase reach with diminishing returns; market costs still matter.</p>
             <div class="mb-2">
-                <label style="font-size:0.85rem;color:var(--text-secondary);">Target State</label>
+                <label for="ad-state" style="font-size:0.85rem;color:var(--text-secondary);">Target State</label>
                 <select id="ad-state" onchange="GameUI.updateAdEstimate()" style="width:100%;padding:8px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);margin-top:4px;">
                     ${states.map((st, i) => `<option value="${st.id}" ${selectedState === st.id ? 'selected' : ''}>${i < 3 ? `★ ${i + 1} · ` : ''}${st.name} (${st.electoralVotes} EV, ${st.adCostMultiplier}x cost)</option>`).join('')}
                 </select>
@@ -2629,7 +2708,7 @@ window.GameUI = {
         const states = window.StateData
             .filter(s => s.isBattleground)
             .sort((a, b) => {
-                const pa = gs.statePolling[a.id], pb = gs.statePolling[b.id];
+                const pa = window.GameEngine.getObservedPolling()[a.id], pb = window.GameEngine.getObservedPolling()[b.id];
                 return Math.abs(pa.player - pa.opponent) - Math.abs(pb.player - pb.opponent);
             });
 
@@ -2639,7 +2718,7 @@ window.GameUI = {
                 <button class="btn btn-sm btn-ghost" onclick="GameUI.toggleMapView()">🗺️ Map View</button>
             </div>
             ${states.map(st => {
-                const poll = gs.statePolling[st.id];
+                const poll = window.GameEngine.getObservedPolling()[st.id];
                 if (!poll) return '';
                 const margin = (poll.player - poll.opponent).toFixed(1);
                 const pct = Math.round(poll.player);
@@ -2708,7 +2787,7 @@ window.GameUI = {
 
         this.showScreen('debate');
 
-        // Continuation shared by the 3D walkout and the no-WebGL fallback
+        // Continuation shared by the optional 2D walkout and its immediate skip.
         this.autoSave();
         const beginDebate = () => {
             this.renderDebateStage();
@@ -2716,7 +2795,7 @@ window.GameUI = {
             setTimeout(() => this.renderDebateExchange(), 700);
         };
 
-        // Optional Three.js walkout intro; falls back instantly if unavailable
+        // Offline 2D walkout; no WebGL dependency.
         const stage = document.getElementById('debate-stage');
         if (window.DebateWalkout && stage) {
             stage.innerHTML = '<div class="walkout-container" id="walkout-container"></div>';
@@ -2739,8 +2818,8 @@ window.GameUI = {
         stage.innerHTML = `
             <div class="debate-broadcast">
                 <div class="broadcast-header">
-                    <div class="network-bug">${ctx.moderator.network} <span class="bug-divider">|</span> DECISION 2028</div>
-                    <div class="broadcast-title">PRESIDENTIAL DEBATE ${ctx.debateNumber} OF ${window.GameConstants.DEBATE_WEEKS.length}</div>
+                    <div class="network-bug">${ctx.moderator.network} <span class="bug-divider">|</span> DECISION ${gs.isIncumbentRun?2032:2028}</div>
+                    <div class="broadcast-title">${ctx.primaryMode?'PRIMARY DEBATE':`GENERAL-ELECTION DEBATE ${gs.isIncumbentRun?ctx.debateNumber:Math.max(1,ctx.debateNumber-1)} OF 3`}</div>
                     <div class="live-indicator"><span class="live-dot"></span>LIVE</div>
                 </div>
                 <div class="debate-stage-set">
@@ -2835,77 +2914,19 @@ window.GameUI = {
     },
 
     handleDebateResponse(responseIdx) {
-        const ctx = this.debateCtx;
-        if (!ctx || ctx.answered) return;
-        ctx.answered = true;
+        const answer=window.DebateRound.answer(this.debateCtx,responseIdx);
+        if (!answer) return;
+        this.renderAnsweredDebateQuestion();
+        this.autoSave();
+    },
 
-        const gs = window.GameEngine.state;
-        const q = ctx.questions[ctx.idx];
-        const response = q.responses[responseIdx];
-        if (q.isRecordQuestion && gs.accountability) {
-            gs.accountability.answered.push({ week:gs.week, questionId:q.id, posture:response.posture, factCheck:q.factCheck });
-            const consistency = response.posture === 'concede' || response.posture === 'reframe' ? 'SUPPORTED' : 'CONTESTED';
-            gs.accountability.factChecks.push({ week:gs.week, questionId:q.id, verdict:consistency, fact:q.factCheck });
-        }
-
-        // Player's answer enters the transcript and the scorebook
-        let playerQScore = 0;
-        for (const [key, val] of Object.entries(response.effects)) {
-            if (ctx.playerScores.hasOwnProperty(key)) {
-                ctx.playerScores[key] += val;
-                playerQScore += val;
-            }
-        }
-
-        // Platform consistency: an answer's intensity should match how strongly
-        // you've positioned on that issue (0 = measured, 1 = combative, 2 = bold)
-        const TOPIC_ISSUE = { 'Economy': 'economy', 'Immigration': 'immigration', 'Healthcare': 'healthcare', 'Climate & Energy': 'energy', 'Culture & Values': 'cultureWar' };
-        const TOPIC_INTENSITY = {
-            'Economy': [0, 0, 1, 2], 'Immigration': [0, 0, 1, 2], 'Healthcare': [0, 0, 2, 1],
-            'Democracy & Institutions': [0, 1, 1, 2], 'Climate & Energy': [0, 2, 0, 1], 'Culture & Values': [0, 2, 0, 1],
-        };
-        let consistencyNote = '';
-        const issueKey = TOPIC_ISSUE[q.topic];
-        if (issueKey && gs.platform && TOPIC_INTENSITY[q.topic]) {
-            const stanceMag = Math.abs(gs.platform[issueKey] || 0);
-            const intensity = TOPIC_INTENSITY[q.topic][responseIdx];
-            if ((intensity === 2 && stanceMag >= 1.5) || (intensity === 0 && stanceMag <= 1)) {
-                ctx.playerScores.authenticity += 2; playerQScore += 2;
-                consistencyNote = 'The answer rings true — it matches the candidate\'s platform.';
-            } else if ((intensity === 2 && stanceMag <= 0.5) || (intensity === 0 && stanceMag >= 2)) {
-                ctx.playerScores.authenticity -= 2; playerQScore -= 2;
-                consistencyNote = 'Pundits note the answer clashes with the candidate\'s stated platform.';
-            }
-        }
-        const recordNote = q.isRecordQuestion ? `LIVE FACT CHECK — ${q.factCheck}` : '';
-        this.appendTranscript('player', response.text, [consistencyNote, recordNote].filter(Boolean).join(' '));
-
-        const choiceArea = document.getElementById('debate-choice-area');
-        choiceArea.querySelectorAll('.debate-response').forEach(b => { b.disabled = true; b.classList.add('dimmed'); });
-
-        // Opponent responds after a beat
-        setTimeout(() => {
-            const DC = window.DebateContent;
-            const line = DC.getOpponentResponse
-                ? DC.getOpponentResponse(q.topic, ctx.opponentStrategy)
-                : ((DC.opponentResponses[q.topic] || DC.genericResponses)[ctx.opponentStrategy] || DC.genericResponses[ctx.opponentStrategy]);
-
-            // Normalize to the player's scale (content lines score all 7 dimensions,
-            // player answers only ~6) and let debate skill scale the whole answer
-            const oppSkill = ctx.primaryMode && ctx.debateOpponent ? (ctx.debateOpponent.debate || 55) : gs.opponent.debateSkill;
-            const skillFactor = 0.7 * (1 + (oppSkill - 50) / 150);
-            let oppQScore = 0;
-            for (const [key, val] of Object.entries(line.scores)) {
-                if (ctx.opponentScores.hasOwnProperty(key)) {
-                    const adjusted = Math.round(val * skillFactor * 10) / 10;
-                    ctx.opponentScores[key] += adjusted;
-                    oppQScore += adjusted;
-                }
-            }
-            this.appendTranscript('opponent', line.text);
-
-            setTimeout(() => this.showQuestionVerdict(playerQScore, oppQScore), 900);
-        }, 1200);
+    renderAnsweredDebateQuestion() {
+        const ctx=this.debateCtx, answer=ctx.lastAnswer, q=ctx.questions[ctx.idx];
+        if (!answer) { this.nextDebateQuestion(); return; } // one-time legacy checkpoint
+        const response=q.responses[answer.index];
+        this.appendTranscript('player',response.text,[answer.consistency,answer.verdict?`LIVE FACT CHECK — ${answer.verdict}: ${q.factCheck}`:''].filter(Boolean).join(' '));
+        this.appendTranscript('opponent',answer.opponentText);
+        this.showQuestionVerdict(answer.playerScore,answer.opponentScore);
     },
 
     showQuestionVerdict(playerQScore, oppQScore) {
@@ -2921,9 +2942,7 @@ window.GameUI = {
         if (playerQScore > oppQScore + 3) { verdict = 'player'; reactionPool = DC.audienceReactions.strong; }
         else if (oppQScore > playerQScore + 3) { verdict = 'opponent'; reactionPool = DC.audienceReactions.weak; }
         else { verdict = 'tie'; reactionPool = DC.audienceReactions.neutral; }
-        ctx.questionWins[verdict]++;
-
-        const reaction = reactionPool[Math.floor(window.GameEngine.random() * reactionPool.length)];
+        const reaction = ctx.lastAnswer?.reaction || 'The audience weighs both answers.';
         const total = Math.max(1, Math.max(0, playerQScore) + Math.max(0, oppQScore));
         const pPct = Math.round((Math.max(0, playerQScore) / total) * 100);
 
@@ -2943,7 +2962,7 @@ window.GameUI = {
         // Continue button + auto-advance
         const choiceArea = document.getElementById('debate-choice-area');
         choiceArea.innerHTML = `<button class="btn btn-primary" id="debate-continue-btn" onclick="GameUI.nextDebateQuestion()">${ctx.idx + 1 >= ctx.questions.length ? 'CLOSING — GO TO COVERAGE' : 'NEXT QUESTION'} →</button>`;
-        ctx.advanceTimer = setTimeout(() => this.nextDebateQuestion(), 3500);
+        // The player controls reading pace; focus and checkpoints stay stable.
         this.autoSave();
     },
 
@@ -2953,11 +2972,13 @@ window.GameUI = {
         if (ctx.advanceTimer) { clearTimeout(ctx.advanceTimer); ctx.advanceTimer = null; }
 
         ctx.idx++;
+        ctx.lastAnswer=null;
         if (ctx.idx >= ctx.questions.length) {
             this.showDebateResults();
         } else {
             this.renderDebateExchange();
         }
+        this.autoSave();
     },
 
     showDebateResults() {
@@ -2970,8 +2991,7 @@ window.GameUI = {
         const oLast = oc.name.split(' ').pop();
 
         // Head-to-head verdict from the (frozen) DebateSystem
-        const winner = window.DebateSystem.calculateWinner(ctx.playerScores, ctx.opponentScores);
-        const result = window.GameEngine.processDebateResults(ctx.playerScores, ctx.opponentScores, winner, { primaryMode: ctx.primaryMode });
+        const {winner,result}=window.DebateRound.complete(ctx);
 
         const winnerName = winner === 'player' ? pLast : winner === 'opponent' ? oLast : null;
         const loserName = winner === 'player' ? oLast : winner === 'opponent' ? pLast : null;
@@ -2980,13 +3000,14 @@ window.GameUI = {
         const pTotal = Object.values(ctx.playerScores).reduce((a, b) => a + b, 0);
         const oTotal = Object.values(ctx.opponentScores).reduce((a, b) => a + b, 0);
         const gap = pTotal - oTotal;
-        const snapPlayer = Math.max(32, Math.min(68, Math.round(50 + gap * 0.35 + (window.GameEngine.random() - 0.5) * 4)));
-        const snapOutlet = DC.snapPollOutlets[Math.floor(window.GameEngine.random() * DC.snapPollOutlets.length)];
+        const snapPlayer = ctx.coverage?.snapPlayer ?? Math.max(32, Math.min(68, Math.round(50 + gap * 0.35 + (window.GameEngine.random() - 0.5) * 4)));
+        const snapOutlet = ctx.coverage?.snapOutlet || DC.snapPollOutlets[Math.floor(window.GameEngine.random() * DC.snapPollOutlets.length)];
 
         const quotePool = winner === 'player' ? DC.punditQuotes.playerWin :
                           winner === 'opponent' ? DC.punditQuotes.opponentWin : DC.punditQuotes.tie;
-        const quotes = [...quotePool].sort(() => window.GameEngine.random() - 0.5).slice(0, 2)
+        const quotes = ctx.coverage?.quotes || [...quotePool].sort(() => window.GameEngine.random() - 0.5).slice(0, 2)
             .map(qt => qt.replace(/{WINNER}/g, winnerName || pLast).replace(/{LOSER}/g, loserName || oLast));
+        ctx.coverage={snapPlayer,snapOutlet,quotes};this.autoSave();
 
         const dims = ['policy', 'authenticity', 'viral', 'press', 'base', 'suburban', 'donors'];
         const dimLabels = { policy: 'Policy', authenticity: 'Authenticity', viral: 'Viral', press: 'Press', base: 'Base', suburban: 'Suburban', donors: 'Donors' };
@@ -3040,6 +3061,7 @@ window.GameUI = {
     returnFromDebate() {
         this.showScreen('game');
         this.renderGameScreen();
+        this.debateCtx=null;this.autoSave();
     },
 
     // ═══════════════════════════════════════════════
@@ -3079,7 +3101,7 @@ window.GameUI = {
             schedule, idx: 0, sim: 0,
             playerEV: 0, oppEV: 0,
             results, projected: false, timer: null,
-            totalVotes: 152000000 + Math.floor(window.GameEngine.random() * 8000000),
+            totalVotes: results.voteTotals.total,
             calledCount: 0, totalCalls: calls.length,
         };
 
@@ -3262,6 +3284,10 @@ window.GameUI = {
     showWinner(results) {
         const banner = document.getElementById('en-winner-banner');
         const gs = window.GameEngine.state;
+        if (results.winner==='pending') {
+            banner.innerHTML='<div class="winner-banner"><h2>CONTINGENT ELECTION — HOUSE DEADLOCK</h2><p>Neither candidate has 270 electoral votes or 26 state delegations. The Senate selects the vice president separately; the presidency has not been awarded.</p><button class="btn" onclick="GameUI.resolveContingentElection(true)">NEGOTIATE A CROSS-PARTY GOVERNING AGREEMENT</button><button class="btn" onclick="GameUI.resolveContingentElection(false)">CONCEDE THE HOUSE BALLOT</button></div>';
+            this._lastResults=results;this.autoSave();return;
+        }
         const isPlayerWin = results.winner === 'player';
         const winnerName = isPlayerWin ? results.playerName : results.opponentName;
         const winnerEV = isPlayerWin ? results.playerEV : results.opponentEV;
@@ -3281,7 +3307,8 @@ window.GameUI = {
         banner.innerHTML = `
             <div class="winner-banner ${winClass}">
                 <h2>${isPlayerWin ? '🎉 VICTORY!' : '😞 DEFEAT'}</h2>
-                <p style="font-size:1.3rem;margin-bottom:0.5rem;">${winnerName} wins the presidency with ${winnerEV} electoral votes!</p>
+                <p style="font-size:1.3rem;margin-bottom:0.5rem;">${results.contingent?`${winnerName} is selected by the House after an Electoral College deadlock.`:`${winnerName} wins the presidency with ${winnerEV} electoral votes!`}</p>
+                ${results.contingent?`<p>State delegations: you ${results.contingent.player}, opponent ${results.contingent.opponent}; 26 needed. Senate VP decision: ${results.contingent.vicePresident}.</p>`:''}
                 <p class="text-muted">Popular vote: ${results.playerName} ${Math.round(results.nationalPopularVote.player)}% — ${results.opponentName} ${Math.round(results.nationalPopularVote.opponent)}%</p>
                 <div class="en-retro">
                     <div class="en-retro-title">CAMPAIGN RETROSPECTIVE</div>
@@ -3306,6 +3333,7 @@ window.GameUI = {
                 </div>
                 <div class="mt-2 btn-group" style="justify-content:center;">
                     ${isPlayerWin ? `<button class="btn btn-primary btn-lg" onclick="GameUI.startTransition()">🏛️ FORM YOUR GOVERNMENT →</button>` : ''}
+                    ${gs.concurrentCampaign?'<button class="btn btn-primary" onclick="GameUI.openGoverning()">FINISH THE TERM →</button>':''}
                     <button class="btn ${isPlayerWin ? '' : 'btn-primary'} btn-lg" onclick="GameUI.startNewGame()">PLAY AGAIN</button>
                     <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
                 </div>
@@ -3315,9 +3343,9 @@ window.GameUI = {
 
         // Update ticker
         this.updateTicker([
-            `BREAKING: ${winnerName.toUpperCase()} ELECTED 46TH PRESIDENT OF THE UNITED STATES`,
+            `BREAKING: ${winnerName.toUpperCase()} ELECTED PRESIDENT OF THE UNITED STATES`,
             `${winnerEV} ELECTORAL VOTES — ${winnerName.toUpperCase()} CLAIMS VICTORY`,
-            `THE 2028 PRESIDENTIAL RACE IS OVER — ${winnerName.toUpperCase()} WINS`
+            `THE ${gs.isIncumbentRun?2032:2028} PRESIDENTIAL RACE IS OVER — ${winnerName.toUpperCase()} WINS`
         ]);
     },
 
@@ -3333,11 +3361,24 @@ window.GameUI = {
         this.autoSave();
     },
 
+    resolveContingentElection(negotiate) {
+        const gs=window.GameEngine.state, result=gs.electionResult;
+        if (result?.winner!=='pending') return;
+        const winner=negotiate?'player':'opponent';
+        gs.contingentDecision={winner,agreement:negotiate?'Cross-party cabinet and budget agreement':'Concession',year:gs.isIncumbentRun?2032:2028};
+        if(negotiate) {gs.campaign.enthusiasm-=8;gs.campaign.momentum-=5;}
+        result.winner=winner; result.contingent[winner]=26; result.contingent[winner==='player'?'opponent':'player']=24;
+        result.contingent.tied=0; result.contingent.winner=winner;
+        gs.career.elections[gs.career.elections.length-1].winner=winner;
+        window.CareerSystem.record('contingent_election',gs.contingentDecision);
+        this.showWinner(result);this.autoSave();
+    },
+
     showSignaturePicker() {
         const career = window.CareerSystem && window.CareerSystem.ensure(window.GameEngine.state);
         const used = new Set(career ? [...career.completedSignatures, ...career.failedSignatures] : []);
         const cards = window.PresidencySystem.SIGNATURES.filter(s => !used.has(s.id)).map(s => `
-            <div class="signature-option" onclick="GameUI.chooseSignature('${s.id}')">
+            <div class="signature-option" role="button" tabindex="0" aria-label="Choose ${s.name}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" onclick="GameUI.chooseSignature('${s.id}')">
                 <div class="sig-icon">${s.icon}</div>
                 <div class="sig-main">
                     <div class="sig-name">${s.name}</div>
@@ -3361,10 +3402,11 @@ window.GameUI = {
         const p = gs.presidency;
         const host = document.getElementById('presidency-content');
         if (!p || !host) return;
-        if (p.over) { host.innerHTML = this.renderLegacyReport(); return; }
+        if (p.over) { host.innerHTML = this.renderLegacyReport(); document.getElementById('toast-container').replaceChildren(); return; }
 
         const PS = window.PresidencySystem;
         PS._ensureLivingState(p);
+        window.Simulation.ensure(p);
         const partyClass = gs.playerCandidate.party === 'Democrat' ? 'dem' : 'rep';
         const e = p.economy;
         const acted = p.acted;
@@ -3380,27 +3422,28 @@ window.GameUI = {
                     <div class="pres-title-row">
                         <div class="pres-seal">🦅</div>
                         <div>
-                            <div class="pres-kicker">${(p.term || 1) >= 2 ? 'SECOND TERM · ' : ''}${PS.quarterLabel(p.quarter)} · SEASON ${p.quarter} OF 16</div>
+                            <div class="pres-kicker">TERM ${p.term} · ${PS.quarterLabel(p.quarter)} · MONTH ${p.month} OF 48</div>
                             <h2>PRESIDENT ${gs.playerCandidate.name.toUpperCase()}</h2>
                         </div>
                         <div class="pres-portrait">${window.Portraits.html(gs.playerCandidate)}</div>
                     </div>
                     <div class="pres-stats">
-                        <div class="pres-stat approval"><div class="pres-stat-val">${p.approval}%</div><div class="pres-stat-label">APPROVAL</div></div>
+                        <div class="pres-stat approval"><div class="pres-stat-val">${Math.round(p.approval)}%</div><div class="pres-stat-label">APPROVAL</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${e.gdp.toFixed(1)}%</div><div class="pres-stat-label">GDP</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${e.unemployment.toFixed(1)}%</div><div class="pres-stat-label">UNEMPLOYMENT</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${e.inflation.toFixed(1)}%</div><div class="pres-stat-label">INFLATION</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${p.congress.senateSeats}${p.congress.houseMajority ? ' · H✓' : ' · H✗'}</div><div class="pres-stat-label">SENATE · HOUSE</div></div>
-                        <div class="pres-stat"><div class="pres-stat-val">${p.capital}⭐</div><div class="pres-stat-label">CAPITAL</div></div>
+                        <div class="pres-stat"><div class="pres-stat-val">${Number(p.capital.toFixed(1))}⭐</div><div class="pres-stat-label">CAPITAL</div></div>
                         <div class="pres-stat"><div class="pres-stat-val">${p.diplomaticStanding || 55}</div><div class="pres-stat-label">DIPLOMACY</div></div>
                         ${p.fiscal ? `<div class="pres-stat ${p.fiscal.debt > 130 ? 'debt-high' : ''}"><div class="pres-stat-val">${Math.round(p.fiscal.debt)}%</div><div class="pres-stat-label">NAT'L DEBT</div></div>` : ''}
                         <div class="pres-stat"><div class="pres-stat-val">${p.population.toFixed(1)}M</div><div class="pres-stat-label">POPULATION</div></div>
                         <div class="pres-stat stability-${p.stability.tier.toLowerCase()}"><div class="pres-stat-val">${Math.round(p.stability.score)}</div><div class="pres-stat-label">${p.stability.tier}</div></div>
                         <div class="pres-stat defcon-${p.world.defcon}"><div class="pres-stat-val">${p.world.defcon}</div><div class="pres-stat-label">DEFCON</div></div>
                     </div>
-                    ${p.fiscal && p.fiscal.shutdown ? `<div class="shutdown-banner">🚧 GOVERNMENT SHUTDOWN — approval bleeds every quarter until you reopen it (quarter ${p.fiscal.shutdownQuarters || 1}).</div>` : ''}
+                    <details class="national-metrics"><summary>All national indicators</summary><div class="national-metrics-grid"><span>GDP growth: ${e.gdp.toFixed(1)}%</span><span>Inflation: ${e.inflation.toFixed(1)}%</span><span>Unemployment: ${e.unemployment.toFixed(1)}%</span><span>Senate: ${p.congress.senateSeats}/100</span><span>House: ${p.congress.houseSeats}/435</span><span>Debt: ${p.fiscal.debt.toFixed(1)}% GDP</span><span>Diplomacy: ${Math.round(p.diplomaticStanding)}/100</span><span>Stability: ${Math.round(p.stability.score)}/100 — ${p.stability.tier}</span><span>Infrastructure: ${Math.round(p.institutions.infrastructure)}/100</span><span>Health capacity: ${Math.round(p.institutions.health)}/100</span><span>Public trust: ${Math.round(p.institutions.trust)}/100</span></div></details>
+                    ${p.fiscal && p.fiscal.shutdown ? `<div class="shutdown-banner">🚧 GOVERNMENT SHUTDOWN — approval falls each month until you reopen it.</div>` : ''}
                     ${p.fiscal && p.fiscal.ledger && p.fiscal.ledger.length ? `<div class="fiscal-ledger-strip"><strong>WHY DEBT MOVED</strong>${p.fiscal.ledger.slice(-3).reverse().map(x => `<span>${x.source}: ${x.delta >= 0 ? '+' : ''}${x.delta.toFixed(1)} → ${x.debtAfter.toFixed(1)}%</span>`).join('')}</div>` : ''}
-                    ${p.fiscal && p.fiscal.budget ? `<div class="fiscal-ledger-strip budget"><strong>QUARTERLY LEDGER</strong><span>Revenue ${p.fiscal.budget.revenue}%</span><span>Mandatory ${p.fiscal.budget.mandatory}%</span><span>Domestic ${p.fiscal.budget.domestic}%</span><span>Defense ${p.fiscal.budget.defense}%</span><span>Debt service ${p.fiscal.budget.debtService}%</span><span>Emergency ${p.fiscal.budget.emergency}%</span><span>Balance ${p.fiscal.budget.balance}% GDP</span></div>` : ''}
+                    ${p.fiscal?.budget ? `<details class="fiscal-ledger-strip budget"><summary>ANNUALIZED BUDGET · ${p.fiscal.budget.balance.toFixed(1)}% GDP balance</summary>${Object.entries(p.fiscal.budget).map(([key,value])=>`<span>${key}: ${value.toFixed(1)}%</span>`).join('')}<span>Each monthly flow is 1/12 of the annual rate.</span></details>` : ''}
                     ${(() => {
                         const eff = window.PresidencySystem.cabinetEffects();
                         const chips = [];
@@ -3420,13 +3463,13 @@ window.GameUI = {
                         <span class="sig-progress-label">${p.signature.icon} ${p.signature.name}${p.signature.done ? ' — ACHIEVED 🏆' : ''}</span>
                         <div class="sig-progress-bar"><div class="sig-progress-fill" style="width:${Math.round(p.signature.progress / p.signature.target * 100)}%"></div></div>
                         <span class="sig-progress-pct">${p.signature.progress}/${p.signature.target}</span>
-                    </div>` : ''}
+                    </div><p class="signature-requirement">${PS.SIGNATURES.find(s=>s.id===p.signature.id)?.blurb || ''}${p.signature.funded?` Research funding: ${p.signature.fundedMonths||0}/18 months.`:''}${p.signature.id==='balance'?` Balanced months: ${p.fiscal.balancedMonths||0}/12.`:''}</p>` : ''}
                 </div>
                 ${this.renderWarBanner(p)}
                 <div class="pres-body">
                     <div class="pres-actions">
                         ${p.collapse.active ? this.renderCollapseActions(p, acted) : PS.atWar() ? this.renderWarActions(p, acted) : `
-                        <div class="panel-section-title">${acted ? 'THE QUARTER\'S MOVE IS MADE' : 'CHOOSE THIS QUARTER\'S BIG MOVE'}</div>
+                        <div class="panel-section-title">${acted ? 'THIS MONTH’S MOVE IS MADE' : 'OPTIONAL MAJOR MOVE THIS MONTH'}</div>
                         <button class="btn action-btn" ${acted ? 'disabled' : ''} onclick="GameUI.showBillPicker()">
                             <span class="action-icon">📜</span>
                             <span class="action-copy"><span class="action-label">Push Legislation</span><span class="action-desc">Spend capital to move a bill through Congress. Legacy lives here.</span></span>
@@ -3446,7 +3489,7 @@ window.GameUI = {
                         ${p.signature && !p.signature.done ? `
                         <button class="btn action-btn initiative-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('initiative')">
                             <span class="action-icon">${p.signature.icon}</span>
-                            <span class="action-copy"><span class="action-label">Advance: ${p.signature.name}</span><span class="action-desc">Spend a quarter and 1⭐ driving your signature goal toward the finish line.</span></span>
+                            <span class="action-copy"><span class="action-label">Advance: ${p.signature.name}</span><span class="action-desc">Use this month’s major move and 1⭐ to organize delivery. Measurable outcomes still determine success.</span></span>
                         </button>` : ''}
                         ${p.fiscal && p.fiscal.shutdown ? `
                         <button class="btn action-btn reopen-btn" ${acted ? 'disabled' : ''} onclick="GameUI.doPresidencyAct('reopen')">
@@ -3461,7 +3504,10 @@ window.GameUI = {
                             <span class="action-icon">🌐</span>
                             <span class="action-copy"><span class="action-label">Situation Room</span><span class="action-desc">Diplomacy, alliances, sanctions, deployments, intelligence, and DEFCON.</span></span>
                         </button>`}
-                        <button class="btn btn-primary btn-lg pres-end-quarter" ${acted ? '' : 'disabled'} onclick="GameUI.endPresidencyQuarter()">${PS.atWar() ? 'FIGHT THE SEASON →' : 'ADVANCE THREE MONTHS →'}</button>
+                        <button class="btn btn-primary btn-lg pres-end-quarter" onclick="GameUI.endPresidencyQuarter()"><span class="pres-advance-date" aria-hidden="true">${window.Simulation.label(p)}</span>${p.pendingEvent?'RESOLVE BRIEFING →':acted?'ADVANCE MONTH →':'MAINTAIN COURSE →'}</button>
+                        <div class="btn-group">${[3,6,12].map(n=>`<button class="btn btn-sm" onclick="GameUI.fastForwardMonths(${n})">+${n} months</button>`).join('')}</div>
+                        <p class="text-muted">Fast-forward pauses for decisions, wars, and campaign weeks.</p>
+                        ${gs.concurrentCampaign&&!gs.electionResult?'<button class="btn" onclick="GameUI.returnToCampaign()">RETURN TO CAMPAIGN</button>':''}
                     </div>
                     <div class="pres-agenda">
                         <div class="panel-section-title">YOUR RECORD</div>
@@ -3513,6 +3559,18 @@ window.GameUI = {
         this.renderSituationRoom();
     },
 
+    adjustWorldView(action) {
+        let [x,y,w,h]=(this.worldView||'0 0 100 42').split(' ').map(Number);
+        const factor=action==='in'?.75:action==='out'?4/3:1;
+        const nw=Math.max(12,Math.min(100,w*factor)),nh=Math.max(5,Math.min(42,h*factor));
+        x+=(w-nw)/2;y+=(h-nh)/2;w=nw;h=nh;
+        if(action==='left')x-=w*.2;if(action==='right')x+=w*.2;
+        if(action==='up')y-=h*.2;if(action==='down')y+=h*.2;
+        x=Math.max(0,Math.min(100-w,x));y=Math.max(0,Math.min(42-h,y));
+        this.worldView=[x,y,w,h].map(n=>Number(n.toFixed(3))).join(' ');
+        document.querySelector('.world-map')?.setAttribute('viewBox',this.worldView);
+    },
+
     renderSituationRoom() {
         const host = document.getElementById('situation-content');
         const p = window.GameEngine.state.presidency;
@@ -3524,20 +3582,24 @@ window.GameUI = {
         const nodes = WS.NATIONS.map(n => {
             const s = world.nations[n.id];
             const cls = s.relation >= 45 ? 'ally' : s.relation <= -35 ? 'hostile' : 'neutral';
-            const radius = 1 + n.strength / 55;
-            return `<g class="world-node ${cls} ${n.id === selected.id ? 'selected' : ''}" onclick="GameUI.selectWorldNation('${n.id}')" role="button" aria-label="${n.name}">
+            const radius = .55 + n.strength / 180;
+            return `<g class="world-node ${cls} ${n.id === selected.id ? 'selected' : ''}" onclick="GameUI.selectWorldNation('${n.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();GameUI.selectWorldNation('${n.id}')}" tabindex="0" role="button" aria-label="${n.name}">
                 <circle cx="${n.x}" cy="${n.y}" r="${radius}"></circle><text class="world-flag" x="${n.x}" y="${n.y - radius - 1.1}">${n.flag}</text><text class="world-country-label" x="${n.x}" y="${n.y + radius + 2.5}">${n.name}</text>${s.deployed ? `<path class="deployment-marker" d="M${n.x-1.6},${n.y+3} h3.2 l-1.6,2 z"></path>` : ''}</g>`;
         }).join('');
         const activeConflicts = world.conflicts.filter(c => !c.resolved).length;
         host.innerHTML = `<div class="sit-shell">
             <header class="sit-header"><button class="btn btn-sm" onclick="GameUI.closeSituationRoom()">← OVAL OFFICE</button><div><div class="sit-kicker">WHITE HOUSE SITUATION ROOM · REAL INSTITUTIONS, EMERGENT SCENARIO</div><h2>GLOBAL COMMAND AUTHORITY</h2></div><div class="defcon-badge defcon-${world.defcon}"><span>DEFCON</span><strong>${world.defcon}</strong></div></header>
-            <div class="sit-status"><span>GLOBAL TENSION <strong>${Math.round(world.globalTension)}</strong></span><span>ACTIVE CONFLICTS <strong>${activeConflicts}</strong></span><span>DIPLOMATIC STANDING <strong>${p.diplomaticStanding}</strong></span><span>SEASONAL MOVE <strong>${p.acted ? 'USED' : 'AVAILABLE'}</strong></span></div>
-            <main class="sit-grid"><section class="world-map-wrap"><div class="world-map-title"><strong>GLOBAL STRATEGIC PICTURE</strong><span>20 largest nations by population plus key U.S. allies, partners, and adversaries</span></div><svg class="world-map" viewBox="0 0 100 100" aria-label="Strategic world map">
+            <div class="sit-status"><span>GLOBAL TENSION <strong>${Math.round(world.globalTension)}</strong></span><span>ACTIVE CONFLICTS <strong>${activeConflicts}</strong></span><span>DIPLOMATIC STANDING <strong>${Math.round(p.diplomaticStanding)}</strong></span><span>MONTHLY MOVE <strong>${p.acted ? 'USED' : 'AVAILABLE'}</strong></span></div>
+            <main class="sit-grid"><section class="world-map-wrap"><div class="world-map-title"><strong>GLOBAL STRATEGIC PICTURE</strong><span>Natural Earth boundaries · major nations, U.S. allies and adversaries · fictional strategic scores</span></div>
+                <div class="world-tools"><label for="world-country-search">Country</label><select id="world-country-search" onchange="GameUI.selectWorldNation(this.value)">${WS.NATIONS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(n=>`<option value="${n.id}" ${selected.id===n.id?'selected':''}>${n.name}</option>`).join('')}</select>
+                ${[['World','0 0 100 42'],['Europe','44 4 22 14'],['Asia','62 6 38 25'],['Americas','0 0 46 42']].map(([name,view])=>`<button class="btn btn-sm" onclick="GameUI.worldView='${view}';GameUI.renderSituationRoom()">${name}</button>`).join('')}</div>
+                <div class="world-tools map-navigation" role="group" aria-label="Map navigation">${[['in','Zoom in','+'],['out','Zoom out','−'],['left','Pan west','←'],['right','Pan east','→'],['up','Pan north','↑'],['down','Pan south','↓']].map(([action,label,symbol])=>`<button class="btn btn-sm" aria-label="${label}" onclick="GameUI.adjustWorldView('${action}')">${symbol}</button>`).join('')}<small>Largest by population (2019 reference), plus strategic partners and adversaries.</small></div>
+                <svg class="world-map" viewBox="${this.worldView || '0 0 100 42'}" aria-label="Strategic world map">
                 <defs><linearGradient id="ocean" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#102b45"/><stop offset="1" stop-color="#07121e"/></linearGradient></defs><rect width="100" height="100" fill="url(#ocean)"></rect>
                 <path class="map-gridline" d="M0 20H100M0 40H100M0 60H100M0 80H100M20 0V100M40 0V100M60 0V100M80 0V100"></path>${WS.LAND_PATHS.map(d => `<path class="continent" d="${d}"></path>`).join('')}
-                <g class="usa-home"><circle cx="16" cy="29" r="2.2"></circle><text x="16" y="34">UNITED STATES</text></g>${nodes}</svg>
+                <g class="usa-home"><circle cx="${WS.home?.x || 24}" cy="${WS.home?.y || 30}" r="1.2"></circle><text x="${WS.home?.x || 24}" y="${(WS.home?.y || 30)+3}">UNITED STATES</text></g>${nodes}</svg>
                 <div class="map-legend"><span class="ally">ALLY / PARTNER</span><span class="neutral">NONALIGNED</span><span class="hostile">HOSTILE</span><span>▲ U.S. DEPLOYMENT</span></div></section>
-                <aside class="nation-dossier"><div class="dossier-flag">${selected.flag}</div><div class="dossier-kicker">COUNTRY DOSSIER</div><h3>${selected.name}</h3>
+                <aside class="nation-dossier"><div class="dossier-flag">${selected.flag}</div><div class="dossier-kicker">COUNTRY DOSSIER</div><h3>${selected.name}</h3><p class="text-muted">Population reference: ${(selected.population/1e6).toFixed(1)}M (${selected.populationYear})</p>
                     <div class="dossier-stats"><div><span>RELATIONS</span><strong>${Math.round(selectedState.relation)}</strong></div><div><span>TENSION</span><strong>${Math.round(selectedState.tension)}</strong></div><div><span>MILITARY</span><strong>${selected.strength}</strong></div><div><span>ECONOMY</span><strong>${selected.economy}</strong></div><div><span>INTEL</span><strong>${selectedState.intelligence}%</strong></div><div><span>STATUS</span><strong>${selectedState.allied ? 'PARTNER' : 'UNALIGNED'}</strong></div></div>
                     <div class="dossier-tags">${selected.nuclear ? '<span class="nuclear-tag">☢ NUCLEAR POWER</span>' : ''}${selected.treaty ? `<span>${selected.treaty}</span>` : ''}${selectedState.sanctions ? `<span>SANCTIONS ×${selectedState.sanctions}</span>` : ''}</div>
                     <div class="sit-actions"><button class="btn btn-sm" ${p.acted ? 'disabled' : ''} onclick="GameUI.doWorldAction('summit','${selected.id}')">SUMMIT</button><button class="btn btn-sm" ${p.acted ? 'disabled' : ''} onclick="GameUI.doWorldAction('aid','${selected.id}')">AID</button><button class="btn btn-sm" ${p.acted ? 'disabled' : ''} onclick="GameUI.doWorldAction('sanction','${selected.id}')">SANCTION</button><button class="btn btn-sm" ${p.acted ? 'disabled' : ''} onclick="GameUI.doWorldAction('deploy','${selected.id}')">${selectedState.deployed ? 'STAND DOWN' : 'DEPLOY'}</button><button class="btn btn-sm" ${p.acted ? 'disabled' : ''} onclick="GameUI.doWorldAction('ally','${selected.id}')">SECURITY PACT</button></div>
@@ -3561,11 +3623,23 @@ window.GameUI = {
         this.showModal('☢ NATIONAL COMMAND AUTHORITY', `<div class="nuclear-confirm"><div class="iv-tier bad">THIS ORDER CANNOT BE RECALLED</div><p>A strike on <strong>${nation.name}</strong> may trigger a retaliatory exchange, kill tens of millions of Americans, destroy institutions, and begin a continuity crisis.</p><p class="text-muted">Nuclear use is available only at DEFCON 1 or 2. It is a game action, not a prediction or endorsement.</p><button class="btn nuclear-order" onclick="GameUI.executeNuclearLaunch('${nationId}')">AUTHENTICATE AND LAUNCH</button><button class="btn" onclick="GameUI.closeModal()">CANCEL</button></div>`);
     },
 
+    escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    },
+
+    renderExchangeMap() {
+        const world=window.GameEngine.state.presidency?.world,exchange=world?.lastExchange;
+        if(!exchange) return '';
+        const target=window.WorldSystem.getNation(exchange.nationId),home=window.WorldSystem.home;
+        const curve=`M${home.x},${home.y} Q${(home.x+target.x)/2},0 ${target.x},${target.y}`;
+        return `<svg class="exchange-map" viewBox="0 0 100 42" role="img" aria-label="Stylized strategic exchange between the United States and ${this.escapeHtml(target.name)}"><g fill="#334457" stroke="#121e30" stroke-width=".12">${window.WorldSystem.LAND_PATHS.map(d=>`<path d="${d}"/>`).join('')}</g><path class="exchange-path" d="${curve}" fill="none" stroke="#ffb36b" stroke-width=".65"/><circle cx="${target.x}" cy="${target.y}" r="1.4" fill="#e65d56"/>${exchange.retaliated?`<path class="exchange-path retaliation" d="M${target.x},${target.y} Q${(home.x+target.x)/2},42 ${home.x},${home.y}" fill="none" stroke="#e65d56" stroke-width=".65"/>`:''}<circle cx="${home.x}" cy="${home.y}" r="1.4" fill="#ffb36b"/></svg>`;
+    },
+
     executeNuclearLaunch(nationId) {
         const result = window.WorldSystem.launchNuclear(nationId);
         if (!result) { this.closeModal(); return; }
         this.closeModal();
-        this.showModal('☢ STRATEGIC EXCHANGE', `<div style="text-align:center"><div class="iv-tier bad">${result.retaliated ? 'RETALIATION DETECTED' : 'LIMITED EXCHANGE'}</div><p><strong>${result.killed} million Americans killed.</strong></p><p class="text-muted">Population remaining: ${result.population.toFixed(1)} million. The presidency continues into emergency governance.</p><button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.closeSituationRoom();">ENTER THE AFTERMATH</button></div>`);
+        this.showModal('☢ STRATEGIC EXCHANGE', `<div style="text-align:center"><div class="iv-tier bad">${result.retaliated ? 'RETALIATION DETECTED' : 'LIMITED EXCHANGE'}</div>${this.renderExchangeMap()}<p><strong>${result.killed} million Americans killed.</strong></p><p class="text-muted">Population remaining: ${result.population.toFixed(1)} million. ${result.continues?'The presidency continues into emergency governance.':'No population survives; this career has ended.'}</p><button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.closeSituationRoom();">ENTER THE AFTERMATH</button></div>`);
         this.autoSave();
     },
 
@@ -3622,12 +3696,12 @@ window.GameUI = {
                 <div class="bill-odds">Base odds: <strong>${PS.billOdds(b, 0)}%</strong> · Cost ${b.cost}⭐ · ${b.spend < 0 ? `<span class="bill-savings">cuts debt ${Math.abs(b.spend)}</span>` : `<span class="bill-cost-debt">debt +${b.spend}</span>`}</div>
                 ${(() => { const w = PS.whipCount(b, 0); return `<div class="whip-count"><span>HOUSE ${w.house.low}–${w.house.high} / ${w.house.needed}</span><span>SENATE ${w.senate.low}–${w.senate.high} / ${w.senate.needed}</span></div>`; })()}
                 <div class="bill-actions">
-                    <button class="btn btn-sm btn-primary" onclick="GameUI.doPresidencyAct('bill', { billId: '${b.id}', extraCapital: 0 })">PUSH IT</button>
-                    <button class="btn btn-sm" ${p.capital >= 2 ? '' : 'disabled'} onclick="GameUI.doPresidencyAct('bill', { billId: '${b.id}', extraCapital: 2 })" title="+16% odds">TWIST ARMS (+2⭐ → ${PS.billOdds(b, 2)}%)</button>
+                    <button class="btn btn-sm btn-primary" ${p.capital>=b.cost?'':'disabled'} onclick="GameUI.doPresidencyAct('bill', { billId: '${b.id}', extraCapital: 0 })">PUSH IT (${b.cost}⭐)</button>
+                    <button class="btn btn-sm" ${p.capital >= b.cost+2 ? '' : 'disabled'} onclick="GameUI.doPresidencyAct('bill', { billId: '${b.id}', extraCapital: 2 })" title="+16% odds">TWIST ARMS (${b.cost+2}⭐ → ${PS.billOdds(b, 2)}%)</button>
                 </div>
             </div>`).join('');
         this.showModal('📜 The Legislative Calendar', `
-            <p class="text-muted" style="margin-bottom:10px;">Senate: <strong>${p.congress.senateSeats}</strong> seats · House: <strong>${p.congress.houseMajority ? 'MAJORITY' : 'MINORITY'}</strong> · Capital: <strong>${p.capital}⭐</strong></p>
+            <p class="text-muted" style="margin-bottom:10px;">Senate: <strong>${p.congress.senateSeats}</strong> seats · House: <strong>${p.congress.houseMajority ? 'MAJORITY' : 'MINORITY'}</strong> · Capital: <strong>${Number(p.capital.toFixed(1))}⭐</strong></p>
             <div class="bill-list">${cards}</div>`);
     },
 
@@ -3641,14 +3715,49 @@ window.GameUI = {
                 <div class="bill-actions"><button class="btn btn-sm btn-primary" onclick="GameUI.doPresidencyAct('eo', { eoId: '${e.id}' })">SIGN IT</button></div>
             </div>`).join('');
         this.showModal('🖋️ Executive Orders', `
-            <p class="text-muted" style="margin-bottom:10px;">No Congress required — but every standing order risks a court strike-down each quarter.</p>
+            <p class="text-muted" style="margin-bottom:10px;">No Congress required — but standing orders face judicial review each month.</p>
             <div class="bill-list">${cards}</div>`);
+    },
+
+    openGoverning() { this.closeModal(); this.showScreen('presidency'); this.renderPresidency(); this.autoSave(); },
+
+    showNarrative(entry) {
+        const gs=window.GameEngine.state, arc=window.NarrativeDirector.arcs.find(a=>a.id===entry.arc),node=arc.nodes[entry.stage];
+        gs.narrative=gs.narrative || {arcs:{},history:[]};gs.narrative.pending=entry;
+        this.showModal(`${arc.title} · ${entry.stage+1}/4`,`<h3>${node[0]}</h3><p>${node[1]}</p>${node.slice(2).map((choice,i)=>`<button class="btn interview-answer" onclick="GameUI.resolveNarrative(${i})">${choice[0]}</button>`).join('')}`);this.autoSave();
+    },
+
+    resolveNarrative(index) {
+        const gs=window.GameEngine.state, entry=gs.narrative?.pending;
+        const result=window.NarrativeDirector.resolve(entry,index);if(!result.ok)return;
+        this.closeModal();if(entry.phase==='presidency')this.renderPresidency();else this.renderGameScreen();this.autoSave();
+    },
+
+    returnToCampaign() {
+        const gs=window.GameEngine.state;
+        if (gs.presidency.pendingEvent) { this.endPresidencyQuarter(); return; }
+        this.closeModal(); this.showScreen('game'); this.renderGameScreen(); this.autoSave();
+    },
+
+    fastForwardMonths(count) {
+        const result=window.Simulation.advanceTo(count);
+        this.renderPresidency(); this.autoSave();
+        this.showToast(`Advanced ${result.advanced || 0} month(s).`,'info');
+        if (result.event?.kind!=='advanced') this.endPresidencyQuarter();
     },
 
     endPresidencyQuarter() {
         const event = window.PresidencySystem.endQuarter();
         if (!event) return;
         const p = window.GameEngine.state.presidency;
+        this.autoSave();
+        if (event.kind==='narrative') {this.showNarrative(event.entry);return;}
+        if (event.kind==='advanced') { this.renderPresidency(); this.autoSave(); return; }
+        if (event.kind==='campaign_due') { this.returnToCampaign(); return; }
+        if (event.kind==='reelection') {
+            this.showModal('THE 2032 CAMPAIGN', '<p>Your 24-week campaign begins now. You remain president: monthly budgets, wars, and policy implementation continue.</p><button class="btn btn-primary" onclick="GameUI.closeModal();GameUI.runForReelection()">LAUNCH RE-ELECTION CAMPAIGN</button>');
+            return;
+        }
         if (event.kind === 'warbattle') {
             this.showWarBattle(event.result);
         } else if (event.kind === 'surprisewar') {
@@ -3701,7 +3810,7 @@ window.GameUI = {
         } else if (event.kind === 'budget') {
             const p2 = window.GameEngine.state.presidency;
             const choices = window.PresidencySystem.BUDGET_CHOICES.map((c, i) =>
-                `<button class="btn interview-answer" onclick="GameUI.resolveBudget(${i})">${c.label} <span class="crisis-tag">${c.tag}</span></button>`).join('');
+                `<button class="btn interview-answer" ${['reform','concede'].includes(c.id)&&p2.capital<2?'disabled':''} onclick="GameUI.resolveBudget(${i})">${c.label} <span class="crisis-tag">${c.tag}</span><small>${c.desc}</small></button>`).join('');
             this.showModal('💰 THE BUDGET DEADLINE', `
                 <div class="crisis-stage">
                     <p class="crisis-text">Appropriations expire at midnight and the debt ceiling is looming. Debt stands at <strong>${Math.round(p2.fiscal.debt)}% of GDP</strong>, the House is <strong>${p2.congress.houseMajority ? 'yours' : 'against you'}</strong>. How do you handle it?</p>
@@ -3715,9 +3824,9 @@ window.GameUI = {
                     <button class="btn btn-primary" onclick="GameUI.acknowledgePresidencyEvent()">TAKE THE WIN</button>
                 </div>`);
         } else {
-            this.showModal('🗓️ A Quiet Quarter', `
+            this.showModal('🗓️ A Quiet Month', `
                 <div style="text-align:center;">
-                    <p class="text-muted">No fires this quarter. In this job, that counts as a gift.</p>
+                    <p class="text-muted">No major emergency this month. Routine governing continues.</p>
                     <button class="btn btn-primary" onclick="GameUI.acknowledgePresidencyEvent()">CONTINUE</button>
                 </div>`);
         }
@@ -3751,6 +3860,7 @@ window.GameUI = {
 
     deliverSotu(tone) {
         const res = window.PresidencySystem.deliverSotu(this._sotuTheme, tone);
+        if(!res) return;
         const cls = res.score >= 75 ? 'great' : res.score >= 42 ? '' : 'bad';
         this.showModal('🎙️ THE VERDICT', `
             <div style="text-align:center;">
@@ -3763,12 +3873,13 @@ window.GameUI = {
     resolveBudget(choiceIndex) {
         const res = window.PresidencySystem.resolveBudget(choiceIndex);
         if (!res) return;
+        if(res.ok===false) {this.showToast(res.label,'warning');return;}
         this.closeModal();
         this.showModal(res.shutdown ? '🚧 SHUTDOWN' : '💰 BUDGET RESOLVED', `
             <div style="text-align:center;">
                 <div class="iv-tier ${res.good ? 'great' : 'bad'}">${res.label}</div>
                 <p class="text-muted">${res.shutdown
-                    ? 'The lights go out across the federal government. Your approval will bleed every quarter until you reopen it.'
+                    ? 'Federal services are disrupted. Your approval will fall each month until you reopen the government.'
                     : 'The government is funded and the cliff is behind you — for now.'}</p>
                 <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.afterPresidencyEvent();">CONTINUE</button>
             </div>`);
@@ -3878,6 +3989,7 @@ window.GameUI = {
 
     afterPresidencyEvent() {
         const p = window.GameEngine.state.presidency;
+        if (p.pendingEvent) { this.endPresidencyQuarter(); return; }
         if (p.midtermVerdict && !p.midtermShown) {
             p.midtermShown = true;
             const v = p.midtermVerdict;
@@ -3901,7 +4013,7 @@ window.GameUI = {
         return `
             <div class="pres-shell">
                 <div class="inauguration-panel ${partyClass}" style="margin-top:2rem;">
-                    <div class="inaug-kicker">JANUARY ${2029 + (p.term || 1) * 4} · THE HISTORIANS WEIGH IN</div>
+                    <div class="inaug-kicker">${window.Simulation.label(p).toUpperCase()} · THE HISTORIANS WEIGH IN</div>
                     <h2>THE ${gs.playerCandidate.name.split(' ').pop().toUpperCase()} PRESIDENCY</h2>
                     <div class="legacy-grade-row">
                         <div class="legacy-grade">${L.grade}</div>
@@ -3912,7 +4024,7 @@ window.GameUI = {
                         <div class="inaug-stat"><div class="retro-val">${L.scotus}</div><div class="retro-label">Justices Seated</div></div>
                         <div class="inaug-stat"><div class="retro-val">${L.crisesWon}/${L.crisesWon + L.crisesLost}</div><div class="retro-label">Crises Handled</div></div>
                         ${L.wars ? `<div class="inaug-stat"><div class="retro-val">${L.warsWon}W · ${L.warsLost}L</div><div class="retro-label">Wars</div></div>` : ''}
-                        <div class="inaug-stat"><div class="retro-val">${L.approval}%</div><div class="retro-label">Final Approval</div></div>
+                        <div class="inaug-stat"><div class="retro-val">${L.approval.toFixed(1)}%</div><div class="retro-label">Final Approval</div></div>
                         <div class="inaug-stat"><div class="retro-val">${L.population.toFixed(1)}M</div><div class="retro-label">Population</div></div>
                         <div class="inaug-stat"><div class="retro-val">${L.stability}</div><div class="retro-label">National Stability</div></div>
                     </div>
@@ -3922,9 +4034,11 @@ window.GameUI = {
                     ${L.signatureName ? `<div class="legacy-signature ${L.signatureDone ? 'achieved' : 'unfinished'}">${L.signatureDone ? '🏆 ACHIEVED' : '✗ UNFINISHED'} — ${L.signatureName}</div>` : ''}
                     ${L.recovery ? `<div class="legacy-signature ${L.collapse ? 'unfinished' : 'achieved'}">CONTINUITY RECOVERY ${L.recovery}/100</div>` : ''}
                     <div class="iv-headline" style="margin:10px 0;">${L.outlook}</div>
-                    ${(p.term || 1) >= 2 ? '<div class="legacy-signature achieved">🇺🇸 TWO TERMS SERVED — your place in history is settled</div>' : ''}
+                    ${p.term>=2 && p.month>=49 && !p.removedFromOffice && p.population>0 ? '<div class="legacy-signature achieved">🇺🇸 TWO TERMS SERVED — your place in history is settled</div>' : p.term>=2 ? '<div class="legacy-signature unfinished">SECOND TERM ENDED EARLY</div>' : ''}
+                    ${this.renderCareerArchive()}
                     <div class="mt-2 btn-group" style="justify-content:center;">
                         ${this._canRunAgain(p, L) ? `<button class="btn btn-primary btn-lg" onclick="GameUI.runForReelection()">🇺🇸 RUN FOR RE-ELECTION (2032)</button>` : ''}
+                        ${gs.isIncumbentRun && p.term===1 && gs.electionResult?.winner==='player'?'<button class="btn btn-primary" onclick="GameUI.startTransition()">BEGIN SECOND-TERM TRANSITION</button>':''}
                         <button class="btn ${this._canRunAgain(p, L) ? '' : 'btn-primary'} btn-lg" onclick="GameUI.startNewGame()">NEW CAMPAIGN</button>
                         <button class="btn btn-lg" onclick="GameUI.showScreen('title')">MAIN MENU</button>
                     </div>
@@ -3934,7 +4048,18 @@ window.GameUI = {
 
     // Eligible for re-election: not removed/apocalyptic, and not term-limited
     _canRunAgain(p, L) {
-        return !L.removed && !(p.war && p.war.outcome === 'nuclear') && (p.term || 1) < 2;
+        return !L.removed && p.population>0 && (p.term || 1)<2 && !window.GameEngine.state.isIncumbentRun;
+    },
+
+    renderCareerArchive() {
+        const career=window.CareerSystem.ensure(window.GameEngine.state);
+        return `<details class="career-archive" open><summary>THE COMPLETE CAREER RECORD</summary>
+            <h3>Election mandates</h3>${career.elections.map(e=>`<p>${e.year}: ${e.winner==='player'?'Won':'Lost'} · ${e.playerEV} electoral votes · ${e.popularVote?.player??'—'}% popular vote${e.contingent?' · Contingent election':''}</p>`).join('')}
+            <div class="table-scroll"><table><caption>Annual governing outcomes</caption><thead><tr><th scope="col">Year</th><th scope="col">Approval</th><th scope="col">GDP</th><th scope="col">Debt/GDP</th><th scope="col">Population</th><th scope="col">Stability</th></tr></thead><tbody>${career.annualSnapshots.filter(s=>s.year).map(s=>`<tr><th scope="row">${s.year}</th><td>${Math.round(s.approval)}%</td><td>${s.economy.gdp.toFixed(1)}%</td><td>${s.debt.toFixed(1)}%</td><td>${s.population.toFixed(1)}M</td><td>${s.stability||'Not recorded'}</td></tr>`).join('')}</tbody></table></div>
+            <h3>Promises and delivery</h3>${career.promises.map(p=>`<p>Term ${p.term} · ${p.name} — <strong>${p.status}</strong>${p.dueMonth?` (deadline: month ${p.dueMonth})`:''}</p>`).join('')||'<p>No campaign commitments recorded.</p>'}
+            <h3>Military record</h3>${career.wars.map(w=>`<p>${w.adversary} — ${w.outcome}; ${Number(w.cost||0).toFixed(1)} GDP points; ${Number(w.casualties||0).toFixed(1)}k casualties. ${w.authorization||'Authorization not recorded'}.</p>`).join('')||'<p>No completed wars.</p>'}
+            <details><summary>Decision timeline (${career.decisions.length} entries)</summary>${career.decisions.filter(d=>!['campaign_action','maintain_course'].includes(d.type)).map(d=>`<p>Term ${d.term}${d.month?`, month ${d.month}`:`, week ${d.week}`} · ${d.type.replace(/_/g,' ')}${d.action?`: ${d.action}`:''}${d.verdict?` — ${d.verdict}`:''}${d.text?`<br>${d.text}`:''}</p>`).join('')}</details>
+            <p class="text-muted">Missing history from older saves is left unrecorded; no outcomes are invented.</p></details>`;
     },
 
     runForReelection() {
@@ -3949,9 +4074,10 @@ window.GameUI = {
             warsWon: L.warsWon || 0, warsLost: L.warsLost || 0,
             signatureDone: !!L.signatureDone, signatureName: L.signatureName,
             debt: p.fiscal ? p.fiscal.debt : 100,
+            deficit:p.fiscal?.deficit||0,
             playerName: gs.playerCandidate.name,
             career: window.CareerSystem ? window.CareerSystem.ensure(gs) : gs.career,
-            countrySnapshot: window.CareerSystem ? window.CareerSystem.closeTerm(p) : null,
+            countrySnapshot: window.CareerSystem ? (p.over?window.CareerSystem.closeTerm(p):window.CareerSystem.snapshotCountry(p)) : null,
         };
         try { localStorage.setItem('election2028_incumbent', JSON.stringify(seed)); } catch (e) {}
 
@@ -4088,7 +4214,7 @@ window.GameUI = {
         this.showModal('⚔️ THE UNITED STATES IS AT WAR', `
             <div style="text-align:center;">
                 <div class="iv-tier">${w.adversary.flag} vs 🇺🇸</div>
-                <p class="text-muted">War is declared on ${w.adversary.name}. The coalitions have formed. Your generals await orders — end the quarter to begin the fight.</p>
+                <p class="text-muted">War is declared on ${w.adversary.name}. The coalitions have formed. Your generals await orders — advance the month to begin the fight.</p>
                 <div class="war-declare-summary">
                     <div>🇺🇸 Your bloc strength: <strong>${w.ourStrength}</strong> (${w.withUs.length} ${w.withUs.length === 1 ? 'ally' : 'allies'})</div>
                     <div>${w.adversary.flag} Enemy bloc strength: <strong>${w.enemyStrength}</strong> (${w.against.length} against you)</div>
@@ -4114,15 +4240,16 @@ window.GameUI = {
             this.showModal('☢️ NUCLEAR EXCHANGE', `
                 <div style="text-align:center;">
                     <div class="iv-tier bad">THE UNTHINKABLE</div>
-                    <p class="text-muted">Escalation crossed the last line. Missiles are in the air and cannot be recalled. There is no press conference for this.</p>
-                    <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.finishWarThenAdvance();">…</button>
+                    ${this.renderExchangeMap()}
+                    <p class="text-muted">Escalation crossed the last line. ${result.killed} million Americans were killed. ${result.continues?'Survivors now depend on emergency governance and reconstruction.':'No population survives.'}</p>
+                    <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.finishWarThenAdvance();">ENTER THE AFTERMATH</button>
                 </div>`);
             return;
         }
         if (w.resolved) { this.showWarOutcome(w); return; }
         const swing = result && result.swing;
         const dir = swing >= 0 ? 'gains ground' : 'gives ground';
-        this.showModal(`⚔️ QUARTER ${w.round} — THE FRONT`, `
+        this.showModal(`⚔️ MONTH ${w.round} — THE FRONT`, `
             <div style="text-align:center;">
                 <div class="war-battle-mom ${w.momentum >= 55 ? 'great' : w.momentum <= 45 ? 'bad' : ''}">MOMENTUM ${w.momentum}/100</div>
                 <p class="text-muted">Under a <strong>${w.posture}</strong> posture, the front ${dir}. ${w.casualties}k total casualties. ${w.momentum >= 75 ? 'Victory is within reach.' : w.momentum <= 25 ? 'The war is slipping away.' : 'The fighting grinds on.'}</p>
@@ -4145,7 +4272,7 @@ window.GameUI = {
                 <p class="text-muted">${blurb}</p>
                 <div class="war-declare-summary">
                     <div>Approval ${w.resultApproval >= 0 ? '+' : ''}${w.resultApproval}</div>
-                    <div>${w.round} quarters of war · ${w.casualties}k casualties</div>
+                    <div>${w.round} months of war · ${w.casualties}k casualties</div>
                 </div>
                 <button class="btn btn-primary" onclick="GameUI.closeModal(); GameUI.finishWarThenAdvance();">CONTINUE</button>
             </div>`);
@@ -4178,9 +4305,11 @@ window.GameUI = {
 
     startInterview(venueId) {
         const { venue } = window.InterviewSystem.start(venueId);
+        if(!venue) return;
         this._interviewQ = 0;
         this._interviewVenue = venue;
         this.renderInterviewQuestion();
+        this.autoSave();
     },
 
     renderInterviewQuestion() {
@@ -4213,6 +4342,7 @@ window.GameUI = {
     answerInterview(qIndex, optIndex) {
         const res = window.InterviewSystem.answer(qIndex, optIndex);
         if (!res) return;
+        this.autoSave();
         // Show the reaction beat, then advance
         document.querySelectorAll('.interview-answer').forEach(b => b.disabled = true);
         const box = document.getElementById('interview-reaction');
@@ -4259,6 +4389,14 @@ window.GameUI = {
     // ═══════════════════════════════════════════════
     startTransition() {
         if (!this._lastResults) return;
+        const gs=window.GameEngine.state;
+        if (gs.isIncumbentRun && gs.presidency) {
+            if (!gs.presidency.over) { this.openGoverning(); this.showToast('The current term continues until January 20.','info'); return; }
+            if (this._lastResults.winner!=='player') return;
+            window.CareerSystem.snapshotCountry(gs.presidency);
+            gs.presidency=null; gs.transition=null;
+        }
+        this.showScreen('election-night');
         window.GameEngine.beginTransition(this._lastResults);
         this.renderTransition();
     },
@@ -4284,14 +4422,14 @@ window.GameUI = {
                     <div class="cabinet-card filled ${partyClass}">
                         <div class="cab-icon">${post.icon}</div>
                         <div class="cab-post">${post.title}</div>
-                        <div class="cab-portrait">${window.Portraits.html({ id: pick.id, portraitEmoji: post.icon })}</div>
+                        <div class="cab-portrait">${window.Portraits.html({ ...pick, portraitEmoji: post.icon })}</div>
                         <div class="cab-name">${pick.name}</div>
                         <div class="cab-pick-title">${pick.title || ''}</div>
                         ${vote}
                     </div>`;
             }
             return `
-                <div class="cabinet-card open" onclick="GameUI.showCabinetPicker('${post.id}')">
+                <div class="cabinet-card open" role="button" tabindex="0" aria-label="Choose ${post.title}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" onclick="GameUI.showCabinetPicker('${post.id}')">
                     <div class="cab-icon">${post.icon}</div>
                     <div class="cab-post">${post.title}</div>
                     <div class="cab-empty">MAKE YOUR PICK</div>
@@ -4348,7 +4486,7 @@ window.GameUI = {
         const cards = options.map((o, i) => `
             <div class="cabinet-option" id="cab-opt-${i}">
                 ${o.rival ? '<div class="wildcard-badge">TEAM OF RIVALS</div>' : ''}
-                <div class="cab-opt-portrait">${window.Portraits.html({ id: o.id, portraitEmoji: post.icon })}</div>
+                <div class="cab-opt-portrait">${window.Portraits.html({ ...o, portraitEmoji: post.icon })}</div>
                 <div class="cab-opt-main">
                     <div class="cab-opt-name">${o.name} ${controversyTag(o.controversy)}</div>
                     <div class="cab-opt-title">${o.title}${o.age ? ` · Age ${o.age}` : ''}${o.home ? ` · ${o.home}` : ''}</div>
@@ -4447,14 +4585,14 @@ window.GameUI = {
         const seats = window.CabinetData.POSTS.map(post => {
             const pick = t.posts[post.id];
             return `<div class="inaug-member">
-                <div class="inaug-portrait">${window.Portraits.html({ id: pick.id, portraitEmoji: post.icon })}</div>
+                <div class="inaug-portrait">${window.Portraits.html({ ...pick, portraitEmoji: post.icon })}</div>
                 <div class="inaug-name">${pick.name}</div>
                 <div class="inaug-post">${post.title}</div>
             </div>`;
         }).join('');
         return `
             <div class="inauguration-panel ${partyClass}">
-                <div class="inaug-kicker">JANUARY 20, 2029 · THE WEST FRONT OF THE CAPITOL</div>
+                <div class="inaug-kicker">JANUARY 20, ${gs.isIncumbentRun?2033:2029} · THE WEST FRONT OF THE CAPITOL</div>
                 <h2>🇺🇸 INAUGURATION DAY</h2>
                 <p class="inaug-oath">"I do solemnly swear that I will faithfully execute the Office of President of the United States..."</p>
                 <div class="inaug-grid">${seats}</div>
@@ -4509,11 +4647,12 @@ window.GameUI = {
         this.showModal('How To Play', `
             <div style="font-size:0.9rem;line-height:1.7;color:var(--text-secondary);">
                 <h4 style="color:var(--text-primary);margin-bottom:8px;">Welcome to Election 2028</h4>
-                <p>You are running for President of the United States. Every week, you'll make strategic decisions that shape the race.</p>
+                <p>Win the nomination, win the White House, and govern through a two-term career. Match modern, historical, or custom candidates against the AI.</p>
                 <h4 style="color:var(--text-primary);margin:16px 0 8px;">Core Loop</h4>
                 <ul style="padding-left:20px;">
                     <li><strong>Visit states</strong> to boost your polling in key battlegrounds</li>
-                    <li><strong>Run ads</strong> — choose TV or digital, positive or negative</li>
+                    <li><strong>Plan three weekly actions</strong> — travel, events, organizing, or preparation. Your candidate also has one unique move per campaign.</li>
+                    <li><strong>Run ads</strong> — TV or digital in exact $50K steps. Ads use money, not action slots. Larger buys help, with diminishing returns and finite weekly market inventory.</li>
                     <li><strong>Hold events</strong> — rallies fire up the base, town halls win persuadables</li>
                     <li><strong>Raise money</strong> — you need cash for everything</li>
                     <li><strong>Build coalitions</strong> — labor, youth, suburban, and more</li>
@@ -4521,7 +4660,12 @@ window.GameUI = {
                     <li><strong>Win debates</strong> — viral moments can shift the entire race</li>
                 </ul>
                 <h4 style="color:var(--text-primary);margin:16px 0 8px;">Winning</h4>
-                <p>Win <strong>270 electoral votes</strong> on Election Night. Focus on battleground states: PA, MI, WI, GA, AZ, NV, NC.</p>
+                <p>Win <strong>270 electoral votes</strong> on Election Night. Published polls are noisy estimates, not counted votes. A 269–269 race goes to the simulated House delegations, with the Senate choosing the vice president separately.</p>
+                <h4 style="color:var(--text-primary);margin:16px 0 8px;">Governing and reelection</h4>
+                <p>Each term lasts 48 months. Make one optional major move or maintain course. Fast-forward stops for required business. Your 24-week reelection campaign starts in month 41 while budgets, wars, and implementation continue. Winning in November does not skip the serving term: the transition begins January 20.</p>
+                <p>Debt, deficits, wars, scandals, and unfinished promises become your reelection record. Every incumbent debate includes two record questions. Concrete pledges carry deadlines, and initiatives count as delivered only when their outcome conditions are met.</p>
+                <h4 style="color:var(--text-primary);margin:16px 0 8px;">Continuity</h4>
+                <p>Normal games keep automatic checkpoints and a backup; Iron mode keeps one continuity checkpoint with no rollback. An update waits for Save &amp; Reload. Once fully downloaded, maps, portraits, fonts, and play work offline. Nuclear devastation starts aftermath governance while population survives; elections and removal can also end your presidency.</p>
                 <h4 style="color:var(--text-primary);margin:16px 0 8px;">Tips</h4>
                 <ul style="padding-left:20px;">
                     <li>Money matters — don't go broke</li>
@@ -4536,12 +4680,12 @@ window.GameUI = {
     showCredits() {
         this.showModal('Credits', `
             <div style="text-align:center;color:var(--text-secondary);">
-                <h3 style="color:var(--text-primary);">Election 2028</h3>
+                <h3 style="color:var(--text-primary);">Election 2028 · 2.1</h3>
                 <p>A Political Strategy Game</p>
                 <p style="margin-top:16px;font-size:0.85rem;">All candidate information based on publicly documented reporting as of March 2026.</p>
                 <p style="font-size:0.85rem;">Scandals and controversies are labeled as opposition attack lines, reported criticisms, or campaign liabilities.</p>
                 <p style="margin-top:16px;font-size:0.8rem;color:var(--text-muted);">This is a work of political fiction and strategy gaming.<br>No endorsement of any candidate or party is intended.</p>
-                <p style="font-size:0.8rem;color:var(--text-muted);">Modern-candidate portraits are original AI-generated editorial illustrations based on public visual references. They are not photographs or endorsements. See images/portraits/README.md for the art disclosure.</p>
+                <p style="font-size:0.8rem;color:var(--text-muted);">Modern and historical portraits are original AI-generated editorial illustrations based on public visual references, not photographs or endorsements. Geography: public-domain Natural Earth. Typography: Space Grotesk and IBM Plex Mono, SIL Open Font License. Strategic scores and future events are fictional game mechanics.</p>
             </div>`);
     },
 

@@ -27,10 +27,14 @@ window.GameCommands = {
             if (c.visits.includes(payload.stateId)) return fail('The candidate already visited this state this week.');
         } else if (type === 'activity') {
             if (!Object.hasOwn(this.ACTIVITY_COSTS,payload.activity)) return fail('Unknown campaign activity.');
+            if(payload.activity==='gotv' && gs.week<window.GameConstants.EARLY_VOTE.START_WEEK) return fail('Turnout pushes open when early voting begins.');
             cost=this.ACTIVITY_COSTS[payload.activity]; slots=payload.activity==='fundraisingBlitz'?3:1;
         } else if (type === 'coalition') {
             if (!['labor','youth','suburban','rural','minority','women','veterans','evangelical'].includes(payload.coalition)) return fail('Choose a voter coalition.');
             slots=1;
+        } else if(type==='candidateMove') {
+            cost=150000;slots=1;
+            if(gs.hookUsed) return fail('Your signature campaign move has already been used.');
         } else if (type === 'ad') {
             const st=window.StateData.find(s=>s.id===payload.stateId);
             if (!st || !gs.statePolling[payload.stateId]) return fail('Choose a valid state.');
@@ -43,7 +47,7 @@ window.GameCommands = {
             const exposure=market.exposure*Math.pow(.8,elapsed);
             const weekSpent=elapsed?0:market.weekSpent;
             if (weekSpent+cost>5000000*multiplier) return fail('This market has no more inventory for that buy this week.');
-            const gain=.8*(Math.sqrt((exposure+cost/multiplier)/100000)-Math.sqrt(exposure/100000));
+            const gain=1.2*(Math.sqrt((exposure+cost/multiplier)/100000)-Math.sqrt(exposure/100000));
             impact=gain*(payload.channel==='tv'?1.2:.9*(st.educationSplit && st.educationSplit.college>35?1.1:1));
         } else return fail('Unknown command.');
         if (c.used+slots>3) return fail(`Only ${Math.max(0,3-c.used)} action slots remain this week.`);
@@ -62,7 +66,8 @@ window.GameCommands = {
         let result;
         if (type==='visit') { result=E._applyCampaignVisit(payload.stateId); state.visits.push(payload.stateId); }
         if (type==='activity') result=E._applyActivityEffects(payload.activity);
-        if (type==='coalition') result=E._applyCoalitionBuilding(payload.coalition);
+        if (type==='coalition') {result=E._applyCoalitionBuilding(payload.coalition);window.CampaignDepth?.applyCoalitionFocus(payload.coalition);}
+        if (type==='candidateMove') result=window.CandidateHooks.apply(gs);
         if (type==='ad') {
             const poll=gs.statePolling[payload.stateId], impact=quote.impact;
             const st=window.StateData.find(s=>s.id===payload.stateId);

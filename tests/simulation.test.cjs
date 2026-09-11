@@ -6,9 +6,7 @@ const vm = require('node:vm');
 
 global.window = globalThis;
 const root = path.resolve(__dirname, '..');
-for (const file of ['js/random.js', 'js/constants.js', 'js/candidates.js', 'js/states.js', 'js/vp-data.js', 'js/events.js', 'js/debate-content.js', 'js/debate-expanded.js', 'js/engine.js', 'js/game-commands.js', 'js/save-store.js', 'js/career-system.js', 'js/campaign-depth.js', 'js/world.js', 'js/war.js', 'js/presidency.js', 'js/cabinet.js', 'js/politicians-expanded.js', 'js/legends.js']) {
-  vm.runInThisContext(fs.readFileSync(path.join(root, file), 'utf8'), { filename:file });
-}
+require('./load-game.cjs');
 
 function presidency(seed = 1234) {
   GameEngine.state = GameEngine.createFreshState();
@@ -88,6 +86,7 @@ test('an eight-year debate career does not repeat exact questions', () => {
   GameEngine.setSeed(2032);
   const questions = [];
   for (let debate = 0; debate < 7; debate++) {
+    GameEngine.state.phase=debate<2?'primary':'general';
     questions.push(...EventSystem.DebateSystem.generateDebateQuestions().map(q => q.question));
   }
   assert.equal(questions.length, 35);
@@ -122,6 +121,7 @@ test('term two inherits the country, cabinet, courts, laws, debt, and crises', (
   p1.signature = { id:'balance', name:'Balance the Budget', done:false };
   const career = CareerSystem.ensure(GameEngine.state);
   const snapshot = CareerSystem.closeTerm(p1);
+  p1.over = true;
   const incumbent = GameEngine.state.playerCandidate;
   const opponent = GameEngine.state.opponentCandidate;
   GameEngine.startReelection(incumbent, opponent, 'arcade', {
@@ -155,7 +155,7 @@ test('war authorization and cost become permanent accountability records', () =>
   assert.equal(GameEngine.state.career.wars[0].objective, 'COMPEL WITHDRAWAL AND RESTORE DETERRENCE');
 });
 
-test('a complete two-term lifecycle preserves history and produces record debates', () => {
+test('legacy separate-term saves preserve history and produce record debates', () => {
   const resolveTerm = p => {
     while (!p.over) {
       if (p.pendingEvent) {
@@ -166,6 +166,7 @@ test('a complete two-term lifecycle preserves history and produces record debate
         else if (kind === 'scandal') PresidencySystem.resolveScandal(2);
         else if (kind === 'impeachment') PresidencySystem.resolveImpeachment(true);
         else if (kind === 'warbattle' || kind === 'surprisewar') PresidencySystem.resolveWarEvent();
+        else if (kind === 'narrative') NarrativeDirector.resolve(p.pendingEvent.entry,0);
         else PresidencySystem.acknowledgeEvent();
         continue;
       }
@@ -180,6 +181,7 @@ test('a complete two-term lifecycle preserves history and produces record debate
   GameEngine.setSeed(8828);
   GameEngine.state.transition = { senateSeats:53, capital:7, posts:{ treasury:{ name:'Continuity Treasury', competence:90, loyalty:80 } } };
   const first = PresidencySystem.begin();
+  GameEngine.state.legacyElectionInterlude = true;
   PresidencySystem.chooseSignature('balance');
   first.fiscal.debt = 125;
   first.enacted.push({ id:'first_term_law', name:'First Term Law', legacy:8, quarter:1 });
@@ -244,10 +246,9 @@ test('campaign economy applies reserve drag, growing overhead, and donor fatigue
 
 test('strategic ad recommendations reward close, efficient electoral targets', () => {
   GameEngine.initGame(CandidateData.democrats[0], CandidateData.republicans[0], 'campaign', 'realistic');
-  for (const poll of Object.values(GameEngine.state.statePolling)) { poll.player = 35; poll.opponent = 60; }
-  GameEngine.state.statePolling.PA.player = 48;
-  GameEngine.state.statePolling.PA.opponent = 48.5;
-  GameEngine.state.statePolling.PA.adSpend = 0;
+  const published=GameEngine.state.campaignDepth.polling.latest;
+  for (const poll of Object.values(published)) { poll.player = 35; poll.opponent = 60; poll.margin=-25; }
+  Object.assign(published.PA,{player:48,opponent:48.5,margin:-.5});
   const ranked = GameEngine.getAdTargetRecommendations('digital');
   assert.ok(ranked.length > 5);
   assert.equal(ranked[0].state.id, 'PA');
@@ -271,7 +272,7 @@ test('campaign autopsy identifies the closest missed state and spending efficien
   GameEngine.state.finances.totalSpent = 27000000;
   const results = { winner:'opponent', playerEV:250, opponentEV:288, stateResults:{ PA:{winner:'opponent',margin:.7,ev:19}, MI:{winner:'opponent',margin:2.1,ev:15}, CA:{winner:'player',margin:20,ev:54} } };
   const report = GameEngine.buildCampaignAutopsy(results);
-  assert.equal(report.tippingPoint.name, 'Pennsylvania');
+  assert.equal(report.closestLosses[0].name, 'Pennsylvania');
   assert.equal(report.costPerEV, 108000);
 });
 
@@ -308,7 +309,9 @@ test('every modern nominee has a deep curated and wildcard running-mate bench', 
   for (const nominee of [...CandidateData.democrats, ...CandidateData.republicans]) {
     const options = VPData.getOptionsForCandidate(nominee);
     assert.equal(options.curated.length, 7, `${nominee.name} curated slate`);
-    assert.ok(options.wildcard.length >= 15, `${nominee.name} wildcard bench`);
+    assert.ok(options.curated.length+options.wildcard.length >= 15, `${nominee.name} unique running-mate bench`);
+    const names=[...options.curated,...options.wildcard].map(o=>o.name.toLowerCase().replace(/[^a-z]/g,''));
+    assert.equal(new Set(names).size,names.length,'the same politician must not appear twice');
     assert.ok(options.curated.every(option => option.candidateId !== nominee.id && option.name !== nominee.name), `${nominee.name} cannot run with themselves`);
   }
 });
@@ -343,7 +346,7 @@ test('a consensus cabinet nominee can clear an opposition Senate', () => {
   GameEngine.setSeed(17);
   GameEngine.state.playerCandidate = CandidateData.democrats.find(candidate => candidate.id === 'newsom');
   GameEngine.state.transition = { senateSeats:44, capital:5, posts:{}, failed:[], log:[], complete:false };
-  const nominee = { id:'consensus_test', name:'Consensus Nominee', title:'Career diplomat', competence:88, loyalty:65, controversy:22 };
+  const nominee = GameEngine.getCabinetOptions('state').sort((a,b)=>a.controversy-b.controversy)[0];
   const result = GameEngine.nominate('state', nominee, 'floor');
   assert.equal(result.confirmed, true);
   assert.ok(result.votesFor >= 50);
@@ -425,12 +428,12 @@ test('coalition work changes bloc support, turnout, and contact', () => {
   assert.ok(labor.contact > before.contact);
 });
 
-test('one strategic season simulates exactly three monthly pulses', () => {
+test('one governing turn simulates exactly one month', () => {
   const p = presidency(7);
   PresidencySystem._advance();
-  assert.equal(p.quarter, 2);
-  assert.equal(p.calendar.monthsElapsed, 3);
-  assert.equal(p.calendar.monthlyBriefings.length, 3);
+  assert.equal(p.month, 2);
+  assert.equal(p.calendar.monthsElapsed, 1);
+  assert.equal(p.calendar.monthlyBriefings.length, 1);
 });
 
 test('Situation Room actions consume the seasonal move and persist relations', () => {

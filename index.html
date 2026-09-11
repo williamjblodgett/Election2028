@@ -13,9 +13,6 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.svg">
     <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <style>
         /* Critical inline styles for instant dark bg */
@@ -60,13 +57,15 @@
                         <strong>270 electoral votes</strong>
                     </div>
                     <div class="title-stat">
-                        <span class="title-stat-label">Game Modes</span>
-                        <strong>Campaign, Versus, Simulation</strong>
+                        <span class="title-stat-label">After the election</span>
+                        <strong>Up to 96 governing months</strong>
                     </div>
                 </div>
                 <div class="menu-buttons">
                     <button class="btn btn-primary btn-lg" onclick="GameUI.startNewGame()">NEW CAMPAIGN</button>
                     <button class="btn btn-lg hidden" id="continue-btn" onclick="GameUI.loadGame()">CONTINUE</button>
+                    <button class="btn" onclick="GameUI.quickMatch()">RANDOM MATCHUP</button>
+                    <button class="btn hidden" id="rematch-btn" onclick="GameUI.quickMatch(true)">REMATCH LAST TICKET</button>
                     <button class="btn btn-lg" onclick="GameUI.showHowToPlay()">HOW TO PLAY</button>
                     <button class="btn btn-ghost" onclick="GameUI.showCredits()">CREDITS</button>
                 </div>
@@ -204,8 +203,11 @@
 <script src="js/debate-system.js"></script>
 <script src="js/debate-content.js"></script>
 <script src="js/debate-expanded.js"></script>
+<script src="js/debate-scenarios.js"></script>
 <script src="js/engine.js"></script>
-<script src="js/game-commands.js"></script>
+    <script src="js/campaign-finance.js"></script>
+    <script src="js/game-commands.js"></script>
+    <script src="js/opponent-campaign.js"></script>
 <script src="js/save-store.js"></script>
 <script src="js/career-system.js"></script>
 <script src="js/campaign-depth.js"></script>
@@ -215,10 +217,17 @@
 <script src="js/portraits.js"></script>
 <script src="js/cabinet.js"></script>
 <script src="js/politicians-expanded.js"></script>
+<script src="js/people.js"></script>
 <script src="js/interviews.js"></script>
 <script src="js/world.js"></script>
+<script src="js/world-geometry.js"></script>
+<script src="js/geography.js"></script>
 <script src="js/war.js"></script>
 <script src="js/presidency.js"></script>
+<script src="js/simulation.js"></script>
+<script src="js/election-system.js"></script>
+    <script src="js/narrative-director.js"></script>
+    <script src="js/debate-round.js"></script>
 <script src="js/ui.js"></script>
 <script>
     // Boot the game
@@ -226,7 +235,7 @@
         GameUI.init();
     });
     // Register Service Worker for PWA
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && !['localhost','127.0.0.1'].includes(location.hostname)) {
         // When an updated service worker takes control, reload once so the
         // page picks up the freshly deployed files (self-healing updates)
         let refreshed = false;

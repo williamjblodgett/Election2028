@@ -122,16 +122,16 @@ window.PresidencySystem = {
     // matched bills; completing it is legacy-defining.
     SIGNATURES: [
         { id: 'moonshot', name: 'The Cancer Moonshot', icon: '🔬', target: 100,
-          blurb: 'End cancer as we know it. Fund the labs, fast-track the trials, chase the cure of the century.',
-          boostIssues: ['Healthcare', 'Technology'], legacyTitle: 'THE PRESIDENT WHO CURED CANCER' },
+          blurb: 'Deliver a health law, sustain research funding for 18 months, and maintain health-system capacity of at least 65.',
+          boostIssues: ['Healthcare', 'Technology'], legacyTitle: 'THE CANCER RESEARCH BREAKTHROUGH' },
         { id: 'peacedeal', name: 'A Grand Peace', icon: '🕊️', target: 100,
-          blurb: 'Broker the treaty that ends a generational conflict and redraws the map for the better.',
+          blurb: 'Build diplomatic standing to 80, end active combat, and bring a fully developed peace initiative to signature.',
           boostIssues: [], legacyTitle: 'THE GREAT PEACEMAKER' },
         { id: 'balance', name: 'Balance the Budget', icon: '⚖️', target: 100,
           blurb: 'Erase the deficit and hand your successor a surplus. The hardest arithmetic in Washington.',
           boostIssues: ['Taxes'], legacyTitle: 'THE PRESIDENT WHO BALANCED THE BOOKS' },
         { id: 'frontier', name: 'Return to the Moon', icon: '🚀', target: 100,
-          blurb: 'Plant the flag again and build the launchpad for Mars. Inspire a whole generation to look up.',
+          blurb: 'Deliver a technology or infrastructure law, fund the program for 18 months, and maintain infrastructure capacity of 65.',
           boostIssues: ['Technology', 'Infrastructure'], legacyTitle: 'THE PRESIDENT WHO REACHED THE STARS' },
     ],
 
@@ -181,7 +181,8 @@ window.PresidencySystem = {
         const p = window.GameEngine.state.presidency;
         if (!p.signature || p.signature.done) return false;
         p.signature.progress = Math.min(p.signature.target, p.signature.progress + amount);
-        if (p.signature.progress >= p.signature.target) {
+        const outcomeReady = this.signatureOutcomeReady(p);
+        if (p.signature.progress >= p.signature.target && outcomeReady) {
             p.signature.done = true;
             p.signature.doneQuarter = p.quarter;
             p.legacyPoints += 28;
@@ -196,6 +197,14 @@ window.PresidencySystem = {
             p.log.push(`${p.signature.name}: progress through ${sourceLabel} (${p.signature.progress}/${p.signature.target}).`);
         }
         return p.signature.done;
+    },
+
+    signatureOutcomeReady(p) {
+        const s=p.signature;if(!s) return false;
+        if(s.id==='balance') return (p.fiscal.balancedMonths||0)>=12;
+        if(s.id==='peacedeal') return !this.atWar() && p.diplomaticStanding>=80;
+        const delivered=(p.policies||[]).some(x=>x.effectsApplied && (s.id==='moonshot'?x.issue==='Healthcare':['Technology','Infrastructure'].includes(x.issue)));
+        return delivered && (s.fundedMonths||0)>=18 && (s.id==='moonshot'?p.institutions.health:p.institutions.infrastructure)>=65;
     },
 
     // ── State of the Union ─────────────────────────
@@ -228,6 +237,9 @@ window.PresidencySystem = {
 
     deliverSotu(theme, tone) {
         const p = window.GameEngine.state.presidency;
+        if(!p || p.pendingEvent?.kind!=='sotu' || !this.SOTU_THEMES.some(t=>t.id===theme) || !this.SOTU_TONES.some(t=>t.id===tone)) return null;
+        const prior=p.sotuHistory.find(s=>(s.month||((s.quarter||1)*3))===(p.month||p.quarter*3));
+        if(prior) return prior;
         const fit = this._sotuThemeFit(theme);
         let score = 40 + fit * 45 + (window.GameEngine.random() - 0.5) * 16;
         if (tone === 'optimistic') score += (fit - 0.5) * 30;   // amplifies: great when true, hollow when not
@@ -242,7 +254,7 @@ window.PresidencySystem = {
         if (p.signature && !p.signature.done && (theme === 'domestic' || (theme === 'economy' && p.signature.id === 'balance'))) {
             this._addInitiative(6, 'the State of the Union');
         }
-        p.sotuHistory.push({ quarter: p.quarter, theme, tone, score, tier });
+        p.sotuHistory.push({ quarter: p.quarter,month:p.month, theme, tone, score, tier,approvalDelta });
         p.log.push(`State of the Union (${this.SOTU_THEMES.find(t => t.id === theme).label}, ${tone}): ${tier}.`);
         return { score, tier, approvalDelta, theme, tone };
     },
@@ -330,7 +342,9 @@ window.PresidencySystem = {
     availableBills() {
         const p = window.GameEngine.state.presidency;
         const done = new Set(p.enacted.map(b => b.id));
-        return this.BILLS.filter(b => !done.has(b.id) && !(p.failedBills || []).includes(b.id));
+        return this.BILLS.filter(b => !done.has(b.id) && (!p.billAttempts?.[b.id] ||
+            (p.month || (p.quarter-1)*3+1)-p.billAttempts[b.id].month>=3 ||
+            p.congress.senateSeats!==p.billAttempts[b.id].senate));
     },
 
     availableEOs() {
@@ -339,7 +353,7 @@ window.PresidencySystem = {
         return this.EOS.filter(e => !used.has(e.id));
     },
 
-    billOdds(bill, extraCapital) {
+    _billSupport(bill, extraCapital) {
         const p = window.GameEngine.state.presidency;
         let odds = 40 + (p.congress.senateSeats - 50) * 4 + (p.congress.houseMajority ? 15 : -20)
             + (extraCapital || 0) * 8 + (bill.bipartisan ? 15 : 0)
@@ -350,39 +364,52 @@ window.PresidencySystem = {
 
     whipCount(bill, extraCapital) {
         const p = window.GameEngine.state.presidency;
-        const odds = this.billOdds(bill, extraCapital || 0);
-        const ownHouse = p.congress.houseSeats || (p.congress.houseMajority ? 224 : 211);
-        const ownSenate = p.congress.senateSeats;
-        const houseCenter = Math.round(ownHouse * odds / 100 + (bill.bipartisan ? 8 : 2));
-        const senateCenter = Math.round(ownSenate * odds / 100 + (bill.bipartisan ? 5 : 1));
+        const odds = this._billSupport(bill, extraCapital || 0);
+        // Displayed ranges and the roll share a correlated whip model.
+        const houseCenter = Math.round(218 + (odds/100-.5)*30);
+        const senateCenter = Math.round(51 + (odds/100-.5)*12);
         return {
-            house: { low:Math.max(0, houseCenter - 7), high:Math.min(435, houseCenter + 7), needed:218 },
-            senate: { low:Math.max(0, senateCenter - 3), high:Math.min(100, senateCenter + 3), needed:51 },
+            house: { low:Math.max(0, houseCenter - 15), high:Math.min(435, houseCenter + 15), needed:218 },
+            senate: { low:Math.max(0, senateCenter - 6), high:Math.min(100, senateCenter + 6), needed:51 },
         };
     },
 
-    // One major action per quarter
-    act(type, payload) {
+    billOdds(bill,extraCapital) {
+        const whip=this.whipCount(bill,extraCapital);
+        const required=chamber=>(chamber.needed-.5-chamber.low)/(chamber.high-chamber.low);
+        return Math.round(Math.max(0,Math.min(1,1-Math.max(required(whip.house),required(whip.senate))))*100);
+    },
+
+    // One optional major action per month.
+    act(type, payload={}) {
         const gs = window.GameEngine.state;
         const p = gs.presidency;
         if (!p || p.acted || p.over || p.pendingEvent) return null;
-        let result = { type };
+        let result = null;
 
         if (type === 'bill') {
             const bill = this.BILLS.find(b => b.id === payload.billId);
-            const extra = Math.min(payload.extraCapital || 0, p.capital, 3);
-            p.capital -= extra;
+            if (!bill || !this.availableBills().some(b=>b.id===bill.id)) return null;
+            const extra = payload.extraCapital ?? 0;
+            if(!Number.isInteger(extra)||extra<0||extra>3) return null;
+            if (p.capital < bill.cost+extra) return null;
+            p.capital -= bill.cost+extra;
             const odds = this.billOdds(bill, extra);
-            const passed = window.GameEngine.random() * 100 < odds;
-            result = { type, bill, odds, passed };
+            const whip=this.whipCount(bill,extra);
+            const draw=window.GameEngine.random();
+            const house=Math.round(whip.house.low+draw*(whip.house.high-whip.house.low));
+            const senate=Math.round(whip.senate.low+draw*(whip.senate.high-whip.senate.low));
+            const passed=house>=218 && senate>=51;
+            result = { type, bill, odds, passed, house, senate };
             if (passed) {
                 p.enacted.push({ id: bill.id, name: bill.name, legacy: bill.legacy, quarter: p.quarter });
                 p.policies = p.policies || [];
-                p.policies.push({ id:bill.id, name:bill.name, issue:bill.issue, implementation:15, target:100, status:'ROLLING OUT', effectsApplied:false });
+                p.policies.push({ id:bill.id, name:bill.name, issue:bill.issue, term:p.term, implementation:15, target:100, status:'ROLLING OUT', effectsApplied:false });
                 p.legacyPoints += bill.legacy;
                 this._applyEffects(bill.effects);
                 // Bills cost money — the spend lands on the national debt
                 if (p.fiscal && typeof bill.spend === 'number') {
+                    p.fiscal.policyAnnual=(p.fiscal.policyAnnual||0)+bill.spend*.1;
                     p.fiscal.debt = Math.max(40, p.fiscal.debt + bill.spend);
                     if (window.CareerSystem) window.CareerSystem.fiscalEntry(`Law: ${bill.name}`, bill.spend, bill.desc);
                     if (bill.spend < 0 && p.signature && !p.signature.done && p.signature.id === 'balance') {
@@ -398,11 +425,14 @@ window.PresidencySystem = {
             } else {
                 p.failedBills = p.failedBills || [];
                 p.failedBills.push(bill.id);
+                p.billAttempts=p.billAttempts || {};
+                p.billAttempts[bill.id]={month:p.month || (p.quarter-1)*3+1,senate:p.congress.senateSeats};
                 p.approval = Math.max(20, p.approval - 2);
                 p.log.push(`The ${bill.name} dies on the floor.`);
             }
         } else if (type === 'eo') {
             const eo = this.EOS.find(e => e.id === payload.eoId);
+            if (!eo || !this.availableEOs().some(e=>e.id===eo.id)) return null;
             p.eos.push({ id: eo.id, name: eo.name, quarter: p.quarter, struck: false });
             p.legacyPoints += eo.legacy;
             this._applyEffects(eo.effects);
@@ -428,13 +458,18 @@ window.PresidencySystem = {
             p.log.push(`War declared on ${war.adversary.name}.`);
             result = { type, war };
         } else if (type === 'initiative') {
-            if (!p.signature || p.signature.done) return null;
+            if (!p.signature || p.signature.done || p.capital<1) return null;
+            if(!p.signature.funded && ['moonshot','frontier'].includes(p.signature.id)) {
+                p.signature.funded=true;p.signature.fundedMonths=0;
+                p.fiscal.policyAnnual=(p.fiscal.policyAnnual||0)+.5;
+                p.log.push(`${p.signature.name}: recurring funding of 0.5% GDP added to the annual budget.`);
+            }
             const gain = 18 + Math.floor(window.GameEngine.random() * 8);
             p.capital = Math.max(0, p.capital - 1);
             const done = this._addInitiative(gain, 'a dedicated national push');
             result = { type, gain, done, signature: p.signature };
         } else if (type === 'reopen') {
-            if (!p.fiscal || !p.fiscal.shutdown) return null;
+            if (!p.fiscal || !p.fiscal.shutdown || p.capital<2) return null;
             p.fiscal.shutdown = false;
             p.capital = Math.max(0, p.capital - 2);
             p.approval = Math.min(80, p.approval + 2);
@@ -443,6 +478,7 @@ window.PresidencySystem = {
             p.log.push('Government reopened. The standoff ends — at a price.');
             result = { type };
         } else if (type === 'warposture') {
+            if(!this.atWar() || !['hold','escalate','withdraw','negotiate'].includes(payload?.posture)) return null;
             // Handled through endQuarter's battle round; just stash intent
             p.pendingPosture = payload.posture;
             result = { type, posture: payload.posture };
@@ -461,7 +497,10 @@ window.PresidencySystem = {
             p.log.push(move.text);
             result = { type, move };
         }
+        if(!result) return null;
         p.acted = true;
+        if (window.CareerSystem) window.CareerSystem.record('governing_action',{action:type,month:p.month,payload:payload || {},result});
+        if (window.SaveStore) window.SaveStore.save();
         return result;
     },
 
@@ -600,6 +639,7 @@ window.PresidencySystem = {
     },
 
     BUDGET_CHOICES: [
+        { id:'reform', label:'Negotiate a funded fiscal reform', tag:'−2⭐ · REVENUE +2 / SPENDING −2', desc:'Raise recurring revenue and trim domestic spending. Approval falls three points; each annual deal improves the balance by four GDP points.' },
         { id: 'clean', label: 'Pass a clean budget', tag: 'NEEDS THE HOUSE', desc: 'Fund the government on time. Easy with your majority — a coin flip without it.' },
         { id: 'concede', label: 'Raise the ceiling with concessions', tag: '−2⭐ · DEBT +6', desc: 'Cut the deal, avoid the cliff. Safe, but the other side extracts its pound of flesh.' },
         { id: 'brink', label: 'Brinkmanship — refuse to blink', tag: 'HIGH RISK / HIGH REWARD', desc: 'Dare them to shut it down. Win the staredown for a boost — or trigger the shutdown yourself.' },
@@ -609,8 +649,16 @@ window.PresidencySystem = {
         const p = window.GameEngine.state.presidency;
         if (!p.pendingEvent || p.pendingEvent.kind !== 'budget') return null;
         const choice = this.BUDGET_CHOICES[choiceIndex];
+        if (!choice) return null;
+        if (['reform','concede'].includes(choice.id) && p.capital<2) return {ok:false,label:'NOT ENOUGH CAPITAL — NEED 2'};
         let outcome;
-        if (choice.id === 'clean') {
+        if (choice.id==='reform') {
+            p.capital-=2; p.approval-=3;
+            p.fiscal.revenueAdjustment=(p.fiscal.revenueAdjustment||0)+2;
+            p.fiscal.spendingAdjustment=Math.max(-4,(p.fiscal.spendingAdjustment||0)-2);
+            p.fiscal.shutdown=false;
+            outcome={label:'RECURRING REVENUE AND SPENDING REFORM',good:true,shutdown:false};
+        } else if (choice.id === 'clean') {
             const base = (p.congress.houseMajority ? 0.85 : 0.4) + (p.congress.senateSeats - 50) * 0.01;
             if (window.GameEngine.random() < base) { p.approval = Math.min(80, p.approval + 1); p.fiscal.debt += 2; outcome = { label: 'CLEAN BUDGET PASSED', shutdown: false, good: true, debtDelta:2 }; }
             else { p.fiscal.shutdown = true; p.approval = Math.max(15, p.approval - 3); outcome = { label: 'THE BUDGET FAILS — GOVERNMENT SHUTS DOWN', shutdown: true, good: false }; }
@@ -858,10 +906,10 @@ window.PresidencySystem = {
         if (!p.world && window.WorldSystem) p.world = window.WorldSystem.createState();
     },
 
-    _runMonthlyPulses(p) {
+    _runMonthlyPulses(p, count=3) {
         const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
         const briefings = [];
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < count; i++) {
             const absoluteMonth = ((p.term || 1) - 1) * 48 + p.calendar.monthsElapsed;
             const monthName = monthNames[absoluteMonth % 12];
             const year = 2029 + Math.floor(absoluteMonth / 12);
@@ -915,12 +963,12 @@ window.PresidencySystem = {
         if (p.fiscal && p.fiscal.shutdown) stabilityDrift -= 2;
         if (p.war && !p.war.resolved) stabilityDrift -= 1.5;
         if (p.institutions.trust < 30) stabilityDrift -= 1;
-        p.stability.score = Math.max(0, Math.min(100, Math.round((p.stability.score + stabilityDrift) * 10) / 10));
+        p.stability.score = Math.max(0, Math.min(100, Math.round((p.stability.score + stabilityDrift*count/3) * 10) / 10));
         this._updateStabilityTier(p);
 
         if (p.collapse.active) {
-            p.collapse.seasons += 1;
-            p.stability.score = Math.max(0, p.stability.score - 2);
+            p.collapse.seasons += count/3;
+            p.stability.score = Math.max(0, p.stability.score - 2*count/3);
             if (p.collapse.recovery >= 60 && p.stability.score >= 35 && p.institutions.infrastructure >= 45) {
                 p.collapse.active = false;
                 p.legacyPoints += 18;
@@ -977,7 +1025,10 @@ window.PresidencySystem = {
             : score >= 26 ? { grade: 'C', title: 'STEADY HAND' }
             : score >= 12 ? { grade: 'D', title: 'EMBATTLED' }
             : { grade: 'F', title: 'FAILED PRESIDENCY' };
-        const outlook = (nuked || collapse.active || p.removedFromOffice) ? 'THERE WILL BE NO RE-ELECTION'
+        const outlook = p.removedFromOffice || population<=0 ? 'THIS PRESIDENCY HAS ENDED'
+            : p.term>=2 && p.month>=49 ? 'TWO-TERM LIMIT REACHED — THE SUCCESSION BEGINS'
+            : p.term>=2 ? 'SECOND-TERM LEGACY — NO FURTHER RE-ELECTION'
+            : window.GameEngine.state.isIncumbentRun && window.GameEngine.state.electionResult ? (window.GameEngine.state.electionResult.winner==='player'?'RE-ELECTED FOR A SECOND TERM':'THE VOTERS CHOSE A SUCCESSOR')
             : p.approval >= 53 ? 'STRONG FAVORITE for re-election'
             : p.approval >= 47 ? 'TOSS-UP re-election fight ahead'
             : 'UNDERDOG heading into re-election';

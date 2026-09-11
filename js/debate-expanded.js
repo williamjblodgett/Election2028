@@ -90,43 +90,36 @@
             R('Give me this mandate and I will use every day of it to rebuild American confidence, capacity, and common purpose.', bold, 'risky') ] },
     ];
 
-    // Turn the fifteen issue foundations into a 60-question career book.
-    // Each moderator framing and every spoken response has unique wording.
-    const framings = [
-        { id:'plan', lead:'Give voters a concrete governing plan:', suffix:'Be specific about your first year.' },
-        { id:'tradeoff', lead:'Every option carries a cost.', suffix:'Which tradeoff are you asking the country to accept?' },
-        { id:'voter', lead:'A skeptical undecided voter asks:', suffix:'Why should that voter believe your answer?' },
-        { id:'record', lead:'Your opponent says neither party has delivered.', suffix:'What measurable result would define success?' },
-    ];
-    const responseClosers = [
-        ' I will publish the timetable and let voters measure the result.',
-        ' The tradeoff is real, and I will report the cost as openly as the benefit.',
-        ' That commitment will be enforceable, funded, and visible in every affected community.',
-        ' Judge the administration by the first-year benchmark I have just set.',
-    ];
-    D.questions = D.questions.flatMap((base, baseIndex) => framings.map((frame, variantIndex) => ({
+    // Keep the fifteen foundations once. DebateScenarios adds 45 genuinely
+    // different dilemmas, rather than manufacturing four cosmetic framings.
+    D.questions = D.questions.map((base, baseIndex) => ({
         ...base,
-        id:`general_${baseIndex}_${frame.id}`,
-        question:`${frame.lead} ${base.question} ${frame.suffix}`,
+        id:`general_${baseIndex}_plan`,
+        question:`Give voters a concrete governing plan: ${base.question} Be specific about your first year.`,
         responses:base.responses.map((response, responseIndex) => ({
             ...response,
-            id:`general_${baseIndex}_${frame.id}_r${responseIndex}`,
-            text:response.text + responseClosers[variantIndex],
+            id:`general_${baseIndex}_plan_r${responseIndex}`,
+            text:response.text + ' I will publish the timetable and let voters measure the result.',
             effects:{ ...response.effects },
         })),
-    })));
+    }));
 
     D.generateDebateQuestions = function (count) {
         const gs = window.GameEngine && window.GameEngine.state;
         const career = gs && window.CareerSystem ? window.CareerSystem.ensure(gs) : null;
         const usedIds = new Set(career ? career.usedQuestionIds : []);
         const usedTopics = new Set((gs && gs.debateTopicHistory) || []);
+        if (gs?.concurrentCampaign && gs.presidency) {
+            const p=gs.presidency;
+            gs.accountability.docket=window.CareerSystem.buildDocket({...gs.incumbentSeed,debt:p.fiscal.debt,deficit:p.fiscal.deficit,approval:p.approval,gdp:p.economy.gdp,inflation:p.economy.inflation,scandals:p.scandals.length,signatureDone:!!p.signature?.done,signatureName:p.signature?.name},career);
+        }
+        const bank=gs?.phase==='primary' && this.primaryQuestions?this.primaryQuestions:this.questions;
         const recordQuestions = gs && gs.isIncumbentRun && window.CareerSystem
             ? window.CareerSystem.recordQuestions(gs.accountability && gs.accountability.docket)
                 .filter(q => !usedIds.has(q.id))
             : [];
-        const needed = count || 5;
-        const recordSlots = Math.min(3, recordQuestions.length, needed);
+        const needed = Math.min(5,count || 5);
+        const recordSlots = Math.min(2, recordQuestions.length, needed);
         const onePerTopic = pool => {
             const grouped = new Map();
             for (const question of pool) {
@@ -135,20 +128,30 @@
             }
             return [...grouped.values()].map(group => group[Math.floor(window.GameEngine.random() * group.length)]);
         };
-        let available = onePerTopic(this.questions.filter(q => !usedIds.has(q.id) && !usedTopics.has(q.topic)));
+        let available = onePerTopic(bank.filter(q => !usedIds.has(q.id) && !usedTopics.has(q.topic)));
         if (available.length < needed - recordSlots) {
-            available = onePerTopic(this.questions.filter(q => !usedIds.has(q.id)));
+            available = onePerTopic(bank.filter(q => !usedIds.has(q.id)));
         }
         for (let i = available.length - 1; i > 0; i--) {
             const j = Math.floor(window.GameEngine.random() * (i + 1));
             [available[i], available[j]] = [available[j], available[i]];
         }
-        const selected = [...recordQuestions.slice(0, recordSlots), ...available.slice(0, needed - recordSlots)];
+        const families=new Map();
+        for (const q of recordQuestions) if (!families.has(q.family)) families.set(q.family,q);
+        const byFamily=[...families.values()].sort((a,b)=>
+            [...usedIds].filter(id=>id.startsWith(`incumbent_${a.family}_`)).length-
+            [...usedIds].filter(id=>id.startsWith(`incumbent_${b.family}_`)).length);
+        const records=byFamily.slice(0,recordSlots);
+        if (records.length<recordSlots) records.push(...recordQuestions.filter(q=>!records.includes(q)).slice(0,recordSlots-records.length));
+        const selected = [...records, ...available.slice(0, needed - recordSlots)];
         if (gs) {
             gs.debateTopicHistory = [...(gs.debateTopicHistory || []), ...selected.map(q => q.topic)];
             if (career) career.usedQuestionIds.push(...selected.map(q => q.id));
         }
-        return selected.map(q => ({ ...q, responses:q.responses.map(r => ({ ...r, effects:{ ...r.effects } })) }));
+        return selected.map(q => {
+            const contextual=window.DebateScenarios?.forParty(q,gs?.playerParty)||q;
+            return {...contextual,responses:contextual.responses.map(r=>({...r,effects:{...r.effects}}))};
+        });
     };
 
     const opponentBook = {

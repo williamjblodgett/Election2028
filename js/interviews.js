@@ -31,83 +31,23 @@ window.InterviewSystem = {
 
     /** Build a 3-question interview from the current game state. */
     start(venueId) {
-        const gs = window.GameEngine.state;
-        const venue = this.getVenues(gs.playerParty).find(v => v.id === venueId);
-        const questions = [];
-        const career = window.CareerSystem && window.CareerSystem.ensure(gs);
-        const docketItems = gs.isIncumbentRun && gs.accountability && gs.accountability.docket
-            ? gs.accountability.docket.liabilities : [];
-        const unusedRecord = docketItems.find(item => !career || !career.usedQuestionIds.includes(`interview_${item.id}`));
-
-        // Q1 — your platform, under pressure
-        const issues = (gs.platform && gs.platform.issues) ? Object.keys(gs.platform.issues) : ['the economy'];
-        const issue = issues[Math.floor(window.GameEngine.random() * issues.length)].replace(/_/g, ' ');
-        questions.push(unusedRecord ? {
-            id:`interview_${unusedRecord.id}`,
-            q:unusedRecord.question,
-            recordItem:unusedRecord,
-            options: [
-                { text:'Defend the original decision and its tradeoff', tone:'steady' },
-                { text:'Accept responsibility and announce a correction', tone:'own' },
-                { text:'Contrast the record with the opponent’s alternative', tone:'attack' },
-            ],
-        } : {
-            id:`interview_platform_${issue}_${gs.week}`,
-            q: `Let's talk about ${issue}. Your critics say your plan doesn't add up. Walk me through it.`,
-            options: [
-                { text: 'Hold your ground — defend the plan in detail', tone: 'steady' },
-                { text: 'Pivot toward the center — "there\'s room for compromise"', tone: 'pivot' },
-                { text: 'Turn it around — hammer your opponent\'s record instead', tone: 'attack' },
-            ],
-        });
-        if (career && questions[0].id) career.usedQuestionIds.push(questions[0].id);
-
-        // Q2 — the gotcha: scandal > flip-flop > generic readiness
-        if (gs.activeScandals && gs.activeScandals.length) {
-            const s = gs.activeScandals[0];
-            questions.push({
-                q: `I have to ask about ${s.title ? '"' + s.title + '"' : 'the story everyone is talking about'}. The reporting is damning. What's your answer?`,
-                options: [
-                    { text: 'Deny it flatly — "that story is false"', tone: 'deny' },
-                    { text: 'Own it — apologize and pivot to the work', tone: 'own' },
-                    { text: 'Attack the source — "consider who\'s pushing this"', tone: 'attack' },
-                ],
-                gotcha: true,
-            });
-        } else if (gs.flipFlops > 0) {
-            questions.push({
-                q: `You've changed positions this campaign — voters call it flip-flopping. Which version of you shows up in office?`,
-                options: [
-                    { text: '"I listened, I learned, I adjusted — that\'s leadership"', tone: 'own' },
-                    { text: 'Deny any shift — "my position has been consistent"', tone: 'deny' },
-                    { text: 'Reframe — "unlike my opponent, I respond to reality"', tone: 'attack' },
-                ],
-                gotcha: true,
-            });
-        } else {
-            questions.push({
-                q: `Polls show voters still asking if you're ready for the hardest job on Earth. Why you, and why now?`,
-                options: [
-                    { text: 'The record — walk through what you\'ve already done', tone: 'steady' },
-                    { text: 'The moment — "this election is bigger than me"', tone: 'vision' },
-                    { text: 'The contrast — "look at the alternative"', tone: 'attack' },
-                ],
-                gotcha: true,
-            });
-        }
-
-        // Q3 — the human one
-        questions.push({
-            q: `Last question. Twenty years from now, what's the one thing you want people to say your presidency changed?`,
-            options: [
-                { text: 'Paint the big vision — swing for inspiring', tone: 'vision' },
-                { text: 'Keep it personal — a story from the trail', tone: 'human' },
-                { text: 'Land a joke first, then bring it home', tone: 'humor' },
-            ],
-        });
-
-        gs.interviews.active = { venueId, questions, answers: [], scores: [], crits: [] };
-        return { venue, questions };
+        const gs=window.GameEngine.state;
+        const venue=this.getVenues(gs.playerParty).find(v=>v.id===venueId);
+        if(!venue || !this.isAvailable()) return {};
+        const career=window.CareerSystem.ensure(gs), used=new Set(career.usedQuestionIds);
+        const record=gs.isIncumbentRun?window.CareerSystem.recordQuestions(gs.accountability.docket).filter(q=>!used.has(q.id)):[];
+        const bank=[...window.EventSystem.DebateSystem.primaryQuestions,...window.EventSystem.DebateSystem.questions].filter(q=>!used.has(q.id));
+        for(let i=bank.length-1;i>0;i--) {const j=Math.floor(window.GameEngine.random()*(i+1));[bank[i],bank[j]]=[bank[j],bank[i]];}
+        const chosen=[...record.slice(0,1),...bank].slice(0,3);
+        if(chosen.length<3) return {};
+        const command=window.GameCommands.execute('activity',{activity:'interview'});
+        if(!command.ok) return {};
+        const questions=chosen.map(q=>({id:q.id,q:q.question,isRecordQuestion:q.isRecordQuestion,factCheck:q.factCheck,family:q.family,
+            options:q.responses.map((r,i)=>({text:r.text,claim:r.claim,tone:r.posture==='deny'?'deny':r.posture==='concede'?'own':i===0?'steady':i===1?'human':i===2?'attack':'vision'}))}));
+        career.usedQuestionIds.push(...chosen.map(q=>q.id));
+        gs.interviews.active={venueId,questions,answers:[],scores:[],crits:[]};
+        window.SaveStore?.save();
+        return {venue,questions};
     },
 
     /** Score one answer. Returns { score, crit, reaction }. */
@@ -117,7 +57,8 @@ window.InterviewSystem = {
         if (!ctx || ctx.answers.length !== qIndex) return null;
         const venue = this.getVenues(gs.playerParty).find(v => v.id === ctx.venueId);
         const q = ctx.questions[qIndex];
-        const opt = q.options[optIndex];
+        const opt = q?.options[optIndex];
+        if(!opt) return null;
         const cand = gs.playerCandidate;
 
         let score = (cand.mediaHandling || 50) * 0.5 + (cand.charisma || 50) * 0.3 + window.GameEngine.random() * 25 + venue.scoreMod;
@@ -140,6 +81,12 @@ window.InterviewSystem = {
         ctx.answers.push(optIndex);
         ctx.scores.push(score);
         ctx.crits.push(crit);
+        if(q.isRecordQuestion) {
+            const verdict=window.CareerSystem.factCheck(q,opt);
+            gs.accountability.answered.push({week:gs.week,questionId:q.id,liability:q.family,claim:opt.claim});
+            gs.accountability.factChecks.push({week:gs.week,questionId:q.id,verdict,fact:q.factCheck});
+        }
+        window.SaveStore?.save();
 
         const reaction = crit === 'disaster'
             ? `${venue.anchor} pounces on the stumble — that exchange is already clipped.`
@@ -198,18 +145,23 @@ window.InterviewSystem = {
                 : tier === 'DISASTER'
                     ? `${last} STUMBLES THROUGH ${venue.network.toUpperCase()} GRILLING`
                     : `${last} SITS DOWN WITH ${venue.network.toUpperCase()}`;
-        if (Array.isArray(gs.newsHistory)) gs.newsHistory.unshift({ week: gs.week, headline });
+        if (Array.isArray(gs.newsHistory)) gs.newsHistory.unshift(headline);
 
         gs.interviews.lastWeek = gs.week;
         gs.interviews.history.push({ week: gs.week, venueId: ctx.venueId, avg, tier, hadViral, hadDisaster });
         gs.interviews.active = null;
+        window.SaveStore?.save();
         return { venue, avg, tier, effects, hadViral, hadDisaster, headline };
     },
 
     isAvailable() {
         const gs = window.GameEngine.state;
         if (!gs || !gs.interviews) return false;
-        return gs.week - gs.interviews.lastWeek >= this.COOLDOWN_WEEKS;
+        const used=new Set(window.CareerSystem.ensure(gs).usedQuestionIds);
+        const fresh=[...window.EventSystem.DebateSystem.primaryQuestions,...window.EventSystem.DebateSystem.questions].filter(q=>!used.has(q.id));
+        // Interviews never consume the fresh questions reserved for future debates.
+        const remaining=window.GameConstants.DEBATE_WEEKS.filter(w=>w>=gs.week).length+(gs.isIncumbentRun?0:3);
+        return !gs.interviews.active && fresh.length>=3+remaining*5 && gs.week - gs.interviews.lastWeek >= this.COOLDOWN_WEEKS && window.GameCommands.preview('activity',{activity:'interview'}).ok;
     },
 
     weeksUntilAvailable() {

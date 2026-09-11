@@ -6,17 +6,21 @@ static PWA, 2D presentation, and all existing candidate types.
 
 ## Delivery gates
 
-- [ ] Wave 1: command validation, action slots, ad saturation/pricing, spending
+- [x] Wave 1: command validation, action slots, ad saturation/pricing, spending
   ledger, save-v4 routing and backup, cabinet/war continuity, immutable elections,
   read-only previews, gated deployment and deployed-build verification.
-- [ ] Wave 2: save-v5 monthly calendar, concurrent reelection, fiscal reconciliation,
+- [x] Wave 2: save-v5 monthly calendar, concurrent reelection, fiscal reconciliation,
   outcome-based promises, unified conflicts, cabinet/court/congress continuity.
-- [ ] Wave 3: decision-first mobile UI, accessible controls, deduplicated politician
+- [x] Wave 3: decision-first mobile UI, accessible controls, deduplicated politician
   identities, search/comparison/rematch, offline geographic world map, 2D polish.
-- [ ] Wave 4: 30 primary + 60 substantive general questions, contextual answers,
+- [x] Wave 4: 30 primary + 60 substantive general questions, contextual answers,
   evidence-based follow-ups, immutable accurate elections, six four-stage arcs.
-- [ ] Wave 5: 1,000 seeded balance runs, three genuine UI lifecycle playthroughs,
-  eight-year legacy, final live checks and release notes.
+- [x] Wave 5: 1,024 seeded balance runs, three genuine UI lifecycle playthroughs,
+  eight-year legacy, automated live-build verification, and release notes.
+
+These checkboxes track implemented and locally verified work. Publication is
+separately gated by GitHub Actions and its **Verify deployed commit** step; the
+live `build-info.json` is the authoritative deployed revision.
 
 ## Verification log
 
@@ -44,3 +48,25 @@ outside the command layer and all interrupted encounter types. Waves 2–5 remai
 Back up previous saves before migration. Do not invent absent history. Existing
 separate reelection saves retain a one-time legacy interlude; new careers use a
 shared calendar. Every completed action and finalized election is applied once.
+
+## Career release 2.1 — 2026-09-11
+
+The remaining waves now share one version-5 country state and are packaged as a
+coherent release. Implemented monthly two-term governance, concurrent reelection,
+annualized fiscal accounting, actual delivery requirements, unique scenario and
+record debates, six four-stage narratives, shared politician identities, roster
+comparison/rematch, real offline geography, keyboard/touch navigation, and a
+2D nuclear aftermath. Campaign, cabinet, and broadcast views reuse canonical
+portraits; fonts are bundled under their original open licenses.
+
+Verification: 65 Node regressions, sixteen focused browser/offline checks, and
+1,024 balanced seeded campaign simulations. Genuine UI careers have now completed:
+Whitmer won 287 then 303 EV and served 96 months; Rubio's first successful run won
+333 then 343 EV and served 96 months; an adverse Harris campaign reached a loss.
+Earlier losses and their autopsies are retained rather than labeled successful.
+Full-career tests assert actual displayed question uniqueness and reload an
+answered debate without rescoring.
+
+See [release verification](reviews/RELEASE_2_1.md), the JSON/screenshot records in
+`reviews/ui-careers/`, and [the player/developer guide](README.md). CI reruns these
+gates before Pages deployment and retains an independent verification artifact.

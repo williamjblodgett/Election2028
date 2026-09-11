@@ -18,6 +18,7 @@ window.CareerSystem = {
             scandals: [],
             elections: [],
             annualSnapshots: [],
+            termSummaries: [],
             completedSignatures: [],
             failedSignatures: [],
             closedTerms: [],
@@ -47,6 +48,7 @@ window.CareerSystem = {
             type,
             term: gs.presidency ? gs.presidency.term : (gs.incumbentSeed ? 1 : 0),
             quarter: gs.presidency ? gs.presidency.quarter : null,
+            month: gs.presidency?.month || null,
             week: gs.week || null,
             ...this.clone(data),
         };
@@ -54,13 +56,17 @@ window.CareerSystem = {
         return entry;
     },
 
-    fiscalEntry(source, delta, detail) {
+    fiscalEntry(source, delta, detail, metrics={}) {
         const gs = window.GameEngine.state;
         const p = gs.presidency;
+        if (p.fiscal.nominalGDP && source !== 'Monthly budget and GDP') {
+            p.fiscal.debtStock=p.fiscal.debt*p.fiscal.nominalGDP/100;
+        }
         const career = this.ensure(gs);
         const entry = {
             term:p.term, quarter:p.quarter, source, delta:Math.round(delta * 10) / 10,
             debtAfter:Math.round(p.fiscal.debt * 10) / 10, detail:detail || source,
+            month:p.month, ...this.clone(metrics),
         };
         p.fiscal.ledger = p.fiscal.ledger || [];
         p.fiscal.ledger.push(entry);
@@ -95,6 +101,7 @@ window.CareerSystem = {
             collapse:this.clone(p.collapse),
             diplomaticStanding:p.diplomaticStanding,
             signature:this.clone(p.signature),
+            calendar:this.clone(p.calendar),
             timeline:this.clone(p.timeline),
             legacyPoints:p.legacyPoints,
         };
@@ -128,14 +135,14 @@ window.CareerSystem = {
 
     closeTerm(p) {
         const career = this.ensure(window.GameEngine.state);
-        if (career.closedTerms.includes(p.term)) return career.countrySnapshot || this.snapshotCountry(p);
+        if (career.closedTerms.includes(p.term)) return this.snapshotCountry(p);
         if (p.signature) {
             const bucket = p.signature.done ? career.completedSignatures : career.failedSignatures;
             if (!bucket.includes(p.signature.id)) bucket.push(p.signature.id);
             const promise = career.promises.find(x => x.id === p.signature.id && x.term === p.term);
             if (promise && !p.signature.done) promise.status = 'UNFINISHED';
         }
-        career.annualSnapshots.push({
+        career.termSummaries.push({
             term:p.term, approval:p.approval, economy:this.clone(p.economy),
             debt:p.fiscal.debt, deficit:p.fiscal.deficit, population:p.population,
             stability:p.stability.tier, laws:p.enacted.length, wars:p.warLog.length,
@@ -144,19 +151,40 @@ window.CareerSystem = {
         return this.snapshotCountry(p);
     },
 
+    updatePromises(p) {
+        const career=this.ensure(window.GameEngine.state);
+        for(const promise of career.promises.filter(x=>x.term===p.term && x.metric && x.status==='ACTIVE')) {
+            const delivered=promise.metric==='balance'?(p.fiscal.balancedMonths||0)>=12
+                :promise.metric==='peace'?!window.PresidencySystem.atWar()
+                :(p.policies||[]).some(x=>x.effectsApplied && (x.term||1)===p.term);
+            if(delivered) {promise.status='DELIVERED';promise.resolvedMonth=p.month;}
+            else if(p.month>=promise.dueMonth) {promise.status='BROKEN';promise.resolvedMonth=p.month;}
+        }
+    },
+
     buildDocket(seed, career) {
         career = career || this.ensure(window.GameEngine.state);
         const liabilities = [];
         const achievements = [];
+        for(const promise of career.promises.filter(p=>p.metric && p.term===1 && p.status!=='DELIVERED')) {
+            liabilities.push({id:`record_${promise.id}`,issue:'Presidential Power',severity:66,title:`Pledge: ${promise.name}`,
+                question:`During the campaign you promised ${promise.name}. What happened to the deadline, the funding, and the result?`,
+                attack:'The campaign pledge remains part of the public record.',fact:`Pledge status: ${promise.status}; deadline: term ${promise.term}, month ${promise.dueMonth}; made in campaign week ${promise.madeWeek}.`});
+        }
         const debtStart = 100;
         const debtRise = Math.round(((seed.debt || debtStart) - debtStart) * 10) / 10;
-        if (debtRise > 10) liabilities.push({
+        if (debtRise > 2) liabilities.push({
             id:'record_debt', issue:'Debt & Taxes', severity:Math.min(100, 45 + debtRise),
             title:`Debt rose ${debtRise.toFixed(1)} points`,
             question:`The national debt rose from ${debtStart}% to ${Number(seed.debt).toFixed(1)}% of GDP during your first term. Which of your decisions caused that increase, and why should voters trust your second-term plan?`,
             attack:`The president promised discipline and added ${debtRise.toFixed(1)} points to the debt.`,
-            fact:`First-term closing debt: ${Number(seed.debt).toFixed(1)}% of GDP.`,
+            fact:`Debt at this campaign checkpoint: ${Number(seed.debt).toFixed(1)}% of GDP.`,
         });
+        if(seed.deficit>0) liabilities.push({id:'record_deficit',issue:'Debt & Taxes',severity:60,
+            title:`Annual deficit: ${Number(seed.deficit).toFixed(1)}% of GDP`,
+            question:`Your government is borrowing at an annual rate of ${Number(seed.deficit).toFixed(1)}% of GDP. Defend what that borrowing funds and identify the taxes or spending you would change next term.`,
+            attack:'The incumbent must account for recurring borrowing, not only the headline debt ratio.',
+            fact:`Annualized deficit: ${Number(seed.deficit).toFixed(1)}% of GDP; debt stock ratio: ${Number(seed.debt||100).toFixed(1)}%.`});
         if (seed.warsLost) liabilities.push({
             id:'record_war_loss', issue:'Foreign Policy', severity:90,
             title:`Lost ${seed.warsLost} war${seed.warsLost === 1 ? '' : 's'}`,
@@ -164,15 +192,18 @@ window.CareerSystem = {
             attack:'The commander in chief owes the country an accounting for a failed war.',
             fact:`Wars lost: ${seed.warsLost}.`,
         });
-        const initiated = (career.wars || []).filter(w => !w.initiatedByEnemy);
-        if (initiated.length && !seed.warsLost) {
-            const war = initiated[initiated.length - 1];
+        const active=window.GameEngine.state.presidency?.war || career.countrySnapshot?.war;
+        const initiated = [...(career.wars || [])];
+        if (active && !active.resolved && !initiated.some(w=>w.adversaryId===active.adversaryId && w.outcome==='unresolved')) {
+            initiated.push({...active,adversary:active.adversary.name,outcome:'unresolved'});
+        }
+        for (const war of initiated) {
             liabilities.push({
-                id:`record_war_${war.adversaryId}`, issue:'Foreign Policy', severity:70,
+                id:`record_${war.id||`war_${war.term||1}_${war.started||0}_${war.adversaryId}`}`, issue:'Foreign Policy', severity:70,
                 title:`War with ${war.adversary}`,
-                question:`You chose war with ${war.adversary}. State the original objective, the authorization you relied on, the casualties and cost, and whether the result justified them.`,
-                attack:`The president chose war with ${war.adversary} and must defend the mission.`,
-                fact:`${war.casualties || 0} thousand casualties; outcome: ${war.outcome || 'unresolved'}.`,
+                question:`You ${war.initiatedByEnemy?'led the response to':'chose'} war with ${war.adversary}. State the original objective, the authorization you relied on, the casualties and cost, and whether the result justified them.`,
+                attack:`The president must account for the ${war.adversary} conflict and defend the decisions made.`,
+                fact:`${war.casualties || 0} thousand military casualties; ${war.civilianDeaths?`${war.civilianDeaths} million American civilian deaths; `:''}cost ${Number(war.cost||0).toFixed(1)} GDP points; authorization: ${war.authorization || 'not recorded'}; objective: ${war.objective || 'not recorded'}; outcome: ${war.outcome || 'unresolved'}.`,
             });
         }
         if (seed.scandals) liabilities.push({
@@ -184,10 +215,10 @@ window.CareerSystem = {
         });
         if (seed.inflation > 4) liabilities.push({
             id:'record_inflation', issue:'Economy', severity:65,
-            title:`Inflation ended at ${seed.inflation.toFixed(1)}%`,
-            question:`Inflation ended your term at ${seed.inflation.toFixed(1)}%. Which policies helped, which made prices worse, and what changes now?`,
+            title:`Inflation stands at ${seed.inflation.toFixed(1)}%`,
+            question:`Inflation now stands at ${seed.inflation.toFixed(1)}%. Which policies helped, which made prices worse, and what changes now?`,
             attack:'Families paid the price for the administration’s economic choices.',
-            fact:`Closing inflation: ${seed.inflation.toFixed(1)}%.`,
+            fact:`Inflation at this campaign checkpoint: ${seed.inflation.toFixed(1)}%.`,
         });
         if (!seed.signatureDone && seed.signatureName) liabilities.push({
             id:'record_promise', issue:'Presidential Power', severity:62,
@@ -201,7 +232,11 @@ window.CareerSystem = {
         if (seed.warsWon) achievements.push({ id:'record_security', title:`Won ${seed.warsWon} war${seed.warsWon === 1 ? '' : 's'}`, issue:'Foreign Policy' });
         if (seed.approval >= 53) achievements.push({ id:'record_mandate', title:`Approval at ${seed.approval}%`, issue:'Leadership' });
         const docket = {
-            liabilities:liabilities.sort((a,b) => b.severity - a.severity).slice(0, 3),
+            recordContext:[
+                {id:'record_economic_stewardship',issue:'Economy',severity:20,title:'The economic record',question:'Which first-term economic outcomes justify another term, and which did your administration fail to improve?',fact:`Growth ${Number(seed.gdp||0).toFixed(1)}%; inflation ${Number(seed.inflation||0).toFixed(1)}%; approval ${Math.round(seed.approval||0)}%.`},
+                {id:'record_delivery_review',issue:'Presidential Power',severity:20,title:'The delivery record',question:'Distinguish the promises you delivered from announcements and unfinished work. What should voters hold you to in the next term?',fact:`Signature initiative: ${seed.signatureName||'not selected'}; delivery: ${seed.signatureDone?'verified':'not verified'}; recorded campaign pledges: ${career.promises.length}.`},
+            ],
+            liabilities:liabilities.sort((a,b) => b.severity - a.severity),
             achievements:achievements.slice(0, 2),
             unresolved:liabilities.find(x => x.id.includes('war')) || liabilities[0] || null,
             referendum:liabilities[0] ? liabilities[0].title : 'Whether the first term earned four more years',
@@ -212,20 +247,30 @@ window.CareerSystem = {
 
     recordQuestions(docket) {
         if (!docket) return [];
-        return docket.liabilities.map((item, index) => ({
-            id:`incumbent_${item.id}`,
+        return [...docket.liabilities,...(docket.recordContext||[])].flatMap((item, index) => [0,1,2].map(round=>({
+            id:`incumbent_${item.id}_${round}`,
+            family:item.id,
             topic:`Incumbent Record: ${item.issue}`,
-            question:item.question,
+            question:round===0?item.question:round===1?`The record on ${item.title.toLowerCase()} is now part of this campaign: ${item.fact} Which policy will you change, and what will that correction cost?`:`Voters have heard your defense of ${item.title.toLowerCase()}. What independent benchmark should decide whether that policy continues in your second term?`,
             isRecordQuestion:true,
             factCheck:item.fact,
             responses:[
-                { text:`I stand by the decision. The honest measure is the result and the alternative we avoided; here is the full record: ${item.fact}`, effects:{press:5,policy:8,suburban:3,donors:4,base:6,viral:3,authenticity:5}, riskLevel:'moderate', posture:'defend' },
-                { text:`I accept that this did not meet the standard I set. My correction is specific, measurable, and will begin on day one of a second term.`, effects:{press:7,policy:7,suburban:7,donors:1,base:1,viral:4,authenticity:9}, riskLevel:'safe', posture:'concede' },
-                { text:`Voters deserve the tradeoff, not a slogan. We chose the course that protected the larger national interest, even though it carried a real cost.`, effects:{press:6,policy:7,suburban:6,donors:4,base:4,viral:3,authenticity:6}, riskLevel:'safe', posture:'reframe' },
-                { text:`My opponent attacks the outcome but refuses to say what they would have done at the decision point. Their alternative would have imposed greater costs with no accountability.`, effects:{press:4,policy:4,suburban:2,donors:5,base:8,viral:7,authenticity:3}, riskLevel:'risky', posture:'contrast' },
+                { text:`${round===0?'Here is the record I accept':round===1?'My correction starts with an honest baseline':'Use the published record as the benchmark'}: ${item.fact} ${item.id.includes('war')?'I will submit a renewed authorization with a withdrawal timetable.':'I will publish quarterly progress against this baseline.'}`, claim:{kind:'record',text:item.fact}, effects:{press:7,policy:8,suburban:5,donors:3,base:3,viral:2,authenticity:8}, riskLevel:'safe', posture:'concede' },
+                { text:`${item.id.includes('war')?'I will seek a ceasefire with verifiable withdrawal terms':item.id==='record_debt'?'I will fund every new commitment and submit a recurring revenue-and-spending package':`I will appoint an independent delivery team for ${item.title.toLowerCase()}`}. ${round===0?'Give that proposal a chance.':round===1?'The first public review will be in ninety days.':'Congress should withhold the next funding tranche if we miss the benchmark.'}`, claim:{kind:'future'}, effects:{press:5,policy:7,suburban:6,donors:3,base:5,viral:3,authenticity:6}, riskLevel:'moderate', posture:'reframe' },
+                { text:`The claim about ${item.title.toLowerCase()} is false. ${round===0?'Nothing in the administration’s official record supports it.':round===1?'There was no such cost to taxpayers or families.':'There is no unfinished obligation for a second term to address.'}`, claim:{kind:'deny',text:item.fact}, effects:{press:-6,policy:-4,suburban:-3,donors:1,base:7,viral:8,authenticity:-6}, riskLevel:'risky', posture:'deny' },
+                { text:`Judge ${item.title.toLowerCase()} only by ${round===0?'our intentions when the decision was made':round===1?'the strongest month in the administration’s record':'the number of announcements we made'}. By that standard the policy was a complete success; the remaining costs should not count.`, claim:{kind:'selective',omits:item.fact}, effects:{press:-2,policy:1,suburban:0,donors:4,base:6,viral:5,authenticity:-2}, riskLevel:'risky', posture:'defend' },
             ],
             order:index,
-        }));
+        })));
+    },
+
+    factCheck(question,response) {
+        const claim=response.claim;
+        if (!claim || claim.kind==='future') return 'UNVERIFIABLE';
+        if (claim.kind==='record') return claim.text===question.factCheck?'SUPPORTED':'CONTRADICTED';
+        if (claim.kind==='deny' && claim.text===question.factCheck) return 'CONTRADICTED';
+        if (claim.kind==='selective' && claim.omits) return 'MISLEADING';
+        return 'UNVERIFIABLE';
     },
 
     reelectionSetPiece(week, docket) {
@@ -237,15 +282,18 @@ window.CareerSystem = {
             35:{ key:'closing_ad', title:'The Opposition’s Closing Argument', category:'ATTACK_AD' },
             39:{ key:'october', title:'October Surprise: The Unfinished Record', category:'BREAKING_NEWS' },
         };
-        const slot = schedule[week];
-        if (!slot) return null;
-        const item = docket.liabilities[(Object.keys(schedule).indexOf(String(week))) % docket.liabilities.length];
+        const gs=window.GameEngine.state, presented=gs.accountability.presentedLiabilities||(gs.accountability.presentedLiabilities=[]);
+        const item=docket.liabilities.find(x=>!presented.includes(x.id));
+        if(!item || week<17 || week>40) return null;
+        const slot = schedule[week] || {key:`review_${week}`,title:`Record review: ${item.title}`,category:'VOTER_FORUM'};
+        presented.push(item.id);
         return {
             id:`reelection_${slot.key}_${item.id}`,
             title:slot.title,
             category:slot.category,
             isBreakingNews:true,
             isAccountability:true,
+            liabilityId:item.id,
             description:`${item.attack} ${item.question}`,
             choices:[
                 { text:'Defend the decision and publish the complete record', effects:{ approval:1, debateSkill:2, authenticity:2, mediaScore:1 }, riskLevel:'moderate', outcomeText:`You confront the charge directly. ${item.fact}` },

@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 global.window = globalThis;
 const root = path.resolve(__dirname, '..');
-for (const file of ['js/random.js', 'js/constants.js', 'js/candidates.js', 'js/states.js', 'js/vp-data.js', 'js/events.js', 'js/debate-content.js', 'js/debate-expanded.js', 'js/engine.js', 'js/career-system.js', 'js/campaign-depth.js', 'js/world.js', 'js/war.js', 'js/presidency.js', 'js/cabinet.js', 'js/politicians-expanded.js', 'js/legends.js']) {
+for (const file of ['js/random.js', 'js/constants.js', 'js/candidates.js', 'js/states.js', 'js/vp-data.js', 'js/events.js', 'js/debate-content.js', 'js/debate-expanded.js', 'js/engine.js', 'js/game-commands.js', 'js/save-store.js', 'js/career-system.js', 'js/campaign-depth.js', 'js/world.js', 'js/war.js', 'js/presidency.js', 'js/cabinet.js', 'js/politicians-expanded.js', 'js/legends.js']) {
   vm.runInThisContext(fs.readFileSync(path.join(root, file), 'utf8'), { filename:file });
 }
 
@@ -214,6 +214,7 @@ test('larger ad buys have materially larger effects with diminishing returns', (
   const run = amount => {
     GameEngine.state = GameEngine.createFreshState();
     GameEngine.setSeed(99);
+    GameEngine.state.playerCandidate = CandidateData.democrats[0];
     GameEngine.state.finances.cashOnHand = 10000000;
     GameEngine.state.campaign.cash = 10000000;
     GameEngine.state.statePolling.PA = { player:47, opponent:48, undecided:5, adSpend:0 };
@@ -261,7 +262,8 @@ test('soft caps and repetition penalties stop one-action stat grinding', () => {
     GameEngine.applyStatMaintenance();
   }
   assert.ok(GameEngine.state.campaign.approval < 72, GameEngine.state.campaign.approval);
-  assert.ok(GameEngine.state.campaign.momentum < -5);
+  assert.equal(GameEngine.state.commandState.used, 3);
+  assert.equal(GameEngine.state.activityHistory.length, 3, 'only the three permitted actions can mutate stats');
 });
 
 test('campaign autopsy identifies the closest missed state and spending efficiency', () => {

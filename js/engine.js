@@ -5,7 +5,7 @@
 
 window.GameEngine = {
 
-    SAVE_VERSION: 3,
+    SAVE_VERSION: 4,
 
     // ═══════════════════════════════════════════════
     // GAME STATE
@@ -422,8 +422,8 @@ window.GameEngine = {
 
         // 4. Process coalition building
         if (actions.coalitionFocus) {
-            this.applyCoalitionBuilding(actions.coalitionFocus);
-            if (window.CampaignDepth) window.CampaignDepth.applyCoalitionFocus(actions.coalitionFocus);
+            const coalitionResult = this.applyCoalitionBuilding(actions.coalitionFocus);
+            if (coalitionResult?.ok && window.CampaignDepth) window.CampaignDepth.applyCoalitionFocus(actions.coalitionFocus);
         }
 
         // 5. Process strategy
@@ -2227,6 +2227,7 @@ window.GameEngine = {
     // ELECTION NIGHT
     // ═══════════════════════════════════════════════
     calculateElectionResult() {
+        if (this.state.electionResult) return this.state.electionResult;
         // Final adjustments
         this.applyFinalTurnout();
 
@@ -2274,6 +2275,7 @@ window.GameEngine = {
             });
         }
 
+        this.state.electionResult = results;
         return results;
     },
 
@@ -2340,6 +2342,7 @@ window.GameEngine = {
     },
 
     generateElectionNight() {
+        if (this.state.electionNight) return this.state.electionNight;
         const results = this.calculateElectionResult();
 
         // Poll close waves: minutes after 7:00 PM ET
@@ -2374,7 +2377,8 @@ window.GameEngine = {
             };
         }).sort((a, b) => a.callMinutes - b.callMinutes);
 
-        return { results, calls };
+        this.state.electionNight = { results, calls };
+        return this.state.electionNight;
     },
 
     // ═══════════════════════════════════════════════

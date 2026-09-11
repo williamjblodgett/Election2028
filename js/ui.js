@@ -108,29 +108,38 @@ window.GameUI = {
     },
 
     saveGame() {
-        if (!window.GameEngine.state) return;
-        const data = window.GameEngine.serialize();
-        localStorage.setItem('election2028_save', data);
-        localStorage.setItem('election2028_save_time', new Date().toISOString());
-        this.showToast('Game saved!', 'success');
+        const result=window.SaveStore.save(true);
+        this.showToast(result.ok?'Game saved!':result.reason,result.ok?'success':'error');
     },
 
     loadGame() {
-        const save = localStorage.getItem('election2028_save');
-        if (!save) { this.showToast('No saved game found', 'error'); return; }
         try {
-            window.GameEngine.deserialize(save);
+            const loaded=window.SaveStore.load();
+            if (!loaded.ok) { this.showToast(loaded.reason,'error'); return; }
             // Restore UI state from engine state
             const gs = window.GameEngine.state;
             this.playerParty = gs.playerParty;
             this.selectedDemocrat = gs.playerParty === 'democrat' ? gs.playerCandidate : gs.opponentCandidate;
             this.selectedRepublican = gs.playerParty === 'republican' ? gs.playerCandidate : gs.opponentCandidate;
-            if (gs.presidency && !gs.presidency.over) {
+            this.weeklyEvents=gs.flow?.weeklyEvents || [];
+            this.pendingEventChoices=gs.flow?.pendingEventChoices || {};
+            this._lastResults=gs.electionResult;
+            if (gs.flow?.screen==='cabinet' || (gs.transition&&!gs.transition.complete)) {
+                this.showScreen('election-night'); this.renderTransition(); return;
+            }
+            if (gs.flow?.screen==='debate' && gs.flow.debate) {
+                this.debateCtx=gs.flow.debate; this.debateCtx.advanceTimer=null;
+                this.showScreen('debate'); this.renderDebateStage();
+                if (this.debateCtx.answered) this.nextDebateQuestion(); else this.renderDebateExchange();
+                return;
+            }
+            if (gs.presidency && (!gs.isIncumbentRun || gs.presidency.over || gs.flow?.screen==='presidency')) {
                 this.showScreen('presidency');
                 this.renderPresidency();
                 this.showToast(`Presidency resumed — ${window.PresidencySystem.quarterLabel(gs.presidency.quarter)}`, 'success');
                 return;
             }
+            if (gs.electionResult) { this.startElectionNight(); return; }
             this.showScreen('game');
             this.renderGameScreen();
             this.showToast(`Campaign resumed — ${window.GameEngine.getWeekLabel()}`, 'success');
@@ -140,9 +149,8 @@ window.GameUI = {
     },
 
     autoSave() {
-        if (window.GameEngine.state && window.GameEngine.state.difficulty !== 'iron') {
-            localStorage.setItem('election2028_save', window.GameEngine.serialize());
-        }
+        const result=window.SaveStore.save();
+        if (!result.ok && window.GameEngine.state?.playerCandidate) this.showToast(result.reason,'error');
     },
 
     initTicker() {
@@ -1069,10 +1077,11 @@ window.GameUI = {
             </div>
             <div class="top-bar-right">
                 <div class="cash-display">$${this.formatMoney(gs.finances.cashOnHand)}</div>
+                <span class="action-slots">${3-(gs.commandState?.week===gs.week?gs.commandState.used:0)}/3 actions</span>
                 <div class="momentum-display ${momClass}">
                     ${momIcon} <span>${Math.round(Math.abs(gs.campaign.momentum))}</span>
                 </div>
-                <button class="btn btn-sm" onclick="GameUI.saveGame()">💾</button>
+                <button class="btn btn-sm" aria-label="Save game" onclick="GameUI.saveGame()" ${gs.difficulty==='iron'?'disabled':''}>💾</button>
                 <button class="btn btn-primary btn-sm" onclick="GameUI.handleEndWeek()">ADVANCE →</button>
             </div>`;
     },
@@ -1665,7 +1674,8 @@ window.GameUI = {
             this.showToast('Not enough cash for travel!', 'error');
             return;
         }
-        window.GameEngine.applyCampaignVisit(stateId);
+        const visit = window.GameEngine.applyCampaignVisit(stateId);
+        if (!visit.ok) { this.showToast(visit.reason, 'error'); return; }
         const st = window.StateData.find(s => s.id === stateId);
         this.showToast(`Campaigned in ${st ? st.name : stateId}!`, 'success');
         this.updateTopBar();
@@ -2289,6 +2299,7 @@ window.GameUI = {
 
     executeFundraisingBlitz() {
         const result = window.GameEngine.applyActivityEffects('fundraisingBlitz');
+        if (!result.ok) { this.showToast(result.reason, 'error'); return; }
         window.GameEngine.state.campaign.cash = window.GameEngine.state.finances.cashOnHand;
 
         this.closeModal();
@@ -2365,6 +2376,7 @@ window.GameUI = {
             return;
         }
         const result = window.GameEngine.applyActivityEffects(activity);
+        if (!result.ok) { this.showToast(result.reason, 'error'); return; }
         const labels = { rally: 'Rally', townhall: 'Town Hall', podcast: 'Podcast', interview: 'Interview', fundraisingBlitz: 'Fundraising Blitz', debatePrep: 'Debate Prep', surrogateDeployment: 'Surrogate Deployment', oppoResearch: 'Oppo Research', fieldOffice: 'Field Office', gotv: 'GOTV Push' };
         const msg = result.cashRaised ? `${labels[activity]}! Raised $${this.formatMoney(result.cashRaised)}` :
             result.gotvStates ? `GOTV Push! Banking early votes in ${result.gotvStates}` : `${labels[activity]} complete!`;
@@ -2378,15 +2390,28 @@ window.GameUI = {
     // MODALS
     // ═══════════════════════════════════════════════
     showModal(title, contentHtml) {
+        this._modalReturnFocus=document.activeElement;
         document.getElementById('modal-title').textContent = title;
         document.getElementById('modal-body').innerHTML = contentHtml;
         document.getElementById('modal-overlay').classList.remove('hidden');
+        const modal=document.getElementById('modal-content');
+        modal.onkeydown=event=>{
+            if (event.key==='Escape') { event.preventDefault(); this.closeModal(); }
+            if (event.key==='Tab') {
+                const nodes=[...modal.querySelectorAll('button:not([disabled]),input,select,a[href],[tabindex="0"]')].filter(el=>el.offsetParent!==null);
+                const first=nodes[0], last=nodes[nodes.length-1];
+                if (event.shiftKey && document.activeElement===first) {event.preventDefault(); last?.focus();}
+                else if (!event.shiftKey && document.activeElement===last) {event.preventDefault(); first?.focus();}
+            }
+        };
+        (modal.querySelector('button,input,select') || modal).focus();
     },
 
     closeModal(event) {
         if (event && event.target !== document.getElementById('modal-overlay')) return;
         document.getElementById('modal-overlay').classList.add('hidden');
         this.stopBuilderPreview();
+        this._modalReturnFocus?.focus?.();
     },
 
     showVisitModal() {
@@ -2437,7 +2462,7 @@ window.GameUI = {
             </div>
             <div class="mb-2">
                 <label style="font-size:0.85rem;color:var(--text-secondary);">Budget: <span id="ad-budget-display">$250K</span></label>
-                <input type="range" class="spending-slider" id="ad-budget" min="100000" max="5000000" step="100000" value="250000"
+                <input aria-label="Ad budget" type="range" class="spending-slider" id="ad-budget" min="50000" max="5000000" step="50000" value="250000"
                     oninput="document.getElementById('ad-budget-display').textContent='$'+GameUI.formatMoney(this.value);GameUI.updateAdEstimate()">
                 <div class="ad-buy-scale"><span>$100K test</span><span>$1M major buy</span><span>$5M saturation</span></div>
             </div>
@@ -2476,9 +2501,9 @@ window.GameUI = {
         const st = window.StateData.find(s => s.id === stateEl.value);
         const recommendation = window.GameEngine.getAdTargetRecommendations(this._adType).find(x => x.state.id === stateEl.value);
         const amount = Number(budgetEl.value);
-        const effective = amount / ((st && st.adCostMultiplier) || 1);
-        let impact = Math.sqrt(effective / 100000) * 0.8;
-        impact *= this._adType === 'tv' ? 1.2 : 0.9 * (st && st.educationSplit && st.educationSplit.college > 35 ? 1.1 : 1);
+        const quote = window.GameCommands.preview('ad', {stateId:stateEl.value, channel:this._adType, tone:this._adTone, amount});
+        if (!quote.ok) { out.textContent = quote.reason; return; }
+        const impact = quote.impact;
         out.innerHTML = `<strong>ESTIMATED PERSUASION: ${impact.toFixed(1)} pts</strong><span>${recommendation ? `Strategy desk: ${recommendation.reason}. $${this.formatMoney(recommendation.saturation)} already spent here. ` : ''}${this._adType === 'tv' ? 'TV also improves national media strength.' : 'Digital also improves online influence.'} Actual movement depends on tone and market saturation.</span>`;
     },
 
@@ -2502,7 +2527,7 @@ window.GameUI = {
         }
 
         const result = window.GameEngine.applyAdBuy(stateId, type, budget, tone);
-        if (!result) { this.showToast('The ad buy could not be placed.', 'error'); return; }
+        if (!result.ok) { this.showToast(result.reason, 'error'); return; }
         const st = window.StateData.find(s => s.id === stateId);
         this.showToast(`$${this.formatMoney(budget)} ${type.toUpperCase()} buy launched in ${st ? st.name : stateId} · ${result.impact.toFixed(1)} impact`, 'success');
         this.closeModal();
@@ -2540,7 +2565,8 @@ window.GameUI = {
     },
 
     doCoalition(coalition) {
-        window.GameEngine.applyCoalitionBuilding(coalition);
+        const result = window.GameEngine.applyCoalitionBuilding(coalition);
+        if (!result.ok) { this.showToast(result.reason, 'error'); return; }
         const names = { labor: 'Labor', youth: 'Youth', suburban: 'Suburban', rural: 'Rural', minority: 'Communities of Color', women: 'Women', veterans: 'Veterans', evangelical: 'Faith' };
         this.showToast(`${names[coalition]} coalition outreach complete!`, 'success');
         this.closeModal();
@@ -2683,6 +2709,7 @@ window.GameUI = {
         this.showScreen('debate');
 
         // Continuation shared by the 3D walkout and the no-WebGL fallback
+        this.autoSave();
         const beginDebate = () => {
             this.renderDebateStage();
             this.appendTranscript('moderator', DC.moderatorIntros[Math.floor(window.GameEngine.random() * DC.moderatorIntros.length)]);
@@ -2917,6 +2944,7 @@ window.GameUI = {
         const choiceArea = document.getElementById('debate-choice-area');
         choiceArea.innerHTML = `<button class="btn btn-primary" id="debate-continue-btn" onclick="GameUI.nextDebateQuestion()">${ctx.idx + 1 >= ctx.questions.length ? 'CLOSING — GO TO COVERAGE' : 'NEXT QUESTION'} →</button>`;
         ctx.advanceTimer = setTimeout(() => this.nextDebateQuestion(), 3500);
+        this.autoSave();
     },
 
     nextDebateQuestion() {
@@ -4013,7 +4041,7 @@ window.GameUI = {
         if (p.acted || window.PresidencySystem.atWar()) return;
         const standing = (p.diplomaticStanding || 55) + window.WarSystem._cabinetDiplomacy();
         const cards = window.WarSystem.ADVERSARIES.map(a => {
-            const preview = window.WarSystem.formCoalition(a, p.diplomaticStanding || 55, window.WarSystem._cabinetDiplomacy());
+            const preview = window.WarSystem.formCoalition(a, p.diplomaticStanding || 55, window.WarSystem._cabinetDiplomacy(), true);
             const allyFlags = preview.withUs.map(n => n.flag).join('') || '—';
             const enemyFlags = [...(a.bloc || []).map(id => (window.WarSystem.WORLD.find(w => w.id === id) || {}).flag || '').filter(Boolean), ...preview.against.map(n => n.flag)];
             const enemyStr = [...new Set(enemyFlags)].join('') || '—';
@@ -4239,6 +4267,7 @@ window.GameUI = {
         const gs = window.GameEngine.state;
         const t = gs.transition;
         if (!t) return;
+        this.autoSave();
         const host = document.getElementById('election-night-content');
         if (!host) return;
         const partyClass = gs.playerCandidate.party === 'Democrat' ? 'dem' : 'rep';

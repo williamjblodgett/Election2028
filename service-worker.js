@@ -4,7 +4,7 @@
  * Enables offline play and PWA installation
  */
 
-const CACHE_NAME = 'election2028-v30-two-term-continuity';
+const CACHE_NAME = 'election2028-v31-reliable-campaigns';
 const ASSETS = [
     './',
     './index.html',
@@ -19,6 +19,8 @@ const ASSETS = [
     './js/debate-content.js',
     './js/debate-expanded.js',
     './js/engine.js',
+    './js/game-commands.js',
+    './js/save-store.js',
     './js/career-system.js',
     './js/campaign-depth.js',
     './js/map-paths.js',
@@ -90,7 +92,6 @@ self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll(ASSETS))
-            .then(() => self.skipWaiting())
     );
 });
 
@@ -98,14 +99,14 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys =>
-            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+            Promise.all(keys.filter(k => k.startsWith('election2028-') && k !== CACHE_NAME).map(k => caches.delete(k)))
         ).then(() => self.clients.claim())
     );
 });
 
-// Network-first for the app itself (HTML/JS/CSS/JSON) so deploys reach
-// devices immediately; the cache is the offline fallback. Everything else
-// (icons, manifest, cross-origin) stays cache-first.
+// A waiting update is activated only after a continuity checkpoint is saved.
+self.addEventListener('message', event => { if (event.data?.type === 'APPLY_UPDATE') self.skipWaiting(); });
+// Keep each open session on one complete release, including offline.
 self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET') return;
 
@@ -116,13 +117,13 @@ self.addEventListener('fetch', event => {
 
     if (isNavigation || isAppCode) {
         event.respondWith(
-            fetch(event.request).then(response => {
+            caches.open(CACHE_NAME).then(cache => cache.match(event.request)).then(cached => cached || fetch(event.request).then(response => {
                 if (response.ok) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
                 }
                 return response;
-            }).catch(() =>
+            })).catch(() =>
                 caches.match(event.request).then(cached =>
                     cached || (isNavigation ? caches.match('./index.html') : undefined)
                 )

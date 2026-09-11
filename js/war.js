@@ -60,7 +60,7 @@ window.WarSystem = {
      * bloc lines up against you; fence-sitters weigh your diplomatic standing
      * against the intimidation of taking on a giant.
      */
-    formCoalition(adversary, diplomaticStanding, cabinetDiplo) {
+    formCoalition(adversary, diplomaticStanding, cabinetDiplo, preview = false) {
         const standing = diplomaticStanding + (cabinetDiplo || 0); // 0..~115
         const withUs = [], against = [];
         const targetBloc = new Set(adversary.bloc || []);
@@ -80,7 +80,7 @@ window.WarSystem = {
             if (Math.abs(nation.usLean) < 45) score -= intimidation * 0.25; // neutrals extra shy
             if (nation.usLean <= -40) score -= 40;            // rivals tilt against you regardless
             // Add a little noise so no two wars are identical
-            score += (window.GameEngine.random() - 0.5) * 24;
+            score += preview ? 0 : (window.GameEngine.random() - 0.5) * 24;
             if (score > 25) withUs.push(nation);
             else if (score < -25) against.push(nation);
             // otherwise stays neutral

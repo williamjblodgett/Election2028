@@ -162,10 +162,10 @@
 
 <!-- ═══ MODAL OVERLAY ═══ -->
 <div class="modal-overlay hidden" id="modal-overlay" onclick="GameUI.closeModal(event)">
-    <div class="modal-content" id="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-content" id="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1" onclick="event.stopPropagation()">
         <div class="modal-header">
             <h3 id="modal-title"></h3>
-            <button class="modal-close" onclick="GameUI.closeModal()">&times;</button>
+            <button class="modal-close" aria-label="Close dialog" onclick="GameUI.closeModal()">&times;</button>
         </div>
         <div id="modal-body"></div>
     </div>
@@ -205,6 +205,8 @@
 <script src="js/debate-content.js"></script>
 <script src="js/debate-expanded.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/game-commands.js"></script>
+<script src="js/save-store.js"></script>
 <script src="js/career-system.js"></script>
 <script src="js/campaign-depth.js"></script>
 <script src="js/map-paths.js"></script>
@@ -231,14 +233,30 @@
         navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (refreshed) return;
             refreshed = true;
+            if (window.GameEngine?.state?.playerCandidate) window.SaveStore.save();
             location.reload();
         });
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./service-worker.js')
-                .then(reg => console.log('SW registered:', reg.scope))
+                .then(reg => {
+                    const offerUpdate = () => {
+                        if (!reg.waiting || !navigator.serviceWorker.controller) return;
+                        const button=document.createElement('button');
+                        button.className='btn update-ready'; button.textContent='Update ready — save & reload';
+                        button.onclick=()=>{
+                            const result=window.GameEngine?.state?.playerCandidate?window.SaveStore.save():{ok:true};
+                            if (result.ok) reg.waiting.postMessage({type:'APPLY_UPDATE'});
+                            else window.GameUI.showToast(result.reason,'error');
+                        };
+                        document.body.appendChild(button);
+                    };
+                    offerUpdate();
+                    reg.addEventListener('updatefound',()=>reg.installing?.addEventListener('statechange',offerUpdate));
+                })
                 .catch(err => console.log('SW registration failed:', err));
         });
     }
+    window.addEventListener('pagehide', () => { if (window.GameEngine?.state?.playerCandidate) window.SaveStore.save(); });
 </script>
 
 </body>

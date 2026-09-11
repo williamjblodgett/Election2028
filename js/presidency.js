@@ -138,7 +138,9 @@ window.PresidencySystem = {
     // Your cabinet is not set dressing: who you hired changes the odds
     cabinetEffects() {
         const gs = window.GameEngine.state;
-        const posts = (gs.transition && gs.transition.posts) || {};
+        const posts = gs.presidency?.administration
+            ? Object.fromEntries(Object.entries(gs.presidency.administration.members).filter(([,m]) => m.status === 'ACTIVE'))
+            : (gs.transition && gs.transition.posts) || {};
         const avg = (ids, key) => {
             const vals = ids.map(id => posts[id] && posts[id][key]).filter(v => typeof v === 'number');
             return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
@@ -251,6 +253,9 @@ window.PresidencySystem = {
         const gs = window.GameEngine.state;
         if (gs.presidency) return gs.presidency;
         const career = window.CareerSystem ? window.CareerSystem.ensure(gs) : null;
+        if (!gs.transition && gs.incumbentSeed && career?.countrySnapshot?.transition) {
+            gs.transition = window.CareerSystem.clone(career.countrySnapshot.transition);
+        }
         const results = (window.GameUI && window.GameUI._lastResults) || { nationalPopularVote: { player: 51, opponent: 47 }, playerEV: 290 };
         const margin = results.nationalPopularVote.player - results.nationalPopularVote.opponent;
         const t = gs.transition || { senateSeats: 51, capital: 5 };

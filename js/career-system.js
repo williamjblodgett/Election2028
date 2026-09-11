@@ -83,6 +83,7 @@ window.CareerSystem = {
             policies:this.clone(p.policies),
             crisisLog:this.clone(p.crisisLog),
             warLog:this.clone(p.warLog),
+            war:this.clone(p.war),
             scandals:this.clone(p.scandals),
             world:this.clone(p.world),
             administration:this.clone(p.administration),
@@ -104,15 +105,22 @@ window.CareerSystem = {
     restoreCountry(p, snapshot) {
         if (!snapshot) return p;
         const gs = window.GameEngine.state;
-        for (const key of ['economy','fiscal','congress','enacted','failedBills','eos','scotus','policies',
-                           'crisisLog','warLog','scandals','world','administration','coalitions','institutions',
+        for (const key of ['economy','fiscal','enacted','failedBills','eos','scotus','policies',
+                           'crisisLog','warLog','war','scandals','world','coalitions','institutions',
                            'stability','collapse','timeline']) {
             if (snapshot[key] !== undefined) p[key] = this.clone(snapshot[key]);
         }
         for (const key of ['population','diplomaticStanding','legacyPoints']) {
             if (snapshot[key] !== undefined) p[key] = snapshot[key];
         }
-        if (snapshot.transition) gs.transition = this.clone(snapshot.transition);
+        // New election results and newly confirmed ministers take precedence.
+        for (const [id, member] of Object.entries(p.administration.members)) {
+            const previous = snapshot.administration?.members?.[id];
+            if (previous?.name === member.name && previous.status === 'ACTIVE') {
+                member.relationship = previous.relationship;
+                member.influence = previous.influence;
+            }
+        }
         p.fiscal.ledger = p.fiscal.ledger || [];
         p.log.push(`Term two inherits the country as governed: debt ${p.fiscal.debt}% of GDP, ${p.enacted.length} laws, ${p.scotus.length} justices, and ${p.warLog.length} completed wars.`);
         return p;

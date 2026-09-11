@@ -4657,3 +4657,10 @@ button.platform-stop:hover { border-color: var(--accent-blue); }
 .fiscal-ledger-strip{display:flex;gap:10px;flex-wrap:wrap;padding:8px 12px;background:rgba(0,0,0,.18);font-size:.72rem}
 .fiscal-ledger-strip span{color:var(--text-secondary)}
 .crisis-sequel{padding:10px;border-left:3px solid var(--accent-gold);background:rgba(255,193,7,.08);color:var(--text-secondary)}
+/* Persistent, compact decision information. */
+.action-slots { white-space:nowrap; font-size:.8rem; color:var(--accent-yellow); }
+.update-ready { position:fixed; bottom:76px; right:12px; z-index:11000; background:#173b56; box-shadow:0 4px 20px #0008; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline:3px solid #f8cf55; outline-offset:3px; }
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; scroll-behavior:auto!important; }
+}
